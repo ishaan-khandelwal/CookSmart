@@ -25,9 +25,9 @@ export default function LoginScreen({ navigation }) {
                     <View style={styles.line} />
                 </View>
                 <TouchableOpacity
-                    onPress={() => navigation.navigate('SignUp')}
+                    onPress={() => navigation.navigate('CreateAccount')}
                     style={styles.SignupButton}>
-                    <Text style={styles.SignupButtonText}>Sign Up</Text>
+                    <Text style={styles.SignupButtonText}>Create Account</Text>
                 </TouchableOpacity>
             </View>
         </View>
