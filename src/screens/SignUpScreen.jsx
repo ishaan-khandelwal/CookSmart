@@ -1,7 +1,7 @@
 import { FontAwesome } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -15,24 +15,20 @@ import {
     View,
 } from 'react-native';
 import {
-    createwithemsil,
     logout,
     signInWithFacebookCredential,
     signInWithGoogleCredential,
+    signUpWithEmail,
 } from '../backend/auth';
 
 // Required to close browser popup automatically after OAuth
 WebBrowser.maybeCompleteAuthSession();
 
 // ─── Replace with your real OAuth Client IDs ─────────────────────────────────
-// Google: https://console.cloud.google.com → Credentials → OAuth 2.0
-const GOOGLE_CLIENT_ID_EXPO = 'YOUR_GOOGLE_EXPO_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID_EXPO = '94338679726-0m3i6rjkksp3ca3iqs5ms17ncoav08se.apps.googleusercontent.com';
 const GOOGLE_CLIENT_ID_ANDROID = 'YOUR_GOOGLE_ANDROID_CLIENT_ID.apps.googleusercontent.com';
 const GOOGLE_CLIENT_ID_IOS = 'YOUR_GOOGLE_IOS_CLIENT_ID.apps.googleusercontent.com';
-
-// Facebook: https://developers.facebook.com → Your App → Settings → Basic
 const FACEBOOK_APP_ID = 'YOUR_FACEBOOK_APP_ID';
-// ─────────────────────────────────────────────────────────────────────────────
 
 const googleDiscovery = {
     authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -46,6 +42,10 @@ export default function CreateAccountScreen({ navigation }) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Use a fixed redirect URI for Expo Go development
+    const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+    console.log("DEBUG: Your Redirect URI is:", redirectUri);
+
     // ── Google Auth ──────────────────────────────────────────────────────────
     const [googleRequest, googleResponse, promptGoogleAsync] =
         AuthSession.useAuthRequest(
@@ -57,13 +57,12 @@ export default function CreateAccountScreen({ navigation }) {
                 }),
                 scopes: ['openid', 'profile', 'email'],
                 responseType: AuthSession.ResponseType.IdToken,
-                redirectUri: AuthSession.makeRedirectUri({ useProxy: true }),
+                redirectUri,
             },
             googleDiscovery
         );
 
-    // Watch for Google response
-    useState(() => {
+    useEffect(() => {
         if (googleResponse?.type === 'success') {
             const { id_token } = googleResponse.params;
             handleGoogleCredential(id_token);
@@ -74,7 +73,6 @@ export default function CreateAccountScreen({ navigation }) {
         setLoading(true);
         try {
             await signInWithGoogleCredential(idToken);
-            // onAuthStateChanged in navigator will redirect to Home
         } catch (err) {
             Alert.alert('Google Sign-In Failed', err.message);
         } finally {
@@ -88,12 +86,12 @@ export default function CreateAccountScreen({ navigation }) {
             {
                 clientId: FACEBOOK_APP_ID,
                 scopes: ['public_profile', 'email'],
-                redirectUri: AuthSession.makeRedirectUri({ useProxy: true }),
+                redirectUri,
             },
             { authorizationEndpoint: 'https://www.facebook.com/v18.0/dialog/oauth' }
         );
 
-    useState(() => {
+    useEffect(() => {
         if (fbResponse?.type === 'success') {
             const { access_token } = fbResponse.params;
             handleFacebookCredential(access_token);
@@ -111,7 +109,6 @@ export default function CreateAccountScreen({ navigation }) {
         }
     };
 
-    // ── Email / Password Register ────────────────────────────────────────────
     const handleRegister = async () => {
         if (!email || !password) {
             Alert.alert('Error', 'Please fill in all required fields.');
@@ -119,7 +116,7 @@ export default function CreateAccountScreen({ navigation }) {
         }
         setLoading(true);
         try {
-            await createwithemsil(email, password);
+            await signUpWithEmail(email, password);
             await logout();
             Alert.alert(
                 'Account Created!',
@@ -144,11 +141,9 @@ export default function CreateAccountScreen({ navigation }) {
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.container}>
-                    {/* Header */}
                     <Text style={styles.title}>Create Account</Text>
                     <Text style={styles.subtitle}>Sign up to get started</Text>
 
-                    {/* Full Name */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Full Name</Text>
                         <TextInput
@@ -160,7 +155,6 @@ export default function CreateAccountScreen({ navigation }) {
                         />
                     </View>
 
-                    {/* Email */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Email</Text>
                         <TextInput
@@ -174,7 +168,6 @@ export default function CreateAccountScreen({ navigation }) {
                         />
                     </View>
 
-                    {/* Password */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Password</Text>
                         <TextInput
@@ -187,7 +180,6 @@ export default function CreateAccountScreen({ navigation }) {
                         />
                     </View>
 
-                    {/* Register Button */}
                     <TouchableOpacity
                         style={[styles.button, loading && styles.buttonDisabled]}
                         onPress={handleRegister}
@@ -200,16 +192,13 @@ export default function CreateAccountScreen({ navigation }) {
                         )}
                     </TouchableOpacity>
 
-                    {/* Divider */}
                     <View style={styles.dividerContainer}>
                         <View style={styles.line} />
                         <Text style={styles.orText}>OR SIGN UP WITH</Text>
                         <View style={styles.line} />
                     </View>
 
-                    {/* Social Buttons */}
                     <View style={styles.socialRow}>
-                        {/* Google */}
                         <TouchableOpacity
                             style={styles.socialButton}
                             onPress={() => promptGoogleAsync()}
@@ -219,7 +208,6 @@ export default function CreateAccountScreen({ navigation }) {
                             <Text style={styles.socialButtonText}>Google</Text>
                         </TouchableOpacity>
 
-                        {/* Facebook */}
                         <TouchableOpacity
                             style={[styles.socialButton, styles.facebookButton]}
                             onPress={() => promptFacebookAsync()}
@@ -230,7 +218,6 @@ export default function CreateAccountScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Login Link */}
                     <View style={styles.loginRow}>
                         <Text style={styles.loginRowText}>Already have an account? </Text>
                         <TouchableOpacity onPress={() => navigation.navigate('Login')}>

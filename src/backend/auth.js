@@ -1,7 +1,9 @@
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from "firebase/app";
 import {
     createUserWithEmailAndPassword,
     FacebookAuthProvider,
+    getReactNativePersistence,
     GoogleAuthProvider,
     initializeAuth,
     signInWithCredential,
@@ -20,12 +22,14 @@ const firebaseConfig = {
     measurementId: "G-HSFVMQQ5YX"
 };
 
-// Initialize Firebase (use initializeAuth for React Native, not getAuth)
+// Initialize Firebase with Persistence for React Native
 const app = initializeApp(firebaseConfig);
-const auth = initializeAuth(app);
+const auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
 
 // ─── Email / Password ────────────────────────────────────────────────────────
-export const loginwithemail = async (email, password) => {
+export const signInWithEmail = async (email, password) => {
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         return userCredential.user;
@@ -35,7 +39,7 @@ export const loginwithemail = async (email, password) => {
     }
 };
 
-export const createwithemsil = async (email, password) => {
+export const signUpWithEmail = async (email, password) => {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         return userCredential.user;
@@ -46,7 +50,6 @@ export const createwithemsil = async (email, password) => {
 };
 
 // ─── Google Sign-In (via expo-auth-session id_token flow) ───────────────────
-// Call this AFTER you have obtained the id_token from expo-auth-session.
 export const signInWithGoogleCredential = async (idToken) => {
     const credential = GoogleAuthProvider.credential(idToken);
     const userCredential = await signInWithCredential(auth, credential);
@@ -54,7 +57,6 @@ export const signInWithGoogleCredential = async (idToken) => {
 };
 
 // ─── Facebook Sign-In (via expo-auth-session access_token flow) ─────────────
-// Call this AFTER you have obtained the access_token from expo-auth-session.
 export const signInWithFacebookCredential = async (accessToken) => {
     const credential = FacebookAuthProvider.credential(accessToken);
     const userCredential = await signInWithCredential(auth, credential);
