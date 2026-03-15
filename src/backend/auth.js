@@ -8,7 +8,8 @@ import {
     initializeAuth,
     signInWithCredential,
     signInWithEmailAndPassword,
-    signOut
+    signOut,
+    updateProfile,
 } from "firebase/auth";
 
 // Your web app's Firebase configuration
@@ -39,9 +40,14 @@ export const signInWithEmail = async (email, password) => {
     }
 };
 
-export const signUpWithEmail = async (email, password) => {
+export const signUpWithEmail = async (email, password, fullName) => {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (fullName?.trim()) {
+            await updateProfile(userCredential.user, {
+                displayName: fullName.trim(),
+            });
+        }
         return userCredential.user;
     } catch (error) {
         console.error("Signup Error:", error.message);

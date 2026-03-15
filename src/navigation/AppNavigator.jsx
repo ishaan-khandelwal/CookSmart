@@ -21,14 +21,14 @@ function AppScreens() {
     }
 
     return (
-        <Stack.Navigator initialRouteName={user ? 'Home' : 'Login'}>
+        <Stack.Navigator initialRouteName={user ? 'Home' : 'Splash'}>
             {user ? (
-                <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: true }} />
+                <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
             ) : (
                 <>
                     <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{ title: 'Create Account' }} />
+                    <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{ headerShown: false }} />
                 </>
             )}
         </Stack.Navigator>
