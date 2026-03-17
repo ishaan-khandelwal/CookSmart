@@ -4,14 +4,13 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
-    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { logout, signUpWithEmail } from '../backend/auth';
 
@@ -46,13 +45,16 @@ export default function CreateAccountScreen({ navigation }) {
     return (
         <KeyboardAvoidingView
             style={styles.screen}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         >
             <StatusBar barStyle="light-content" />
 
             <ScrollView
+                style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.backgroundGlowTop} />
@@ -177,8 +179,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#111111',
     },
+    scrollView: {
+        flex: 1,
+        backgroundColor: '#111111',
+    },
     scrollContent: {
         flexGrow: 1,
+        paddingBottom: 36,
     },
     backgroundGlowTop: {
         position: 'absolute',
@@ -199,11 +206,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(245, 158, 11, 0.14)',
     },
     container: {
-        flex: 1,
-        justifyContent: 'center',
+        minHeight: '100%',
+        justifyContent: 'flex-start',
         paddingHorizontal: 24,
         paddingTop: 72,
-        paddingBottom: 36,
+        paddingBottom: 24,
     },
     hero: {
         marginBottom: 28,

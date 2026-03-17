@@ -21,9 +21,14 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.ishaan.cooksmart"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#111111",
+      "barStyle": "light-content"
     },
     "web": {
       "bundler": "metro",

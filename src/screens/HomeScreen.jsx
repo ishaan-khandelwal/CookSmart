@@ -1,4 +1,4 @@
-import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import {
     Alert,
@@ -7,7 +7,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { logout } from '../backend/auth';
 import { useAuth } from '../context/AuthContext';
@@ -164,16 +164,6 @@ export default function HomeScreen({ navigation }) {
                         </Text>
                     </View>
                 ))}
-
-                <View style={styles.bottomPanel}>
-                    <View style={styles.bottomPanelHeader}>
-                        <MaterialCommunityIcons name="silverware-fork-knife" size={18} color="#F6C453" />
-                        <Text style={styles.bottomPanelTitle}>Kitchen note</Text>
-                    </View>
-                    <Text style={styles.bottomPanelText}>
-                        Your current app has a strong dark premium direction now. Keep upcoming screens in this same language: bold type, clean cards, warm highlights, and low-noise layouts.
-                    </Text>
-                </View>
             </ScrollView>
         </View>
     );
@@ -183,6 +173,8 @@ const styles = StyleSheet.create({
     screen: {
         flex: 1,
         backgroundColor: '#111111',
+        margin: 0,
+        padding: 0,
     },
     scrollContent: {
         paddingHorizontal: 20,

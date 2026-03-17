@@ -8,8 +8,10 @@ import {
     Text,
     View,
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
 export default function SplashScreen({ navigation }) {
+    const { user, loading } = useAuth();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const translateAnim = useRef(new Animated.Value(24)).current;
     const scaleAnim = useRef(new Animated.Value(0.88)).current;
@@ -68,16 +70,25 @@ export default function SplashScreen({ navigation }) {
         orbitLoop.start();
         pulseLoop.start();
 
+        return () => {
+            orbitLoop.stop();
+            pulseLoop.stop();
+        };
+    }, [fadeAnim, orbitAnim, pulseAnim, scaleAnim, translateAnim]);
+
+    useEffect(() => {
+        if (loading) {
+            return undefined;
+        }
+
         const timer = setTimeout(() => {
-            navigation.replace('Login');
+            navigation.replace(user ? 'Home' : 'Login');
         }, 2400);
 
         return () => {
             clearTimeout(timer);
-            orbitLoop.stop();
-            pulseLoop.stop();
         };
-    }, [fadeAnim, navigation, orbitAnim, pulseAnim, scaleAnim, translateAnim]);
+    }, [loading, navigation, user]);
 
     const orbitSpin = orbitAnim.interpolate({
         inputRange: [0, 1],
@@ -152,6 +163,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingTop: 96,
         paddingBottom: 72,
+        margin: 0,
+        padding: 0,
     },
     backgroundGlowTop: {
         position: 'absolute',
