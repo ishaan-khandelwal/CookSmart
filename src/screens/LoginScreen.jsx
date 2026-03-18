@@ -18,6 +18,7 @@ export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -96,17 +97,20 @@ export default function LoginScreen({ navigation }) {
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Password</Text>
+                            <Text style={styles.label}>Password </Text>
                             <View style={styles.inputShell}>
                                 <Feather name="lock" size={19} color="#8A8A8A" />
                                 <TextInput
                                     placeholder="Enter your password"
                                     placeholderTextColor="#8A8A8A"
                                     style={styles.input}
-                                    secureTextEntry
+                                    secureTextEntry={!showPassword}
                                     value={password}
                                     onChangeText={setPassword}
                                 />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    <Text style={styles.utilityText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
 

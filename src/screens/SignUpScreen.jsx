@@ -30,11 +30,7 @@ export default function CreateAccountScreen({ navigation }) {
         try {
             await signUpWithEmail(email, password, fullName);
             await logout();
-            Alert.alert(
-                'Account Created!',
-                'Your account has been created. Please log in.',
-                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            );
+
         } catch (error) {
             Alert.alert('Signup Failed', error.message);
         } finally {
