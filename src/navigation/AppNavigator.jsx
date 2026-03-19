@@ -1,14 +1,17 @@
-﻿import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+﻿import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import BottomTabBar from '../components/BottomTabBar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import BottomTabBar from '../components/BottomTabBar';
 import CameraScanScreen from '../screens/CameraScanScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import HomeScreen from '../screens/HomeScreen';
+import IngredientsResultScreen from '../screens/IngredientsResultScreen';
 import LoginScreen from '../screens/LoginScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import RecipeDetailScreen from '../screens/RecipeDetailScreen';
+import RecipeResultsScreen from '../screens/RecipeResultsScreen';
 import CreateAccountScreen from '../screens/SignUpScreen';
 import SplashScreen from '../screens/SplashScreen';
 
@@ -23,8 +26,7 @@ function MainTabs() {
             tabBar={(props) => <BottomTabBar {...props} />}
         >
             <Tab.Screen
-                name="Homes"
-
+                name="Home"
                 component={HomeScreen}
                 options={{ tabBarLabel: 'Home' }}
             />
@@ -59,7 +61,24 @@ function AppScreens() {
         <Stack.Navigator initialRouteName="Splash">
             <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
             {user ? (
-                <Stack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
+                <>
+                    <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+                    <Stack.Screen
+                        name="IngredientsResult"
+                        component={IngredientsResultScreen}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="RecipeResults"
+                        component={RecipeResultsScreen}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="RecipeDetail"
+                        component={RecipeDetailScreen}
+                        options={{ headerShown: false }}
+                    />
+                </>
             ) : (
                 <>
                     <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

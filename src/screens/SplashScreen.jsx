@@ -4,7 +4,6 @@ import {
     Animated,
     Easing,
     StatusBar,
-    StyleSheet,
     Text,
     View,
 } from 'react-native';
@@ -82,7 +81,7 @@ export default function SplashScreen({ navigation }) {
         }
 
         const timer = setTimeout(() => {
-            navigation.replace(user ? 'Home' : 'Login');
+            navigation.replace(user ? 'MainTabs' : 'Login');
         }, 1500);
 
         return () => {
@@ -96,181 +95,62 @@ export default function SplashScreen({ navigation }) {
     });
 
     return (
-        <View style={styles.container}>
+        <View className="flex-1 justify-between bg-[#111111] px-6 pt-24 pb-[72px]">
             <StatusBar barStyle="light-content" />
 
-            <View style={styles.backgroundGlowTop} />
-            <View style={styles.backgroundGlowBottom} />
+            <View className="absolute right-[-30px] top-20 h-[220px] w-[220px] rounded-full bg-[#f59e0b29]" />
+            <View className="absolute bottom-[130px] left-[-40px] h-[240px] w-[240px] rounded-full bg-[#22c55e1f]" />
 
             <Animated.View
-                style={[
-                    styles.heroSection,
-                    {
-                        opacity: fadeAnim,
-                        transform: [{ translateY: translateAnim }],
-                    },
-                ]}
+                className="flex-1 items-center justify-center"
+                style={{
+                    opacity: fadeAnim,
+                    transform: [{ translateY: translateAnim }],
+                }}
             >
                 <Animated.View
-                    style={[
-                        styles.brandShell,
-                        {
-                            transform: [{ scale: scaleAnim }, { scale: pulseAnim }],
-                        },
-                    ]}
+                    className="mb-[34px] h-[164px] w-[164px] items-center justify-center"
+                    style={{
+                        transform: [{ scale: scaleAnim }, { scale: pulseAnim }],
+                    }}
                 >
                     <Animated.View
-                        style={[
-                            styles.orbitRing,
-                            { transform: [{ rotate: orbitSpin }] },
-                        ]}
+                        className="absolute h-[164px] w-[164px] rounded-full border border-white/10"
+                        style={{ transform: [{ rotate: orbitSpin }] }}
                     >
-                        <View style={styles.orbitDotPrimary} />
-                        <View style={styles.orbitDotAccent} />
+                        <View className="absolute left-1/2 top-2.5 ml-[-7px] h-[14px] w-[14px] rounded-full bg-[#F59E0B]" />
+                        <View className="absolute bottom-6 left-[18px] h-2.5 w-2.5 rounded-full bg-[#22C55E]" />
                     </Animated.View>
 
-                    <View style={styles.brandBadge}>
+                    <View
+                        className="h-[118px] w-[118px] items-center justify-center rounded-[32px] border border-white/10 bg-[#1F1F1F]"
+                        style={{
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 18 },
+                            shadowOpacity: 0.28,
+                            shadowRadius: 24,
+                            elevation: 10,
+                        }}
+                    >
                         <FontAwesome5 name="utensils" size={34} color="#FFF7ED" />
                     </View>
                 </Animated.View>
 
-                <Text style={styles.title}>CookSmart</Text>
-                <Text style={styles.subtitle}>Plan smarter, cook cleaner, eat better.</Text>
+                <Text className="mb-3 text-[34px] font-extrabold tracking-[0.8px] text-white">CookSmart</Text>
+                <Text className="max-w-[270px] text-center text-[15px] leading-6 text-white/70">
+                    Plan smarter, cook cleaner, eat better.
+                </Text>
             </Animated.View>
 
-            <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
-                <View style={styles.loadingTrack}>
+            <Animated.View className="items-center" style={{ opacity: fadeAnim }}>
+                <View className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                     <Animated.View
-                        style={[
-                            styles.loadingFill,
-                            {
-                                transform: [{ scaleX: fadeAnim }],
-                            },
-                        ]}
+                        className="h-full flex-1 rounded-full bg-[#F59E0B]"
+                        style={{ transform: [{ scaleX: fadeAnim }] }}
                     />
                 </View>
-                <Text style={styles.footerText}>Preparing your kitchen companion</Text>
+                <Text className="text-[13px] tracking-[0.4px] text-white/60">Preparing your kitchen companion</Text>
             </Animated.View>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#111111',
-        paddingHorizontal: 24,
-        justifyContent: 'space-between',
-        paddingTop: 96,
-        paddingBottom: 72,
-        margin: 0,
-        padding: 0,
-    },
-    backgroundGlowTop: {
-        position: 'absolute',
-        top: 80,
-        right: -30,
-        width: 220,
-        height: 220,
-        borderRadius: 999,
-        backgroundColor: 'rgba(245, 158, 11, 0.16)',
-    },
-    backgroundGlowBottom: {
-        position: 'absolute',
-        bottom: 130,
-        left: -40,
-        width: 240,
-        height: 240,
-        borderRadius: 999,
-        backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    },
-    heroSection: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    brandShell: {
-        width: 164,
-        height: 164,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 34,
-    },
-    orbitRing: {
-        position: 'absolute',
-        width: 164,
-        height: 164,
-        borderRadius: 82,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.10)',
-    },
-    orbitDotPrimary: {
-        position: 'absolute',
-        top: 10,
-        left: '50%',
-        marginLeft: -7,
-        width: 14,
-        height: 14,
-        borderRadius: 7,
-        backgroundColor: '#F59E0B',
-    },
-    orbitDotAccent: {
-        position: 'absolute',
-        bottom: 24,
-        left: 18,
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: '#22C55E',
-    },
-    brandBadge: {
-        width: 118,
-        height: 118,
-        borderRadius: 32,
-        backgroundColor: '#1F1F1F',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 18 },
-        shadowOpacity: 0.28,
-        shadowRadius: 24,
-        elevation: 10,
-    },
-    title: {
-        fontSize: 34,
-        fontWeight: '800',
-        color: '#FFFFFF',
-        letterSpacing: 0.8,
-        marginBottom: 12,
-    },
-    subtitle: {
-        fontSize: 15,
-        lineHeight: 24,
-        color: 'rgba(255, 255, 255, 0.72)',
-        textAlign: 'center',
-        maxWidth: 270,
-    },
-    footer: {
-        alignItems: 'center',
-    },
-    loadingTrack: {
-        width: '100%',
-        height: 6,
-        borderRadius: 999,
-        overflow: 'hidden',
-        backgroundColor: 'rgba(255, 255, 255, 0.10)',
-        marginBottom: 16,
-    },
-    loadingFill: {
-        flex: 1,
-        borderRadius: 999,
-        backgroundColor: '#F59E0B',
-    },
-    footerText: {
-        fontSize: 13,
-        letterSpacing: 0.4,
-        color: 'rgba(255, 255, 255, 0.58)',
-    },
-});

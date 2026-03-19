@@ -1,24 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 export default function Header({ title }) {
     return (
-        <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
+        <View className="h-[60px] justify-center border-b border-[#eeeeee] bg-white px-[15px]">
+            <Text className="text-xl font-bold">{title}</Text>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    header: {
-        height: 60,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        paddingHorizontal: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-});

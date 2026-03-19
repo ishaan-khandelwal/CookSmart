@@ -1,11 +1,11 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 export default function InputField({ label, placeholder, value, onChangeText, secureTextEntry }) {
     return (
-        <View style={styles.container}>
-            {label && <Text style={styles.label}>{label}</Text>}
+        <View className="mb-[15px]">
+            {label ? <Text className="mb-[5px] text-sm text-[#333333]">{label}</Text> : null}
             <TextInput
-                style={styles.input}
+                className="rounded-[5px] border border-[#cccccc] p-2.5 text-base"
                 placeholder={placeholder}
                 value={value}
                 onChangeText={onChangeText}
@@ -14,21 +14,3 @@ export default function InputField({ label, placeholder, value, onChangeText, se
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        marginBottom: 15,
-    },
-    label: {
-        fontSize: 14,
-        marginBottom: 5,
-        color: '#333',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ccc',
-        padding: 10,
-        borderRadius: 5,
-        fontSize: 16,
-    },
-});

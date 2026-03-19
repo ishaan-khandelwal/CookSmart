@@ -1,8 +1,7 @@
-﻿import { Feather, Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TAB_HEIGHT = 70;
 const SCAN_LIFT = 18;
 
 function getIconName(routeName, isFocused) {
@@ -17,9 +16,18 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
     const insets = useSafeAreaInsets();
 
     return (
-        <View style={[styles.shell, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-            <View style={styles.tabBar}>
-                <View style={styles.topGlow} />
+        <View className="bg-transparent px-[10px]" style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
+            <View
+                className="absolute bottom-0 left-0 right-0 flex-row rounded-[28px] border border-white/10 bg-[#161616] px-1 pt-2.5"
+                style={{
+                    shadowColor: '#000000',
+                    shadowOpacity: 0.35,
+                    shadowRadius: 16,
+                    shadowOffset: { width: 0, height: 10 },
+                    elevation: 18,
+                }}
+            >
+                <View className="absolute left-5 right-5 top-0 h-px bg-[#f59e0b38]" />
                 {state.routes.map((route, index) => {
                     const { options } = descriptors[route.key];
                     const label = options.tabBarLabel ?? options.title ?? route.name;
@@ -54,18 +62,28 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                             testID={options.tabBarTestID}
                             onPress={onPress}
                             onLongPress={onLongPress}
-                            style={styles.tabItem}
+                            className="h-[70px] min-w-0 flex-1 items-center justify-end"
                             activeOpacity={0.9}
                         >
-                            <View style={[styles.content, isScan && styles.scanContent]}>
+                            <View className="w-full items-center justify-end px-px" style={isScan ? { transform: [{ translateY: -SCAN_LIFT }] } : undefined}>
                                 {isScan ? (
-                                    <View style={[styles.scanButtonOuter, isFocused && styles.scanButtonOuterFocused]}>
-                                        <View style={styles.scanButtonInner}>
+                                    <View
+                                        className="mb-1 h-14 w-14 items-center justify-center rounded-full border bg-[#111111]"
+                                        style={{
+                                            borderColor: isFocused ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.08)',
+                                            shadowColor: '#000000',
+                                            shadowOpacity: 0.3,
+                                            shadowRadius: 16,
+                                            shadowOffset: { width: 0, height: 10 },
+                                            elevation: 14,
+                                        }}
+                                    >
+                                        <View className="h-11 w-11 items-center justify-center rounded-full bg-[#F59E0B]">
                                             <Feather name="camera" size={20} color="#111111" />
                                         </View>
                                     </View>
                                 ) : (
-                                    <View style={[styles.iconWrap, isFocused && styles.iconWrapFocused]}>
+                                    <View className={`mb-1 h-[34px] w-[34px] items-center justify-center rounded-[14px] ${isFocused ? 'bg-[#f59e0b1f]' : 'bg-transparent'}`}>
                                         <Ionicons
                                             name={getIconName(route.name, isFocused)}
                                             size={20}
@@ -76,17 +94,12 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                                 <Text
                                     numberOfLines={1}
                                     allowFontScaling={false}
-                                    style={[
-                                        styles.tabText,
-                                        isFocused && styles.tabTextFocused,
-                                        isScan && styles.scanText,
-                                        isFocused && isScan && styles.scanTextFocused,
-                                    ]}
+                                    className={`w-full text-center text-[9px] font-bold leading-[11px] ${isFocused ? 'text-slate-50' : 'text-[#8B95A7]'} ${isScan && isFocused ? 'text-[#F59E0B]' : ''}`}
                                 >
                                     {label}
                                 </Text>
-                                <View style={styles.indicatorSlot}>
-                                    {isFocused && !isScan ? <View style={styles.activeIndicator} /> : null}
+                                <View className="mt-1 h-2 items-center justify-end">
+                                    {isFocused && !isScan ? <View className="h-[3px] w-4 rounded-full bg-[#F59E0B]" /> : null}
                                 </View>
                             </View>
                         </TouchableOpacity>
@@ -96,120 +109,3 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    shell: {
-        paddingHorizontal: 10,
-        backgroundColor: 'transparent',
-    },
-    tabBar: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        backgroundColor: '#161616',
-        borderRadius: 28,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        paddingTop: 10,
-        paddingHorizontal: 4,
-        shadowColor: '#000000',
-        shadowOpacity: 0.35,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 18,
-    },
-    topGlow: {
-        position: 'absolute',
-        top: 0,
-        left: 20,
-        right: 20,
-        height: 1,
-        backgroundColor: 'rgba(245, 158, 11, 0.22)',
-    },
-    tabItem: {
-        flex: 1,
-        minWidth: 0,
-        height: 70,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
-    content: {
-        width: '100%',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        paddingHorizontal: 1,
-    },
-    scanContent: {
-        transform: [{ translateY: -SCAN_LIFT }],
-    },
-    iconWrap: {
-        width: 34,
-        height: 34,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'transparent',
-        marginBottom: 4,
-    },
-    iconWrapFocused: {
-        backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    },
-    scanButtonOuter: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#111111',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        shadowColor: '#000000',
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 14,
-        marginBottom: 4,
-    },
-    scanButtonOuterFocused: {
-        borderColor: 'rgba(245, 158, 11, 0.45)',
-    },
-    scanButtonInner: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#F59E0B',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    tabText: {
-        fontSize: 9,
-        lineHeight: 11,
-        fontWeight: '700',
-        color: '#8B95A7',
-        textAlign: 'center',
-        width: '100%',
-    },
-    tabTextFocused: {
-        color: '#F8FAFC',
-    },
-    scanText: {
-        marginTop: 0,
-    },
-    scanTextFocused: {
-        color: '#F59E0B',
-    },
-    indicatorSlot: {
-        height: 8,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        marginTop: 4,
-    },
-    activeIndicator: {
-        width: 16,
-        height: 3,
-        borderRadius: 999,
-        backgroundColor: '#F59E0B',
-    },
-});

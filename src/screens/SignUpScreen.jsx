@@ -6,11 +6,10 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     StatusBar,
-    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { logout, signUpWithEmail } from '../backend/auth';
 
@@ -30,7 +29,6 @@ export default function CreateAccountScreen({ navigation }) {
         try {
             await signUpWithEmail(email, password, fullName);
             await logout();
-
         } catch (error) {
             Alert.alert('Signup Failed', error.message);
         } finally {
@@ -39,51 +37,47 @@ export default function CreateAccountScreen({ navigation }) {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.screen}
-        // behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        // keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
-        >
+        <KeyboardAvoidingView className="flex-1 bg-[#111111]">
             <StatusBar barStyle="light-content" />
 
             <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                className="flex-1 bg-[#111111]"
+                contentContainerClassName="flex-grow pb-9"
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
                 showsVerticalScrollIndicator={false}
             >
-                <View style={styles.backgroundGlowTop} />
-                <View style={styles.backgroundGlowBottom} />
+                <View className="absolute right-[-40px] top-[90px] h-[220px] w-[220px] rounded-full bg-[#22c55e24]" />
+                <View className="absolute bottom-20 left-[-80px] h-[280px] w-[280px] rounded-full bg-[#f59e0b24]" />
 
-                <View style={styles.container}>
-                    <View style={styles.hero}>
-                        <View style={styles.logoWrap}>
+                <View className="min-h-full px-6 pb-6 pt-[72px]">
+                    <View className="mb-7">
+                        <View className="mb-[18px] h-14 w-14 items-center justify-center rounded-[18px] border border-white/10 bg-[#1d1d1d]">
                             <FontAwesome5 name="utensils" size={24} color="#FFF7ED" />
                         </View>
-                        <Text style={styles.eyebrow}>CookSmart</Text>
-                        <Text style={styles.title}>Create your account.</Text>
-                        <Text style={styles.subtitle}>
+                        <Text className="mb-2.5 text-[13px] font-bold uppercase tracking-[1.1px] text-[#22C55E]">CookSmart</Text>
+                        <Text className="mb-2.5 text-[34px] font-extrabold text-white">Create your account.</Text>
+                        <Text className="max-w-[320px] text-[15px] leading-6 text-white/70">
                             Start building a smarter kitchen routine with saved recipes and meal planning.
                         </Text>
                     </View>
 
-                    <View style={styles.card}>
-                        <View style={styles.cardHeader}>
-                            <Text style={styles.cardTitle}>Sign Up</Text>
-                            <Text style={styles.cardDescription}>
+                    <View className="rounded-[28px] border border-white/10 bg-[#1c1c1cf5] p-[22px]">
+                        <View className="mb-[22px]">
+                            <Text className="mb-2 text-[26px] font-extrabold text-white">Sign Up</Text>
+                            <Text className="text-sm leading-[22px] text-white/60">
                                 Set up your account in a minute and keep everything in one place.
                             </Text>
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Full Name</Text>
-                            <View style={styles.inputShell}>
+                        <View className="mb-4">
+                            <Text className="mb-2 text-[13px] font-bold text-[#E8E8E8]">Full Name</Text>
+                            <View className="min-h-14 flex-row items-center gap-3 rounded-[18px] border border-white/10 bg-[#151515] px-4">
                                 <Feather name="user" size={19} color="#8A8A8A" />
                                 <TextInput
                                     placeholder="Enter your full name"
                                     placeholderTextColor="#8A8A8A"
-                                    style={styles.input}
+                                    className="flex-1 text-[15px] text-white"
                                     autoCapitalize="words"
                                     value={fullName}
                                     onChangeText={setFullName}
@@ -91,18 +85,14 @@ export default function CreateAccountScreen({ navigation }) {
                             </View>
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Email</Text>
-                            <View style={styles.inputShell}>
-                                <MaterialCommunityIcons
-                                    name="email-outline"
-                                    size={20}
-                                    color="#8A8A8A"
-                                />
+                        <View className="mb-4">
+                            <Text className="mb-2 text-[13px] font-bold text-[#E8E8E8]">Email</Text>
+                            <View className="min-h-14 flex-row items-center gap-3 rounded-[18px] border border-white/10 bg-[#151515] px-4">
+                                <MaterialCommunityIcons name="email-outline" size={20} color="#8A8A8A" />
                                 <TextInput
                                     placeholder="Enter your email"
                                     placeholderTextColor="#8A8A8A"
-                                    style={styles.input}
+                                    className="flex-1 text-[15px] text-white"
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     autoCorrect={false}
@@ -112,14 +102,14 @@ export default function CreateAccountScreen({ navigation }) {
                             </View>
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Password</Text>
-                            <View style={styles.inputShell}>
+                        <View className="mb-4">
+                            <Text className="mb-2 text-[13px] font-bold text-[#E8E8E8]">Password</Text>
+                            <View className="min-h-14 flex-row items-center gap-3 rounded-[18px] border border-white/10 bg-[#151515] px-4">
                                 <Feather name="lock" size={19} color="#8A8A8A" />
                                 <TextInput
                                     placeholder="Create a password"
                                     placeholderTextColor="#8A8A8A"
-                                    style={styles.input}
+                                    className="flex-1 text-[15px] text-white"
                                     secureTextEntry
                                     value={password}
                                     onChangeText={setPassword}
@@ -127,15 +117,15 @@ export default function CreateAccountScreen({ navigation }) {
                             </View>
                         </View>
 
-                        <View style={styles.noteBox}>
-                            <Text style={styles.noteTitle}>Why join?</Text>
-                            <Text style={styles.noteText}>
+                        <View className="mb-5 rounded-2xl border border-white/10 bg-[#171717] p-4">
+                            <Text className="mb-1.5 text-sm font-bold text-white">Why join?</Text>
+                            <Text className="text-[14px] leading-5 text-white/65">
                                 Save favorites, organize meals faster, and keep your cooking flow simple.
                             </Text>
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+                            className={`h-14 flex-row items-center justify-center gap-2.5 rounded-[18px] bg-[#22C55E] ${loading ? 'opacity-70' : ''}`}
                             onPress={handleRegister}
                             disabled={loading}
                             activeOpacity={0.9}
@@ -144,24 +134,24 @@ export default function CreateAccountScreen({ navigation }) {
                                 <ActivityIndicator color="#111111" />
                             ) : (
                                 <>
-                                    <Text style={styles.primaryButtonText}>Create Account</Text>
+                                    <Text className="text-base font-extrabold text-[#111111]">Create Account</Text>
                                     <Feather name="arrow-right" size={18} color="#111111" />
                                 </>
                             )}
                         </TouchableOpacity>
 
-                        <View style={styles.dividerRow}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>Already a member?</Text>
-                            <View style={styles.dividerLine} />
+                        <View className="my-5 flex-row items-center gap-3">
+                            <View className="h-px flex-1 bg-white/10" />
+                            <Text className="text-xs font-bold uppercase tracking-[0.6px] text-white/40">Already a member?</Text>
+                            <View className="h-px flex-1 bg-white/10" />
                         </View>
 
                         <TouchableOpacity
-                            style={styles.secondaryButton}
+                            className="h-[54px] items-center justify-center rounded-[18px] border border-white/10 bg-[#171717]"
                             onPress={() => navigation.navigate('Login')}
                             activeOpacity={0.9}
                         >
-                            <Text style={styles.secondaryButtonText}>Back to login</Text>
+                            <Text className="text-[15px] font-bold text-white">Back to login</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -169,193 +159,3 @@ export default function CreateAccountScreen({ navigation }) {
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    screen: {
-        flex: 1,
-        backgroundColor: '#111111',
-    },
-    scrollView: {
-        flex: 1,
-        backgroundColor: '#111111',
-    },
-    scrollContent: {
-        flexGrow: 1,
-        paddingBottom: 36,
-    },
-    backgroundGlowTop: {
-        position: 'absolute',
-        top: 90,
-        right: -40,
-        width: 220,
-        height: 220,
-        borderRadius: 999,
-        backgroundColor: 'rgba(34, 197, 94, 0.14)',
-    },
-    backgroundGlowBottom: {
-        position: 'absolute',
-        bottom: 80,
-        left: -80,
-        width: 280,
-        height: 280,
-        borderRadius: 999,
-        backgroundColor: 'rgba(245, 158, 11, 0.14)',
-    },
-    container: {
-        minHeight: '100%',
-        justifyContent: 'flex-start',
-        paddingHorizontal: 24,
-        paddingTop: 72,
-        paddingBottom: 24,
-    },
-    hero: {
-        marginBottom: 28,
-    },
-    logoWrap: {
-        width: 56,
-        height: 56,
-        borderRadius: 18,
-        backgroundColor: '#1D1D1D',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 18,
-    },
-    eyebrow: {
-        fontSize: 13,
-        fontWeight: '700',
-        letterSpacing: 1.1,
-        textTransform: 'uppercase',
-        color: '#22C55E',
-        marginBottom: 10,
-    },
-    title: {
-        fontSize: 34,
-        fontWeight: '800',
-        color: '#FFFFFF',
-        marginBottom: 10,
-    },
-    subtitle: {
-        fontSize: 15,
-        lineHeight: 24,
-        color: 'rgba(255, 255, 255, 0.72)',
-        maxWidth: 320,
-    },
-    card: {
-        backgroundColor: 'rgba(28, 28, 28, 0.96)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 28,
-        padding: 22,
-    },
-    cardHeader: {
-        marginBottom: 22,
-    },
-    cardTitle: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: '#FFFFFF',
-        marginBottom: 8,
-    },
-    cardDescription: {
-        fontSize: 14,
-        lineHeight: 22,
-        color: 'rgba(255, 255, 255, 0.62)',
-    },
-    inputGroup: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#E8E8E8',
-        marginBottom: 8,
-    },
-    inputShell: {
-        minHeight: 56,
-        borderRadius: 18,
-        backgroundColor: '#151515',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        paddingHorizontal: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    input: {
-        flex: 1,
-        fontSize: 15,
-        color: '#FFFFFF',
-    },
-    noteBox: {
-        borderRadius: 18,
-        backgroundColor: '#171717',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.06)',
-        padding: 16,
-        marginBottom: 22,
-    },
-    noteTitle: {
-        fontSize: 13,
-        fontWeight: '800',
-        color: '#F6C453',
-        marginBottom: 6,
-        textTransform: 'uppercase',
-        letterSpacing: 0.8,
-    },
-    noteText: {
-        fontSize: 14,
-        lineHeight: 22,
-        color: 'rgba(255, 255, 255, 0.68)',
-    },
-    primaryButton: {
-        height: 56,
-        borderRadius: 18,
-        backgroundColor: '#22C55E',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        gap: 10,
-    },
-    primaryButtonDisabled: {
-        opacity: 0.7,
-    },
-    primaryButtonText: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#111111',
-    },
-    dividerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 20,
-        gap: 12,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    },
-    dividerText: {
-        fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 0.6,
-        textTransform: 'uppercase',
-        color: 'rgba(255, 255, 255, 0.42)',
-    },
-    secondaryButton: {
-        height: 54,
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.10)',
-        backgroundColor: '#171717',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    secondaryButtonText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#FFFFFF',
-    },
-});

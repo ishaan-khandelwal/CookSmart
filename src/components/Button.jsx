@@ -1,23 +1,9 @@
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
 
 export default function Button({ title, onPress, style, textStyle }) {
     return (
-        <TouchableOpacity style={[styles.button, style]} onPress={onPress}>
-            <Text style={[styles.text, textStyle]}>{title}</Text>
+        <TouchableOpacity className="items-center rounded-lg bg-black p-[15px]" style={style} onPress={onPress}>
+            <Text className="text-base font-bold text-white" style={textStyle}>{title}</Text>
         </TouchableOpacity>
     );
 }
-
-const styles = StyleSheet.create({
-    button: {
-        padding: 15,
-        borderRadius: 8,
-        backgroundColor: '#000',
-        alignItems: 'center',
-    },
-    text: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-});
