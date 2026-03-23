@@ -10,6 +10,7 @@ import {
     Linking,
     Pressable,
     ScrollView,
+    StyleSheet,
     Text,
     View,
 } from 'react-native';
@@ -219,7 +220,7 @@ export default function CameraScanScreen({ navigation }) {
 
     return (
         <View className="flex-1 bg-background">
-            <CameraView ref={cameraRef} className="absolute inset-0" facing={cameraFacing} />
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing={cameraFacing} />
             <SafeAreaView className="flex-1 justify-between px-5 pt-2.5" edges={['top', 'left', 'right']}>
                 <View className="flex-row items-center justify-between">
                     <Pressable className="h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#0f1923b3]" onPress={handleBack}>

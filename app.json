@@ -14,7 +14,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow CookSmart to use your camera to scan ingredients."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +27,10 @@
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.ishaan.cooksmart"
+      "package": "com.ishaan.cooksmart",
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "androidNavigationBar": {
       "backgroundColor": "#111111",
@@ -36,10 +42,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
-    ],
-    "experiments": {
-      "typedRoutes": true
-    }
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow CookSmart to use your camera to scan ingredients."
+        }
+      ]
+    ]
   }
 }
