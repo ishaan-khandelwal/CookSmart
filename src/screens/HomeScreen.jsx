@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { logout } from '../backend/auth';
 import { useAuth } from '../context/AuthContext';
 
 const featuredRecipes = [
@@ -50,6 +51,7 @@ const quickActions = [
 
 export default function HomeScreen() {
     const { user } = useAuth();
+    const [loggingOut, setLoggingOut] = useState(false);
 
     const firstName = useMemo(() => {
         if (user?.displayName) {
@@ -58,6 +60,17 @@ export default function HomeScreen() {
 
         return 'Chef';
     }, [user]);
+
+    const handleLogout = async () => {
+        try {
+            setLoggingOut(true);
+            await logout();
+        } catch (error) {
+            Alert.alert('Logout Failed', error.message);
+        } finally {
+            setLoggingOut(false);
+        }
+    };
 
     return (
         <View className="flex-1 bg-[#111111]">
@@ -75,6 +88,16 @@ export default function HomeScreen() {
                         <Text className="mb-2 text-xs font-extrabold uppercase tracking-[1px] text-[#F59E0B]">CookSmart Dashboard</Text>
                         <Text className="text-[30px] font-extrabold text-white">Hi, {firstName}</Text>
                     </View>
+
+                    <TouchableOpacity
+                        className="flex-row items-center gap-2 rounded-2xl border border-white/10 bg-[#1C1C1C] px-[14px] py-3"
+                        onPress={handleLogout}
+                        disabled={loggingOut}
+                        activeOpacity={0.85}
+                    >
+                        <Feather name="log-out" size={16} color="#F8FAFC" />
+                        <Text className="text-[13px] font-bold text-slate-50">{loggingOut ? 'Signing out' : 'Logout'}</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <View className="mb-7 rounded-[28px] border border-white/10 bg-[#181818] p-[22px]">
