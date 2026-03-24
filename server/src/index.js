@@ -2,9 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
+const path = require('path');
 const Favorite = require('./models/favorite');
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -56,14 +57,22 @@ async function start() {
   if (!process.env.MONGODB_URI) {
     throw new Error('MONGODB_URI is missing in server/.env');
   }
-  console.log("URI:", process.env.MONGODB_URI);
-  await mongoose.connect(process.env.MONGODB_URI);
+
+  await mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000,
+  });
+
   app.listen(port, () => {
     console.log(`CookSmart API running on http://localhost:${port}`);
   });
 }
 
 start().catch((error) => {
-  console.error('Server startup error:', error.message);
+  const hint =
+    error.message && /server selection|timed out|econnrefused|enotfound/i.test(error.message)
+      ? ' Check Atlas Network Access/IP whitelist, cluster status, and the connection string.'
+      : '';
+
+  console.error(`Server startup error: ${error.message}.${hint}`);
   process.exit(1);
 });
