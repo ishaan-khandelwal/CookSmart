@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
   StatusBar,
   SafeAreaView,
   Alert,
@@ -52,92 +51,92 @@ export default function ProfileScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-[#0D0D0D]">
       <StatusBar barStyle="light-content" backgroundColor="#0D0D0D" />
 
       {/* Decorative Blobs */}
-      <View style={styles.topRightBlob} />
-      <View style={styles.bottomLeftBlob} />
+      <View className="absolute -top-[50px] -right-[50px] w-[200px] h-[200px] rounded-full bg-[#5C4A00] opacity-25" />
+      <View className="absolute -bottom-[50px] -left-[50px] w-[250px] h-[250px] rounded-[125px] bg-[#1B3A2D] opacity-25" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerClassName="px-5 pb-10 pt-2.5">
         {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
+        <View className="flex-row items-center justify-between py-4">
+          <TouchableOpacity onPress={handleBack} className="w-10 items-start">
             <ArrowLeft color="#FFFFFF" size={22} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <View style={styles.headerSpacer} />
+          <Text className="text-[22px] font-bold text-white">Settings</Text>
+          <View className="w-10" />
         </View>
 
         {/* USER INFO BLOCK */}
-        <View style={styles.userInfoBlock}>
-          <View style={styles.avatarContainer}>
+        <View className="items-center mt-2.5 mb-6">
+          <View className="w-20 h-20 rounded-full bg-[#F5A623] items-center justify-center">
             <Utensils color="#FFFFFF" size={40} />
           </View>
-          <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
-          <Text style={styles.userPhone}>{user?.email || 'No email provided'}</Text>
+          <Text className="text-xl font-bold text-white mt-3">{user?.displayName || 'User'}</Text>
+          <Text className="text-sm text-[#888888] mt-1">{user?.email || 'No email provided'}</Text>
         </View>
 
         {/* QUICK ACTION CARDS */}
-        <View style={styles.quickActionsContainer}>
-          <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.7}>
-            <View style={styles.quickActionBadge}>
+        <View className="flex-row justify-between mb-6 gap-3">
+          <TouchableOpacity className="flex-1 bg-[#1A1A1A] rounded-[20px] p-5 border border-[#2A2A2A]" activeOpacity={0.7}>
+            <View className="w-12 h-12 rounded-[14px] bg-[#141414] items-center justify-center mb-4">
               <MessageCircle color="#F5A623" size={24} />
             </View>
-            <Text style={styles.quickActionLabel}>Help & Support</Text>
-            <Text style={styles.quickActionSubtitle}>Open module</Text>
+            <Text className="text-[15px] font-bold text-white mb-1">Help & Support</Text>
+            <Text className="text-xs text-[#888888]">Open module</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.7}>
-            <View style={styles.quickActionBadge}>
+          <TouchableOpacity className="flex-1 bg-[#1A1A1A] rounded-[20px] p-5 border border-[#2A2A2A]" activeOpacity={0.7}>
+            <View className="w-12 h-12 rounded-[14px] bg-[#141414] items-center justify-center mb-4">
               <Heart color="#4CAF50" size={24} />
             </View>
-            <Text style={styles.quickActionLabel}>Your Wishlist</Text>
-            <Text style={styles.quickActionSubtitle}>Open module</Text>
+            <Text className="text-[15px] font-bold text-white mb-1">Your Wishlist</Text>
+            <Text className="text-xs text-[#888888]">Open module</Text>
           </TouchableOpacity>
         </View>
 
         {/* YOUR INFORMATION SECTION */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>YOUR INFORMATION</Text>
-          <View style={styles.cardContainer}>
+        <View className="mb-6">
+          <Text className="text-[11px] text-[#888888] uppercase tracking-[1.5px] mb-2 ml-1 font-semibold">YOUR INFORMATION</Text>
+          <View className="bg-[#1A1A1A] rounded-[20px] border border-[#2A2A2A] overflow-hidden">
             <ListItem 
               icon={User} 
               iconColor="#F5A623" 
               label="Profile" 
               onPress={() => Alert.alert('Your Information', `Name: ${user?.displayName || 'User'}\nEmail: ${user?.email || 'No email provided'}`)}
             />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={Heart} iconColor="#4CAF50" label="Your Wishlist" />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={CreditCard} iconColor="#2196F3" label="E-Gift Cards" />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={MessageCircle} iconColor="#F5A623" label="Help & Support" />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={Gift} iconColor="#9C27B0" label="Rewards" />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={Wallet} iconColor="#4CAF50" label="Payment Management" />
           </View>
         </View>
 
         {/* OTHER INFORMATION SECTION */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>OTHER INFORMATION</Text>
-          <View style={styles.cardContainer}>
+        <View className="mb-6">
+          <Text className="text-[11px] text-[#888888] uppercase tracking-[1.5px] mb-2 ml-1 font-semibold">OTHER INFORMATION</Text>
+          <View className="bg-[#1A1A1A] rounded-[20px] border border-[#2A2A2A] overflow-hidden">
             <ListItem icon={Star} iconColor="#F5A623" label="Suggest Products" />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={Bell} iconColor="#2196F3" label="Notifications" />
-            <View style={styles.divider} />
+            <View className="h-[1px] bg-[#2A2A2A] ml-[68px]" />
             <ListItem icon={Info} iconColor="#888888" label="General Info" />
           </View>
         </View>
 
         {/* FOOTER */}
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Log Out</Text>
+        <View className="mt-2 mb-5">
+          <TouchableOpacity className="w-full h-[54px] bg-[#1A1A1A] rounded-full border border-[#2A2A2A] items-center justify-center" activeOpacity={0.7} onPress={handleLogout}>
+            <Text className="text-base font-bold text-[#FF4444]">Log Out</Text>
           </TouchableOpacity>
-          <Text style={styles.versionText}>App version 26.3.2 / v141-6</Text>
+          <Text className="text-xs text-[#555555] text-center mt-3">App version 26.3.2 / v141-6</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -146,195 +145,14 @@ export default function ProfileScreen({ navigation }) {
 
 function ListItem({ icon: Icon, iconColor, label, onPress }) {
   return (
-    <TouchableOpacity style={styles.listItem} activeOpacity={0.7} onPress={onPress}>
-      <View style={styles.listItemLeft}>
-        <View style={styles.listItemBadge}>
+    <TouchableOpacity className="flex-row items-center justify-between py-3 px-4" activeOpacity={0.7} onPress={onPress}>
+      <View className="flex-row items-center">
+        <View className="w-10 h-10 rounded-xl bg-[#141414] items-center justify-center mr-3">
           <Icon color={iconColor} size={18} />
         </View>
-        <Text style={styles.listItemLabel}>{label}</Text>
+        <Text className="text-[15px] font-bold text-white">{label}</Text>
       </View>
       <ChevronRight color="#555555" size={18} />
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0D0D0D',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 10,
-  },
-  topRightBlob: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#5C4A00',
-    opacity: 0.25,
-  },
-  bottomLeftBlob: {
-    position: 'absolute',
-    bottom: -50,
-    left: -50,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: '#1B3A2D',
-    opacity: 0.25,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  headerIcon: {
-    width: 40,
-    alignItems: 'flex-start',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  userInfoBlock: {
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 24,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F5A623',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 12,
-  },
-  userPhone: {
-    fontSize: 14,
-    color: '#888888',
-    marginTop: 4,
-  },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    gap: 12,
-  },
-  quickActionCard: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-  },
-  quickActionBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#141414',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  quickActionLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  quickActionSubtitle: {
-    fontSize: 12,
-    color: '#888888',
-  },
-  sectionContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    color: '#888888',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  cardContainer: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    overflow: 'hidden',
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  listItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  listItemBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#141414',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  listItemLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#2A2A2A',
-    marginLeft: 68,
-  },
-  footer: {
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  logoutButton: {
-    width: '100%',
-    height: 54,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FF4444',
-  },
-  versionText: {
-    fontSize: 12,
-    color: '#555555',
-    textAlign: 'center',
-    marginTop: 12,
-  },
-});
