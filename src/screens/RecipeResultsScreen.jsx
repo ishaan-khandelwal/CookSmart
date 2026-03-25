@@ -1,16 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
+import { useAuth } from '../context/AuthContext';
+import { createHistory } from '../services/api';
 import RecipeCard from '../components/RecipeCard';
 import { fetchRecipesByIngredients } from '../services/spoonacularApi';
 
+const FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'veg', label: 'Veg' },
+    { key: 'non-veg', label: 'Non-Veg' },
+];
+
 export default function RecipeResultsScreen({ navigation, route }) {
     const ingredients = route.params?.ingredients ?? [];
+    const { user } = useAuth();
     const [recipes, setRecipes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
+    const [activeFilter, setActiveFilter] = useState('all');
 
     useEffect(() => {
         let isMounted = true;
@@ -21,8 +31,20 @@ export default function RecipeResultsScreen({ navigation, route }) {
 
             try {
                 const nextRecipes = await fetchRecipesByIngredients(ingredients);
-                if (isMounted) {
-                    setRecipes(nextRecipes);
+                if (!isMounted) {
+                    return;
+                }
+
+                setRecipes(nextRecipes);
+
+                if (user?.uid && nextRecipes.length) {
+                    createHistory({
+                        userId: user.uid,
+                        title: `Recipe results for ${ingredients.slice(0, 3).join(', ')}`,
+                        type: 'recipe-search',
+                        source: 'recipe-results',
+                        ingredients,
+                    }).catch(() => {});
                 }
             } catch (error) {
                 if (!isMounted) {
@@ -49,7 +71,19 @@ export default function RecipeResultsScreen({ navigation, route }) {
         return () => {
             isMounted = false;
         };
-    }, [ingredients]);
+    }, [ingredients, user?.uid]);
+
+    const filteredRecipes = useMemo(() => {
+        if (activeFilter === 'veg') {
+            return recipes.filter((recipe) => recipe.vegetarian === true || recipe.vegan === true);
+        }
+
+        if (activeFilter === 'non-veg') {
+            return recipes.filter((recipe) => recipe.vegetarian === false && recipe.vegan !== true);
+        }
+
+        return recipes;
+    }, [activeFilter, recipes]);
 
     return (
         <SafeAreaView className="flex-1 bg-background px-5 pt-2.5">
@@ -63,11 +97,28 @@ export default function RecipeResultsScreen({ navigation, route }) {
 
             <View className="mb-4 rounded-[20px] border border-white/10 bg-card p-[18px]">
                 <Text className="mb-1.5 text-lg font-bold text-textPrimary">
-                    CookSmart found {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
+                    CookSmart found {filteredRecipes.length} recipe{filteredRecipes.length === 1 ? '' : 's'}
                 </Text>
                 <Text className="text-sm leading-5 text-textSecondary">
                     Built around {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} from your search.
                 </Text>
+            </View>
+
+            <View className="mb-4 flex-row gap-2">
+                {FILTERS.map((filter) => {
+                    const selected = activeFilter === filter.key;
+                    return (
+                        <Pressable
+                            key={filter.key}
+                            className={`rounded-full border px-4 py-2 ${selected ? 'border-primary bg-primary' : 'border-white/10 bg-card'}`}
+                            onPress={() => setActiveFilter(filter.key)}
+                        >
+                            <Text className={`text-sm font-bold ${selected ? 'text-background' : 'text-textPrimary'}`}>
+                                {filter.label}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
             </View>
 
             {errorMessage ? (
@@ -77,20 +128,24 @@ export default function RecipeResultsScreen({ navigation, route }) {
             ) : null}
 
             <ScrollView contentContainerClassName="pb-6" showsVerticalScrollIndicator={false}>
-                {!loading && !errorMessage && !recipes.length ? (
+                {!loading && !errorMessage && !filteredRecipes.length ? (
                     <View className="rounded-3xl border border-white/10 bg-card p-6">
                         <Text className="mb-2 text-lg font-bold text-textPrimary">No recipe matches yet</Text>
                         <Text className="text-sm leading-5 text-textSecondary">
-                            Try scanning again with a few staple ingredients like onion, tomato, pasta, rice, or eggs.
+                            Try another filter or scan again with staple ingredients like onion, tomato, pasta, rice, or eggs.
                         </Text>
                     </View>
                 ) : null}
 
-                {recipes.map((recipe) => (
+                {filteredRecipes.map((recipe) => (
                     <RecipeCard
                         key={recipe.id}
                         recipe={recipe}
-                        onPress={() => navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe })}
+                        onPress={() => navigation.navigate('RecipeDetail', {
+                            recipeId: recipe.id,
+                            recipe,
+                            selectedIngredients: ingredients,
+                        })}
                     />
                 ))}
             </ScrollView>

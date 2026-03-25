@@ -70,7 +70,51 @@ function mapRecipeSummary(recipe) {
         missingCount: recipe.missedIngredientCount ?? 0,
         likes: recipe.likes ?? 0,
         summary: stripHtml(recipe.summary),
+        vegetarian: typeof recipe.vegetarian === 'boolean' ? recipe.vegetarian : null,
+        vegan: typeof recipe.vegan === 'boolean' ? recipe.vegan : null,
+        usedIngredients: Array.isArray(recipe.usedIngredients)
+            ? recipe.usedIngredients
+                .map((item) => item?.original || item?.name)
+                .filter(Boolean)
+            : [],
+        missingIngredients: Array.isArray(recipe.missedIngredients)
+            ? recipe.missedIngredients
+                .map((item) => item?.original || item?.name)
+                .filter(Boolean)
+            : [],
     };
+}
+
+async function enrichRecipesWithDietInfo(recipes) {
+    const recipeIds = recipes.map((recipe) => recipe.id).filter(Boolean);
+
+    if (!recipeIds.length) {
+        return recipes;
+    }
+
+    try {
+        const details = await spoonacularFetch('/recipes/informationBulk', {
+            ids: recipeIds.join(','),
+            includeNutrition: 'false',
+        });
+
+        const byId = new Map(
+            (Array.isArray(details) ? details : []).map((item) => [
+                item.id,
+                {
+                    vegetarian: typeof item.vegetarian === 'boolean' ? item.vegetarian : null,
+                    vegan: typeof item.vegan === 'boolean' ? item.vegan : null,
+                },
+            ]),
+        );
+
+        return recipes.map((recipe) => ({
+            ...recipe,
+            ...byId.get(recipe.id),
+        }));
+    } catch {
+        return recipes;
+    }
 }
 
 export async function fetchRecipesByIngredients(ingredients) {
@@ -93,7 +137,8 @@ export async function fetchRecipesByIngredients(ingredients) {
         ignorePantry: 'true',
     });
 
-    return Array.isArray(data) ? data.map(mapRecipeSummary) : [];
+    const recipes = Array.isArray(data) ? data.map(mapRecipeSummary) : [];
+    return enrichRecipesWithDietInfo(recipes);
 }
 
 export async function fetchRecipeDetails(recipeId) {
@@ -110,6 +155,14 @@ export async function fetchRecipeDetails(recipeId) {
         sourceUrl: data.sourceUrl || '',
         summary: stripHtml(data.summary),
         instructions: stripHtml(data.instructions),
+        vegetarian: typeof data.vegetarian === 'boolean' ? data.vegetarian : null,
+        vegan: typeof data.vegan === 'boolean' ? data.vegan : null,
+        instructionSteps: Array.isArray(data.analyzedInstructions)
+            ? data.analyzedInstructions
+                .flatMap((group) => group?.steps || [])
+                .map((step) => stripHtml(step?.step))
+                .filter(Boolean)
+            : [],
         ingredients: Array.isArray(data.extendedIngredients)
             ? data.extendedIngredients.map((item) => item?.original).filter(Boolean)
             : [],
