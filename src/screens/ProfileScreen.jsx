@@ -12,6 +12,7 @@ import {
 import { logout } from '../backend/auth';
 import { useAuth } from '../context/AuthContext';
 import { fetchHistory } from '../services/api';
+import { getStoredSpoonacularQuota } from '../services/spoonacularApi';
 import {
   ArrowLeft,
   Utensils,
@@ -31,6 +32,7 @@ export default function ProfileScreen({ navigation }) {
   const { user } = useAuth();
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [quota, setQuota] = useState(null);
 
   const userId = user?.uid;
 
@@ -60,6 +62,18 @@ export default function ProfileScreen({ navigation }) {
     const unsubscribe = navigation?.addListener?.('focus', loadHistory);
     return unsubscribe;
   }, [loadHistory, navigation]);
+
+  useEffect(() => {
+    const loadQuota = async () => {
+      const storedQuota = await getStoredSpoonacularQuota();
+      setQuota(storedQuota);
+    };
+
+    loadQuota();
+
+    const unsubscribe = navigation?.addListener?.('focus', loadQuota);
+    return unsubscribe;
+  }, [navigation]);
 
   const historyEmptyMessage = useMemo(() => {
     if (!userId) {
@@ -159,7 +173,26 @@ export default function ProfileScreen({ navigation }) {
         <View className="mb-6">
           <Text className="ml-1 mb-2 text-[11px] font-semibold uppercase tracking-[1.5px] text-[#888888]">OTHER INFORMATION</Text>
           <View className="overflow-hidden rounded-[20px] border border-[#2A2A2A] bg-[#1A1A1A]">
-            <ListItem icon={Star} iconColor="#F5A623" label="Suggest Products" />
+            <View className="px-4 py-4">
+              <View className="flex-row items-center">
+                <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl bg-[#141414]">
+                  <Star color="#F5A623" size={18} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[15px] font-bold text-white">Spoonacular Credits</Text>
+                  <Text className="mt-1 text-xs text-[#888888]">
+                    {typeof quota?.remaining === 'number'
+                      ? `${quota.remaining.toFixed(2)} left out of ${quota.dailyLimit}`
+                      : 'Search recipes once to load your latest quota status.'}
+                  </Text>
+                  {quota?.updatedAt ? (
+                    <Text className="mt-2 text-[11px] text-[#666666]">
+                      Last updated: {formatDate(quota.updatedAt)}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
             <View className="ml-[68px] h-[1px] bg-[#2A2A2A]" />
             <ListItem icon={Bell} iconColor="#2196F3" label="Notifications" />
             <View className="ml-[68px] h-[1px] bg-[#2A2A2A]" />

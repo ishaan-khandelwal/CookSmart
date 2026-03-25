@@ -1,6 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 const SPOONACULAR_BASE_URL = 'https://api.spoonacular.com';
+const SPOONACULAR_QUOTA_STORAGE_KEY = 'cooksmart.spoonacularQuota';
 
 function getExtraConfigValue(key) {
     return (
@@ -34,6 +36,25 @@ async function parseError(response) {
     }
 }
 
+async function persistQuotaSnapshot(quota) {
+    if (typeof quota?.used !== 'number') {
+        return;
+    }
+
+    const payload = {
+        ...quota,
+        remaining: Math.max(0, 50 - quota.used),
+        dailyLimit: 50,
+        updatedAt: new Date().toISOString(),
+    };
+
+    try {
+        await AsyncStorage.setItem(SPOONACULAR_QUOTA_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+        // Ignore local persistence failures.
+    }
+}
+
 async function spoonacularFetch(path, query = {}) {
     const apiKey = getApiKey();
 
@@ -48,14 +69,41 @@ async function spoonacularFetch(path, query = {}) {
 
     if (!response.ok) {
         const detail = await parseError(response);
+        const authLikeFailure =
+            response.status === 401 ||
+            response.status === 402 ||
+            response.status === 403 ||
+            /quota|payment required|limit|credits|unauthorized|forbidden/i.test(String(detail || ''));
+
         throw Object.assign(new Error(detail || 'Spoonacular request failed'), {
-            code: response.status === 401 || response.status === 402 || response.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
+            code: authLikeFailure ? 'AUTH_ERROR' : 'API_ERROR',
             status: response.status,
             detail,
         });
     }
 
-    return response.json();
+    const quotaUsedHeader = response.headers.get('X-API-Quota-Used');
+    const quotaRequestHeader = response.headers.get('X-API-Quota-Request');
+    const quota = {
+        used: quotaUsedHeader ? Number(quotaUsedHeader) : null,
+        requestCost: quotaRequestHeader ? Number(quotaRequestHeader) : null,
+    };
+
+    await persistQuotaSnapshot(quota);
+
+    return {
+        data: await response.json(),
+        quota,
+    };
+}
+
+export async function getStoredSpoonacularQuota() {
+    try {
+        const raw = await AsyncStorage.getItem(SPOONACULAR_QUOTA_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
 }
 
 function mapRecipeSummary(recipe) {
@@ -93,7 +141,7 @@ async function enrichRecipesWithDietInfo(recipes) {
     }
 
     try {
-        const details = await spoonacularFetch('/recipes/informationBulk', {
+        const { data: details } = await spoonacularFetch('/recipes/informationBulk', {
             ids: recipeIds.join(','),
             includeNutrition: 'false',
         });
@@ -130,7 +178,7 @@ export async function fetchRecipesByIngredients(ingredients) {
         return [];
     }
 
-    const data = await spoonacularFetch('/recipes/findByIngredients', {
+    const { data, quota } = await spoonacularFetch('/recipes/findByIngredients', {
         ingredients: normalized.join(','),
         number: '12',
         ranking: '2',
@@ -138,11 +186,20 @@ export async function fetchRecipesByIngredients(ingredients) {
     });
 
     const recipes = Array.isArray(data) ? data.map(mapRecipeSummary) : [];
-    return enrichRecipesWithDietInfo(recipes);
+    const enrichedRecipes = await enrichRecipesWithDietInfo(recipes);
+
+    return {
+        recipes: enrichedRecipes,
+        quota: {
+            ...quota,
+            remaining: typeof quota?.used === 'number' ? Math.max(0, 50 - quota.used) : null,
+            dailyLimit: 50,
+        },
+    };
 }
 
 export async function fetchRecipeDetails(recipeId) {
-    const data = await spoonacularFetch(`/recipes/${recipeId}/information`, {
+    const { data } = await spoonacularFetch(`/recipes/${recipeId}/information`, {
         includeNutrition: 'false',
     });
 

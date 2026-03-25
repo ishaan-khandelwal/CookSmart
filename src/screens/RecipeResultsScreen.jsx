@@ -18,6 +18,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
     const ingredients = route.params?.ingredients ?? [];
     const { user } = useAuth();
     const [recipes, setRecipes] = useState([]);
+    const [quota, setQuota] = useState(null);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [activeFilter, setActiveFilter] = useState('all');
@@ -28,14 +29,17 @@ export default function RecipeResultsScreen({ navigation, route }) {
         const loadRecipes = async () => {
             setLoading(true);
             setErrorMessage('');
+            setQuota(null);
 
             try {
-                const nextRecipes = await fetchRecipesByIngredients(ingredients);
+                const result = await fetchRecipesByIngredients(ingredients);
                 if (!isMounted) {
                     return;
                 }
 
+                const nextRecipes = result?.recipes ?? [];
                 setRecipes(nextRecipes);
+                setQuota(result?.quota ?? null);
 
                 if (user?.uid && nextRecipes.length) {
                     createHistory({
@@ -54,9 +58,9 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 if (error?.code === 'MISSING_API_KEY') {
                     setErrorMessage('Spoonacular API key is missing. Add EXPO_PUBLIC_SPOONACULAR_API_KEY and restart Expo.');
                 } else if (error?.code === 'AUTH_ERROR') {
-                    setErrorMessage('Spoonacular rejected the API key or quota is exhausted.');
+                    setErrorMessage(error?.message || 'Spoonacular rejected the API key or quota is exhausted.');
                 } else {
-                    setErrorMessage('Could not load recipes right now. Try again in a moment.');
+                    setErrorMessage(error?.message || 'Could not load recipes right now. Try again in a moment.');
                 }
                 setRecipes([]);
             } finally {
@@ -102,6 +106,13 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 <Text className="text-sm leading-5 text-textSecondary">
                     Built around {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} from your search.
                 </Text>
+                {typeof quota?.remaining === 'number' ? (
+                    <View className="mt-3 self-start rounded-full bg-white/5 px-3 py-2">
+                        <Text className="text-xs font-semibold text-textPrimary">
+                            Spoonacular credits left: {quota.remaining.toFixed(2)} / {quota.dailyLimit}
+                        </Text>
+                    </View>
+                ) : null}
             </View>
 
             <View className="mb-4 flex-row gap-2">
