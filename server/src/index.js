@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const path = require('path');
 const Favorite = require('./models/favorite');
+const History = require('./models/history');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -53,10 +54,64 @@ app.post('/favorites', async (req, res) => {
   }
 });
 
+app.get('/history', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+
+    const history = await History.find({ userId }).sort({ createdAt: -1 }).limit(20);
+    return res.json(history);
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load history' });
+  }
+});
+
+app.post('/history', async (req, res) => {
+  try {
+    const {
+      userId,
+      title,
+      type = 'ingredient-search',
+      source = 'manual',
+      ingredients = [],
+    } = req.body;
+
+    if (!userId || !title) {
+      return res.status(400).json({ message: 'userId and title are required' });
+    }
+
+    const historyItem = await History.create({
+      userId,
+      title,
+      type,
+      source,
+      ingredients: Array.isArray(ingredients)
+        ? ingredients.map((item) => String(item).trim()).filter(Boolean)
+        : [],
+    });
+
+    return res.status(201).json(historyItem);
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to save history' });
+  }
+});
+
 async function start() {
   if (!process.env.MONGODB_URI) {
     throw new Error('MONGODB_URI is missing in server/.env');
   }
+
+  let mongoHost = 'unknown-host';
+  try {
+    mongoHost = new URL(process.env.MONGODB_URI).host;
+  } catch (_error) {
+    mongoHost = 'invalid-uri';
+  }
+
+  console.log(`Attempting MongoDB connection to ${mongoHost}`);
 
   await mongoose.connect(process.env.MONGODB_URI, {
     serverSelectionTimeoutMS: 10000,
@@ -68,11 +123,13 @@ async function start() {
 }
 
 start().catch((error) => {
+  const errorCode = error.code ? ` code=${error.code}` : '';
+  const errorName = error.name ? ` name=${error.name}` : '';
   const hint =
     error.message && /server selection|timed out|econnrefused|enotfound/i.test(error.message)
-      ? ' Check Atlas Network Access/IP whitelist, cluster status, and the connection string.'
+      ? ' Check Atlas cluster status, the exact hostname from Atlas, local DNS connectivity, and Atlas Network Access/IP whitelist.'
       : '';
 
-  console.error(`Server startup error: ${error.message}.${hint}`);
+  console.error(`Server startup error:${errorName}${errorCode} ${error.message}.${hint}`);
   process.exit(1);
 });

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useRef, useState } from 'react';
 import {
+    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -12,6 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import IngredientChip from '../components/IngredientChip';
+import { useAuth } from '../context/AuthContext';
+import { createHistory } from '../services/api';
 
 function normalizeIngredients(list) {
     return Array.from(
@@ -25,9 +28,12 @@ function normalizeIngredients(list) {
 
 export default function IngredientsResultScreen({ navigation, route }) {
     const { ingredients = [], photoUri, scannerError } = route.params ?? {};
+    const { user } = useAuth();
     const [items, setItems] = useState(() => normalizeIngredients(ingredients));
     const [draftIngredient, setDraftIngredient] = useState('');
+    const [isSavingHistory, setIsSavingHistory] = useState(false);
     const inputRef = useRef(null);
+    const initialItemsRef = useRef(normalizeIngredients(ingredients));
     const hasIngredients = items.length > 0;
 
     const emptyStateMessage = useMemo(
@@ -48,6 +54,43 @@ export default function IngredientsResultScreen({ navigation, route }) {
 
         setItems((current) => normalizeIngredients([...current, trimmed]));
         setDraftIngredient('');
+    };
+
+    const handleFindRecipes = async () => {
+        if (!items.length) {
+            return;
+        }
+
+        const initialItems = initialItemsRef.current;
+        const hasInitialScan = initialItems.length > 0;
+        const sameAsInitial =
+            initialItems.length === items.length &&
+            initialItems.every((ingredient, index) => ingredient === items[index]);
+
+        const historySource = hasInitialScan
+            ? sameAsInitial
+                ? 'scan'
+                : 'scan-edited'
+            : 'manual';
+
+        if (user?.uid) {
+            try {
+                setIsSavingHistory(true);
+                await createHistory({
+                    userId: user.uid,
+                    title: `Ingredient search: ${items.slice(0, 3).join(', ')}`,
+                    type: 'ingredient-search',
+                    source: historySource,
+                    ingredients: items,
+                });
+            } catch (error) {
+                Alert.alert('History not saved', error.message);
+            } finally {
+                setIsSavingHistory(false);
+            }
+        }
+
+        navigation.navigate('RecipeResults', { ingredients: items });
     };
 
     return (
@@ -123,10 +166,12 @@ export default function IngredientsResultScreen({ navigation, route }) {
                 <View className="px-5 pb-5">
                     <Pressable
                         className={`min-h-[54px] items-center justify-center rounded-[18px] bg-primary ${!items.length ? 'opacity-50' : ''}`}
-                        onPress={() => navigation.navigate('RecipeResults', { ingredients: items })}
-                        disabled={!items.length}
+                        onPress={handleFindRecipes}
+                        disabled={!items.length || isSavingHistory}
                     >
-                        <Text className="text-base font-bold text-background">Find Recipes</Text>
+                        <Text className="text-base font-bold text-background">
+                            {isSavingHistory ? 'Saving...' : 'Find Recipes'}
+                        </Text>
                     </Pressable>
                     <Pressable className="mt-4 items-center justify-center" onPress={() => navigation.goBack()}>
                         <Text className="text-[15px] font-semibold text-textSecondary">Scan Again</Text>

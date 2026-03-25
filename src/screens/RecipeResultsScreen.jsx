@@ -66,7 +66,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
                     CookSmart found {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
                 </Text>
                 <Text className="text-sm leading-5 text-textSecondary">
-                    Built around {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} from your scan.
+                    Built around {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} from your search.
                 </Text>
             </View>
 

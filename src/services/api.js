@@ -44,3 +44,20 @@ export async function createFavorite(payload) {
 
   return parseResponse(response);
 }
+
+export async function fetchHistory(userId) {
+  const response = await fetch(buildUrl('/history', { userId }));
+  return parseResponse(response);
+}
+
+export async function createHistory(payload) {
+  const response = await fetch(buildUrl('/history'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+}

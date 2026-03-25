@@ -91,7 +91,15 @@ function parseJsonArray(rawText) {
     const fencedMatch = trimmedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
     const jsonText = fencedMatch?.[1]?.trim() || trimmedText;
 
-    return JSON.parse(jsonText);
+    try {
+        return JSON.parse(jsonText);
+    } catch {
+        const arrayMatch = jsonText.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+            return JSON.parse(arrayMatch[0]);
+        }
+        throw new Error('Could not parse ingredient array');
+    }
 }
 
 function parseAnthropicText(data) {
@@ -149,7 +157,7 @@ async function extractErrorDetail(response) {
     }
 }
 
-async function detectWithAnthropic(base64Image, apiKey, model) {
+async function detectWithAnthropic(base64Image, apiKey, model, mimeType) {
     let response;
 
     try {
@@ -171,7 +179,7 @@ async function detectWithAnthropic(base64Image, apiKey, model) {
                                 type: 'image',
                                 source: {
                                     type: 'base64',
-                                    media_type: 'image/jpeg',
+                                    media_type: mimeType,
                                     data: base64Image,
                                 },
                             },
@@ -205,7 +213,7 @@ async function detectWithAnthropic(base64Image, apiKey, model) {
     return parseAnthropicText(data);
 }
 
-async function detectWithGemini(base64Image, apiKey, model) {
+async function detectWithGemini(base64Image, apiKey, model, mimeType) {
     let response;
 
     try {
@@ -222,7 +230,7 @@ async function detectWithGemini(base64Image, apiKey, model) {
                         parts: [
                             {
                                 inline_data: {
-                                    mime_type: 'image/jpeg',
+                                    mime_type: mimeType,
                                     data: base64Image,
                                 },
                             },
@@ -259,7 +267,7 @@ async function detectWithGemini(base64Image, apiKey, model) {
     return parseGeminiText(data);
 }
 
-async function detectWithOpenRouter(base64Image, apiKey, model) {
+async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
     let response;
 
     try {
@@ -284,7 +292,7 @@ async function detectWithOpenRouter(base64Image, apiKey, model) {
                             {
                                 type: 'image_url',
                                 image_url: {
-                                    url: `data:image/jpeg;base64,${base64Image}`,
+                                    url: `data:${mimeType};base64,${base64Image}`,
                                 },
                             },
                         ],
@@ -315,8 +323,9 @@ async function detectWithOpenRouter(base64Image, apiKey, model) {
     return parseOpenRouterText(data);
 }
 
-export async function detectIngredientsFromImage(base64Image) {
+export async function detectIngredientsFromImage(base64Image, options = {}) {
     const scannerConfig = getScannerConfig();
+    const mimeType = options.mimeType || 'image/jpeg';
 
     if (!scannerConfig.provider || !scannerConfig.apiKey) {
         throw Object.assign(new Error('Missing scanner API key'), {
@@ -327,11 +336,11 @@ export async function detectIngredientsFromImage(base64Image) {
     let rawText = '';
 
     if (scannerConfig.provider === 'anthropic') {
-        rawText = await detectWithAnthropic(base64Image, scannerConfig.apiKey, scannerConfig.model);
+        rawText = await detectWithAnthropic(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
     } else if (scannerConfig.provider === 'gemini') {
-        rawText = await detectWithGemini(base64Image, scannerConfig.apiKey, scannerConfig.model);
+        rawText = await detectWithGemini(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
     } else {
-        rawText = await detectWithOpenRouter(base64Image, scannerConfig.apiKey, scannerConfig.model);
+        rawText = await detectWithOpenRouter(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
     }
 
     try {

@@ -19,6 +19,24 @@ import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 
+function inferMimeType(uri, fallback = 'image/jpeg') {
+    const normalizedUri = String(uri || '').toLowerCase();
+
+    if (normalizedUri.endsWith('.png')) {
+        return 'image/png';
+    }
+
+    if (normalizedUri.endsWith('.webp')) {
+        return 'image/webp';
+    }
+
+    if (normalizedUri.endsWith('.heic') || normalizedUri.endsWith('.heif')) {
+        return 'image/heic';
+    }
+
+    return fallback;
+}
+
 export default function CameraScanScreen({ navigation }) {
     const cameraRef = useRef(null);
     const [permission, requestPermission] = useCameraPermissions();
@@ -80,17 +98,21 @@ export default function CameraScanScreen({ navigation }) {
         [navigation, saveRecentScan],
     );
 
-    const processImageUri = useCallback(
-        async (uri) => {
+    const processImageAsset = useCallback(
+        async ({ uri, base64, mimeType }) => {
             setIsProcessing(true);
             setLastPhotoUri(uri);
 
             try {
-                const base64Image = await FileSystem.readAsStringAsync(uri, {
-                    encoding: FileSystem.EncodingType.Base64,
-                });
+                const base64Image =
+                    base64 ||
+                    (await FileSystem.readAsStringAsync(uri, {
+                        encoding: FileSystem.EncodingType.Base64,
+                    }));
 
-                const ingredients = await detectIngredientsFromImage(base64Image);
+                const ingredients = await detectIngredientsFromImage(base64Image, {
+                    mimeType: mimeType || inferMimeType(uri),
+                });
                 await navigateToResults(ingredients, uri);
             } catch (error) {
                 let scannerError = 'Scanner unavailable. Add the ingredients manually below.';
@@ -131,17 +153,22 @@ export default function CameraScanScreen({ navigation }) {
 
         try {
             const photo = await cameraRef.current.takePictureAsync({
-                quality: 0.8,
+                quality: 0.45,
+                base64: true,
                 skipProcessing: false,
             });
 
             if (photo?.uri) {
-                await processImageUri(photo.uri);
+                await processImageAsset({
+                    uri: photo.uri,
+                    base64: photo.base64,
+                    mimeType: 'image/jpeg',
+                });
             }
         } catch {
             Alert.alert('Camera error', 'Could not capture the photo. Please try again.');
         }
-    }, [isProcessing, processImageUri]);
+    }, [isProcessing, processImageAsset]);
 
     const handlePickFromGallery = useCallback(async () => {
         if (isProcessing) {
@@ -160,23 +187,29 @@ export default function CameraScanScreen({ navigation }) {
 
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                quality: 0.9,
+                quality: 0.7,
+                base64: true,
                 allowsEditing: false,
             });
 
             if (!result.canceled && result.assets?.[0]?.uri) {
-                await processImageUri(result.assets[0].uri);
+                const asset = result.assets[0];
+                await processImageAsset({
+                    uri: asset.uri,
+                    base64: asset.base64,
+                    mimeType: asset.mimeType || inferMimeType(asset.uri),
+                });
             }
         } catch {
             Alert.alert('Gallery error', 'Could not open the gallery. Please try again.');
         }
-    }, [isProcessing, processImageUri]);
+    }, [isProcessing, processImageAsset]);
 
     const handleRetryLastPhoto = useCallback(() => {
         if (lastPhotoUri) {
-            processImageUri(lastPhotoUri);
+            processImageAsset({ uri: lastPhotoUri, mimeType: inferMimeType(lastPhotoUri) });
         }
-    }, [lastPhotoUri, processImageUri]);
+    }, [lastPhotoUri, processImageAsset]);
 
     const handleBack = useCallback(() => {
         if (navigation.canGoBack()) {
