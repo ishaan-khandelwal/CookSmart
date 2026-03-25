@@ -97,7 +97,13 @@ export default function RecipeDetailScreen({ navigation, route }) {
             setErrorMessage('');
 
             try {
-                const details = await fetchRecipeDetails(recipeId);
+                const details = await fetchRecipeDetails(
+                    {
+                        id: recipeId,
+                        provider: initialRecipe?.provider,
+                    },
+                    initialRecipe,
+                );
                 if (!isMounted) {
                     return;
                 }
@@ -351,3 +357,4 @@ export default function RecipeDetailScreen({ navigation, route }) {
         </SafeAreaView>
     );
 }
+
