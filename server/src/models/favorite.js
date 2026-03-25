@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const favoriteSchema = new mongoose.Schema(
   {
@@ -7,7 +7,7 @@ const favoriteSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    image: {
+    image: {    
       type: String,
       default: '',
       trim: true,
@@ -29,4 +29,4 @@ const favoriteSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Favorite', favoriteSchema);
+export default mongoose.model('Favorite', favoriteSchema);

@@ -1,10 +1,10 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const path = require('path');
-const Favorite = require('./models/favorite');
-const History = require('./models/history');
+import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
+import mongoose from 'mongoose';
+import path from 'path';
+import Favorite from './models/favorite.js';
+import History from './models/history.js';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
