@@ -1,32 +1,32 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  Bell,
+  ChevronRight,
+  CreditCard,
+  Gift,
+  Heart,
+  Info,
+  MessageCircle,
+  Star,
+  User,
+  Utensils,
+  Wallet,
+} from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  SafeAreaView,
   Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { logout } from '../backend/auth';
 import { useAuth } from '../context/AuthContext';
 import { fetchHistory } from '../services/api';
 import { getStoredSpoonacularQuota } from '../services/spoonacularApi';
-import {
-  ArrowLeft,
-  Utensils,
-  MessageCircle,
-  Heart,
-  User,
-  CreditCard,
-  Gift,
-  Wallet,
-  Star,
-  Bell,
-  Info,
-  ChevronRight,
-} from 'lucide-react-native';
 
 export default function ProfileScreen({ navigation }) {
   const { user } = useAuth();
@@ -218,11 +218,16 @@ export default function ProfileScreen({ navigation }) {
                 <View key={item._id || `${item.title}-${index}`} className={index ? 'mt-4 border-t border-[#2A2A2A] pt-4' : ''}>
                   <Text className="text-[15px] font-bold text-white">{item.title}</Text>
                   <Text className="mt-1 text-xs uppercase tracking-[1px] text-[#F5A623]">
-                    {item.source || 'manual'} | {formatDate(item.createdAt)}
+                    {item.type || item.source || 'manual'} | {formatDate(item.createdAt)}
                   </Text>
                   <Text className="mt-2 text-sm leading-5 text-[#9A9A9A]">
                     {(item.ingredients || []).length ? item.ingredients.join(', ') : 'No ingredients captured'}
                   </Text>
+                  {typeof item.resultCount === 'number' ? (
+                    <Text className="mt-1 text-xs text-[#666666]">
+                      Results returned: {item.resultCount}
+                    </Text>
+                  ) : null}
                 </View>
               ))
             ) : (

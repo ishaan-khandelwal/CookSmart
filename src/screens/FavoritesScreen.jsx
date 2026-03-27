@@ -3,6 +3,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Image,
     RefreshControl,
     Text,
     TextInput,
@@ -12,7 +13,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { createFavorite, fetchFavorites } from '../services/api';
 
-export default function FavoritesScreen() {
+export default function FavoritesScreen({ navigation }) {
     const { user } = useAuth();
     const [favorites, setFavorites] = useState([]);
     const [newTitle, setNewTitle] = useState('');
@@ -46,7 +47,7 @@ export default function FavoritesScreen() {
             }
 
             const data = await fetchFavorites(userId);
-            setFavorites(data);
+            setFavorites(Array.isArray(data) ? data : []);
         } catch (error) {
             Alert.alert('Load Failed', error.message);
         } finally {
@@ -58,6 +59,14 @@ export default function FavoritesScreen() {
     useEffect(() => {
         loadFavorites();
     }, [loadFavorites]);
+
+    useEffect(() => {
+        const unsubscribe = navigation?.addListener?.('focus', () => {
+            loadFavorites(true);
+        });
+
+        return unsubscribe;
+    }, [loadFavorites, navigation]);
 
     const handleAddFavorite = async () => {
         const title = newTitle.trim();
@@ -74,14 +83,19 @@ export default function FavoritesScreen() {
 
         try {
             setSaving(true);
+
             const createdFavorite = await createFavorite({
                 title,
                 userId,
-                source: 'cooksmart-app',
+                source: 'favorites-screen',
             });
 
-            setFavorites((currentFavorites) => [createdFavorite, ...currentFavorites]);
+            setFavorites((currentFavorites) => {
+                const nextFavorites = currentFavorites.filter((item) => item._id !== createdFavorite._id);
+                return [createdFavorite, ...nextFavorites];
+            });
             setNewTitle('');
+            Alert.alert('Saved', 'Recipe added to favorites.');
         } catch (error) {
             Alert.alert('Save Failed', error.message);
         } finally {
@@ -109,10 +123,10 @@ export default function FavoritesScreen() {
                     className="rounded-2xl border border-white/10 bg-[#101010] px-4 py-3 text-white"
                 />
                 <TouchableOpacity
-                    className="mt-3 items-center rounded-2xl bg-[#22C55E] px-4 py-3"
+                    className={`mt-3 items-center rounded-2xl px-4 py-3 ${saving || !newTitle.trim() ? 'bg-[#22C55E]/50' : 'bg-[#22C55E]'}`}
                     activeOpacity={0.85}
                     onPress={handleAddFavorite}
-                    disabled={saving}
+                    disabled={saving || !newTitle.trim()}
                 >
                     <Text className="text-sm font-extrabold text-[#111111]">
                         {saving ? 'Saving...' : 'Save to MongoDB'}
@@ -128,13 +142,13 @@ export default function FavoritesScreen() {
                 <FlatList
                     data={favorites}
                     keyExtractor={(item) => item._id}
-                    refreshControl={
+                    refreshControl={(
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={() => loadFavorites(true)}
                             tintColor="#22C55E"
                         />
-                    }
+                    )}
                     contentContainerStyle={{ paddingBottom: 24, flexGrow: favorites.length ? 0 : 1 }}
                     ListEmptyComponent={(
                         <View className="flex-1 items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-[#151515] px-6 py-10">
@@ -143,8 +157,25 @@ export default function FavoritesScreen() {
                     )}
                     renderItem={({ item }) => (
                         <View className="mb-3 rounded-[22px] border border-white/10 bg-[#181818] p-4">
-                            <Text className="text-lg font-bold text-white">{item.title}</Text>
-                            <Text className="mt-1 text-xs uppercase tracking-[1px] text-white/45">{item.source || 'manual'}</Text>
+                            <View className="flex-row items-center">
+                                {item.image ? (
+                                    <Image
+                                        source={{ uri: item.image }}
+                                        className="mr-4 h-[64px] w-[64px] rounded-2xl bg-[#101010]"
+                                        resizeMode="cover"
+                                    />
+                                ) : (
+                                    <View className="mr-4 h-[64px] w-[64px] items-center justify-center rounded-2xl bg-[#101010]">
+                                        <Text className="text-[11px] font-bold uppercase tracking-[1px] text-white/45">Recipe</Text>
+                                    </View>
+                                )}
+                                <View className="flex-1">
+                                    <Text className="text-lg font-bold text-white">{item.title}</Text>
+                                    <Text className="mt-1 text-xs uppercase tracking-[1px] text-white/45">
+                                        {item.provider || item.source || 'manual'}
+                                    </Text>
+                                </View>
+                            </View>
                         </View>
                     )}
                 />

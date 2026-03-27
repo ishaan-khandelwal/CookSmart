@@ -27,6 +27,11 @@ const historySchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    resultCount: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
   },
   {
     timestamps: true,

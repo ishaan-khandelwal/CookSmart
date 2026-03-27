@@ -154,6 +154,8 @@ export default function RecipeDetailScreen({ navigation, route }) {
         try {
             setSavingFavorite(true);
             await createFavorite({
+                recipeId: recipe.providerId || recipe.id || '',
+                provider: recipe.provider || 'manual',
                 title: recipe.name,
                 image: recipe.image || '',
                 source: 'recipe-detail',
@@ -270,7 +272,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                         <Text className="mb-3 text-lg font-bold text-textPrimary">Ingredients</Text>
                                         {recipe.ingredients.map((ingredient) => (
                                             <Text key={ingredient} className="mb-2 text-[15px] leading-6 text-textSecondary">
-                                                • {ingredient}
+                                                - {ingredient}
                                             </Text>
                                         ))}
                                     </View>
@@ -291,7 +293,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                             {ingredientBuckets.have.length ? (
                                                 ingredientBuckets.have.map((ingredient) => (
                                                     <Text key={`have-${ingredient}`} className="mb-2 text-[15px] leading-6 text-textPrimary">
-                                                        • {ingredient}
+                                                        - {ingredient}
                                                     </Text>
                                                 ))
                                             ) : (
@@ -357,4 +359,3 @@ export default function RecipeDetailScreen({ navigation, route }) {
         </SafeAreaView>
     );
 }
-

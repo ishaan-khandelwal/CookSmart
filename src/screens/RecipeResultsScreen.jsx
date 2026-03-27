@@ -41,13 +41,14 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 setRecipes(nextRecipes);
                 setQuota(result?.quota ?? null);
 
-                if (user?.uid && nextRecipes.length) {
+                if (user?.uid) {
                     createHistory({
                         userId: user.uid,
-                        title: `Recipe results for ${ingredients.slice(0, 3).join(', ')}`,
+                        title: `Recipe search: ${ingredients.slice(0, 3).join(', ')}`,
                         type: 'recipe-search',
-                        source: 'recipe-results',
+                        source: result?.provider || 'recipe-results',
                         ingredients,
+                        resultCount: nextRecipes.length,
                     }).catch(() => {});
                 }
             } catch (error) {

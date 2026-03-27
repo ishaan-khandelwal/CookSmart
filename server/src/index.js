@@ -2,8 +2,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
-import { fileURLToPath } from 'url';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { connectToDatabase, getDatabaseStatus } from './config/db.js';
 import Favorite from './models/favorite.js';
 import History from './models/history.js';
 
@@ -12,6 +13,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
+
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -19,7 +21,10 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    database: getDatabaseStatus(),
+  });
 });
 
 app.get('/favorites', async (req, res) => {
@@ -39,18 +44,40 @@ app.get('/favorites', async (req, res) => {
 
 app.post('/favorites', async (req, res) => {
   try {
-    const { title, image = '', source = 'manual', userId } = req.body;
+    const {
+      recipeId = '',
+      provider = 'manual',
+      title,
+      image = '',
+      source = 'manual',
+      userId,
+    } = req.body;
 
     if (!title || !userId) {
       return res.status(400).json({ message: 'title and userId are required' });
     }
 
-    const favorite = await Favorite.create({
-      title,
-      image,
-      source,
-      userId,
-    });
+    const normalizedTitle = String(title).trim();
+    const favorite = await Favorite.findOneAndUpdate(
+      {
+        userId,
+        title: normalizedTitle,
+      },
+      {
+        $setOnInsert: {
+          recipeId: String(recipeId).trim(),
+          provider: String(provider).trim() || 'manual',
+          title: normalizedTitle,
+          image,
+          source,
+          userId,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+      }
+    );
 
     return res.status(201).json(favorite);
   } catch (error) {
@@ -81,6 +108,7 @@ app.post('/history', async (req, res) => {
       type = 'ingredient-search',
       source = 'manual',
       ingredients = [],
+      resultCount,
     } = req.body;
 
     if (!userId || !title) {
@@ -95,6 +123,10 @@ app.post('/history', async (req, res) => {
       ingredients: Array.isArray(ingredients)
         ? ingredients.map((item) => String(item).trim()).filter(Boolean)
         : [],
+      resultCount:
+        typeof resultCount === 'number' && Number.isFinite(resultCount)
+          ? resultCount
+          : null,
     });
 
     return res.status(201).json(historyItem);
@@ -104,22 +136,9 @@ app.post('/history', async (req, res) => {
 });
 
 async function start() {
-  if (!process.env.MONGODB_URI) {
-    throw new Error('MONGODB_URI is missing in server/.env');
-  }
+  await connectToDatabase(process.env.MONGODB_URI);
 
-  let mongoHost = 'unknown-host';
-  try {
-    mongoHost = new URL(process.env.MONGODB_URI).host;
-  } catch (_error) {
-    mongoHost = 'invalid-uri';
-  }
-
-  console.log(`Attempting MongoDB connection to ${mongoHost}`);
-
-  await mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000,
-  });
+  console.log("DB NAME:", mongoose.connection.name);
 
   app.listen(port, () => {
     console.log(`CookSmart API running on http://localhost:${port}`);

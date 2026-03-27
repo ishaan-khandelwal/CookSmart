@@ -2,6 +2,16 @@ import mongoose from 'mongoose';
 
 const favoriteSchema = new mongoose.Schema(
   {
+    recipeId: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    provider: {
+      type: String,
+      default: 'manual',
+      trim: true,
+    },
     title: {
       type: String,
       required: true,
@@ -28,5 +38,7 @@ const favoriteSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+favoriteSchema.index({ userId: 1, title: 1 }, { unique: true });
 
 export default mongoose.model('Favorite', favoriteSchema);
