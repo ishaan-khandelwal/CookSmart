@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 import { createFavorite, createHistory } from '../services/api';
+import { generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 import { fetchRecipeDetails } from '../services/spoonacularApi';
 
 const DETAIL_SECTIONS = [
@@ -153,11 +154,14 @@ export default function RecipeDetailScreen({ navigation, route }) {
 
         try {
             setSavingFavorite(true);
+            const fallbackImage = recipe?.image ? '' : await generateFavoriteImageFromTitle(recipe.name, process.env.EXPO_PUBLIC_GEMINI_KEY);
             await createFavorite({
                 recipeId: recipe.providerId || recipe.id || '',
                 provider: recipe.provider || 'manual',
                 title: recipe.name,
-                image: recipe.image || '',
+                image: recipe.image || fallbackImage,
+                vegetarian: recipe.vegetarian ?? false,
+                vegan: recipe.vegan ?? false,
                 source: 'recipe-detail',
                 userId: user.uid,
             });

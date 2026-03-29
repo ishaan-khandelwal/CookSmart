@@ -1,9 +1,11 @@
 import Constants from 'expo-constants';
+import { Alert } from 'react-native';
+import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENROUTER_MODEL = 'google/gemini-2.0-flash-001';
 const INGREDIENT_PROMPT = `You are a food ingredient detector. Look at this image and identify ALL visible food ingredients.
 Reply ONLY with a valid JSON array of ingredient names in lowercase English.
@@ -19,7 +21,9 @@ function getExtraConfigValue(key) {
 }
 
 function getEnvValue(key) {
-    return process.env[key] || getExtraConfigValue(key) || '';
+    const rawValue = process.env[key] || getExtraConfigValue(key) || '';
+    if (!rawValue) return '';
+    return String(rawValue).trim().replace(/^['"]|['"]$/g, '').replace(/[\t\n\r]/g, '').trim();
 }
 
 function normalizeIngredients(payload) {
@@ -37,23 +41,27 @@ function normalizeIngredients(payload) {
 }
 
 function sanitizeApiKey(rawValue) {
-    if (!rawValue) {
-        return '';
-    }
-
-    const apiKey = String(rawValue).trim().replace(/^['"]|['"]$/g, '');
-
+    if (!rawValue) return '';
+    const apiKey = String(rawValue).trim().replace(/^['"]|['"]$/g, '').replace(/[\t\n\r]/g, '').trim();
     if (!apiKey || apiKey === 'your_key_here' || apiKey.includes('your_real_')) {
         return '';
     }
-
     return apiKey;
 }
 
 function getScannerConfig() {
     const anthropicKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_ANTHROPIC_KEY'));
-    const geminiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GEMINI_KEY'));
     const openRouterKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENROUTER_KEY')) || anthropicKey;
+    const geminiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GEMINI_KEY'));
+
+    // Priority for Scanning: 1. OpenRouter, 2. Anthropic, 3. Gemini
+    if (openRouterKey.startsWith('sk-or-v1-')) {
+        return {
+            provider: 'openrouter',
+            apiKey: openRouterKey,
+            model: getEnvValue('EXPO_PUBLIC_OPENROUTER_MODEL') || OPENROUTER_MODEL,
+        };
+    }
 
     if (anthropicKey.startsWith('sk-ant-')) {
         return {
@@ -63,19 +71,11 @@ function getScannerConfig() {
         };
     }
 
-    if (geminiKey.startsWith('AIza') || anthropicKey.startsWith('AIza')) {
+    if (geminiKey.startsWith('AIza')) {
         return {
             provider: 'gemini',
-            apiKey: geminiKey || anthropicKey,
-            model: getEnvValue('EXPO_PUBLIC_GEMINI_MODEL') || GEMINI_MODEL,
-        };
-    }
-
-    if (openRouterKey.startsWith('sk-or-v1-')) {
-        return {
-            provider: 'openrouter',
-            apiKey: openRouterKey,
-            model: getEnvValue('EXPO_PUBLIC_OPENROUTER_MODEL') || OPENROUTER_MODEL,
+            apiKey: geminiKey,
+            model: normalizeGeminiModelName(getEnvValue('EXPO_PUBLIC_GEMINI_MODEL')) || GEMINI_MODEL,
         };
     }
 
@@ -92,12 +92,12 @@ function parseJsonArray(rawText) {
     const jsonText = fencedMatch?.[1]?.trim() || trimmedText;
 
     try {
-        return JSON.parse(jsonText);
-    } catch {
         const arrayMatch = jsonText.match(/\[[\s\S]*\]/);
         if (arrayMatch) {
             return JSON.parse(arrayMatch[0]);
         }
+        return JSON.parse(jsonText);
+    } catch {
         throw new Error('Could not parse ingredient array');
     }
 }
@@ -214,16 +214,11 @@ async function detectWithAnthropic(base64Image, apiKey, model, mimeType) {
 }
 
 async function detectWithGemini(base64Image, apiKey, model, mimeType) {
-    let response;
-
     try {
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify({
+        const { data } = await generateGeminiContent({
+            apiKey,
+            preferredModel: model,
+            body: {
                 contents: [
                     {
                         role: 'user',
@@ -244,27 +239,22 @@ async function detectWithGemini(base64Image, apiKey, model, mimeType) {
                     temperature: 0.2,
                     maxOutputTokens: 300,
                 },
-            }),
+            },
         });
+
+        if (data?.error) {
+            throw new Error(`Gemini API Error: ${data.error.message}`);
+        }
+
+        return parseGeminiText(data);
     } catch (error) {
-        throw Object.assign(new Error(error?.message || 'Network request failed'), {
-            code: 'NETWORK_ERROR',
+        throw Object.assign(new Error(error?.message || 'Gemini request failed'), {
+            code: error?.code || 'API_ERROR',
+            status: error?.status,
+            detail: error?.message,
             provider: 'gemini',
         });
     }
-
-    if (!response.ok) {
-        const errorText = await extractErrorDetail(response);
-        throw Object.assign(new Error(errorText || 'Gemini request failed'), {
-            code: response.status === 401 || response.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
-            status: response.status,
-            detail: errorText,
-            provider: 'gemini',
-        });
-    }
-
-    const data = await response.json();
-    return parseGeminiText(data);
 }
 
 async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
@@ -328,6 +318,7 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
     const mimeType = options.mimeType || 'image/jpeg';
 
     if (!scannerConfig.provider || !scannerConfig.apiKey) {
+        Alert.alert('Scanner Error', 'No Scanner Key found in .env (Add EXPO_PUBLIC_GEMINI_KEY)');
         throw Object.assign(new Error('Missing scanner API key'), {
             code: 'MISSING_API_KEY',
         });
@@ -335,20 +326,44 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
 
     let rawText = '';
 
-    if (scannerConfig.provider === 'anthropic') {
-        rawText = await detectWithAnthropic(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
-    } else if (scannerConfig.provider === 'gemini') {
-        rawText = await detectWithGemini(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
-    } else {
-        rawText = await detectWithOpenRouter(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
+    try {
+        if (scannerConfig.provider === 'anthropic') {
+            rawText = await detectWithAnthropic(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
+        } else if (scannerConfig.provider === 'gemini') {
+            rawText = await detectWithGemini(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
+        } else {
+            rawText = await detectWithOpenRouter(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
+        }
+    } catch (error) {
+        Alert.alert('Scanner Error', `${scannerConfig.provider} failed: ${error.message}`);
+        throw error;
     }
 
     try {
         return normalizeIngredients(parseJsonArray(rawText));
-    } catch {
+    } catch (error) {
+        Alert.alert('Scanner Error', 'Could not parse ingredients. AI output was invalid.');
         throw Object.assign(new Error('Could not detect ingredients. Try again.'), {
             code: 'INVALID_RESPONSE',
             provider: scannerConfig.provider,
         });
     }
+}
+
+const INGREDIENT_ICONS = {
+    tomato: '🍅', tomatoes: '🍅', garlic: '🧄', onion: '🧅', onions: '🧅',
+    pasta: '🍝', spaghetti: '🍝', egg: '🥚', eggs: '🥚', rice: '🍚',
+    chicken: '🍗', beef: '🥩', pork: '🥓', fish: '🐟', meat: '🍖',
+    milk: '🥛', cheese: '🧀', butter: '🧈', yogurt: '🍦',
+    flour: '🌾', sugar: '🍭', salt: '🧂', pepper: '🌶️',
+    oil: '🧴', vinegar: '🧪', bread: '🍞', toast: '🍞',
+    apple: '🍎', banana: '🍌', lemon: '🍋', orange: '🍊',
+    carrot: '🥕', potato: '🥔', potatoes: '🥔', spinich: '🌿', spinach: '🌿',
+    broccoli: '🥦', corn: '🌽', beans: '🫘', basil: '🌿',
+};
+
+export function getIngredientIcon(ingredientName) {
+    if (!ingredientName) return '📦';
+    const normalized = String(ingredientName).toLowerCase().trim();
+    return INGREDIENT_ICONS[normalized] || '📦';
 }

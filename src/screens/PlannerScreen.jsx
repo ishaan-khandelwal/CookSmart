@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -13,9 +13,12 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 import { fetchFavorites } from '../services/api';
@@ -326,7 +329,7 @@ export default function PlannerScreen() {
             return;
         }
 
-        AsyncStorage.setItem(storageKey, JSON.stringify(plan)).catch(() => {});
+        AsyncStorage.setItem(storageKey, JSON.stringify(plan)).catch(() => { });
     }, [hydrated, plan, storageKey]);
 
     const plannerMeals = useMemo(
@@ -525,7 +528,7 @@ export default function PlannerScreen() {
             <SafeAreaView className="flex-1" edges={['top', 'left', 'right']}>
                 <Animated.ScrollView
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 34 }}
+                    contentContainerStyle={{ paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 }}
                     style={{ opacity: contentOpacity, transform: [{ translateY: contentLift }] }}
                 >
                     <View className="px-5 pt-2.5">
@@ -535,19 +538,19 @@ export default function PlannerScreen() {
                             <Text className="mt-3 max-w-[280px] text-[34px] font-black leading-[40px] text-white">
                                 Build a calmer week, one meal slot at a time.
                             </Text>
-                            <Text className="mt-3 max-w-[290px] text-[15px] leading-6 text-white/68">
+                            <Text className="mt-3 max-w-[290px] text-[15px] leading-6 text-white">
                                 Plan breakfast, lunch, and dinner from saved recipes or recent matches, then let the app surface what you still need.
                             </Text>
 
                             <View className="mt-6 flex-row flex-wrap gap-3">
                                 <View className="rounded-full border border-white/10 bg-white/7 px-3 py-2">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/72">{formatWeekRange(weekDays)}</Text>
+                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white">{formatWeekRange(weekDays)}</Text>
                                 </View>
                                 <View className="rounded-full border border-white/10 bg-white/7 px-3 py-2">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/72">{plannerMeals.length} meals planned</Text>
+                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white">{plannerMeals.length} meals planned</Text>
                                 </View>
                                 <View className="rounded-full border border-white/10 bg-white/7 px-3 py-2">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/72">{pantryReadyMeals} pantry-ready</Text>
+                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white">{pantryReadyMeals} pantry-ready</Text>
                                 </View>
                             </View>
 
@@ -863,10 +866,13 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                         <PickerTab label="Recent" selected={source === 'recent'} onPress={() => onSourceChange('recent')} />
                         <PickerTab label="Saved" selected={source === 'saved'} onPress={() => onSourceChange('saved')} />
                         <PickerTab label="Pantry" selected={source === 'pantry'} onPress={() => onSourceChange('pantry')} />
+                        <PickerTab label="Manual" selected={source === 'manual'} onPress={() => onSourceChange('manual')} />
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false}>
-                        {loading ? (
+                        {source === 'manual' ? (
+                            <ManualAddForm onSelect={onSelect} />
+                        ) : loading ? (
                             <View className="items-center justify-center py-12">
                                 <ActivityIndicator size="small" color="#F8B84E" />
                             </View>
@@ -984,6 +990,80 @@ function MoveMealModal({ visible, moveState, weekDays, plan, onClose, onMove }) 
                 </View>
             </View>
         </Modal>
+    );
+}
+
+function ManualAddForm({ onSelect }) {
+    const [title, setTitle] = useState('');
+    const [image, setImage] = useState('');
+    const [isVegetarian, setIsVegetarian] = useState(true);
+
+    const handleSubmit = () => {
+        if (!title.trim()) {
+            Alert.alert('Required', 'Please enter a recipe title.');
+            return;
+        }
+
+        onSelect({
+            id: `manual-${Date.now()}`,
+            provider: 'manual',
+            name: title.trim(),
+            image: image.trim() || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=426&auto=format&fit=crop',
+            vegetarian: isVegetarian,
+            cookTime: 'Custom meal',
+            ingredients: [],
+        });
+    };
+
+    return (
+        <View className="rounded-[28px] border border-white/8 bg-white/5 p-5">
+            <Text className="mb-4 text-xs font-bold uppercase tracking-[1px] text-[#F8B84E]">Details</Text>
+            
+            <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Meal Name (e.g. Scrambled Eggs)"
+                placeholderTextColor="#555555"
+                className="mb-3 rounded-2xl border border-white/5 bg-[#0A0F16] px-4 py-3.5 text-white"
+            />
+
+            <TextInput
+                value={image}
+                onChangeText={setImage}
+                placeholder="Image URL (Optional)"
+                placeholderTextColor="#555555"
+                className="mb-3 rounded-2xl border border-white/5 bg-[#0A0F16] px-4 py-3.5 text-white"
+            />
+
+            <View className="mb-5 flex-row items-center justify-between px-1">
+                <Text className="text-sm font-semibold text-white/70">Dietary</Text>
+                <View className="flex-row gap-2">
+                    <TouchableOpacity 
+                        onPress={() => setIsVegetarian(true)}
+                        className={`rounded-full px-4 py-2 ${isVegetarian ? 'bg-[#22C55E]' : 'bg-white/5 border border-white/10'}`}
+                    >
+                        <Text className={`text-[12px] font-bold ${isVegetarian ? 'text-[#111111]' : 'text-white/60'}`}>Veg</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        onPress={() => setIsVegetarian(false)}
+                        className={`rounded-full px-4 py-2 ${!isVegetarian ? 'bg-[#FB7185]' : 'bg-white/5 border border-white/10'}`}
+                    >
+                        <Text className={`text-[12px] font-bold ${!isVegetarian ? 'text-[#111111]' : 'text-white/60'}`}>Non-Veg</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <TouchableOpacity
+                className={`items-center rounded-2xl px-4 py-4 ${!title.trim() ? 'bg-[#F8B84E]/40' : 'bg-[#F8B84E]'}`}
+                activeOpacity={0.85}
+                onPress={handleSubmit}
+                disabled={!title.trim()}
+            >
+                <Text className="text-[15px] font-black uppercase tracking-[1px] text-[#111111]">
+                    Add to Planner
+                </Text>
+            </TouchableOpacity>
+        </View>
     );
 }
 

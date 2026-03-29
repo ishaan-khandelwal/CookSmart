@@ -27,6 +27,14 @@ const favoriteSchema = new mongoose.Schema(
       default: 'manual',
       trim: true,
     },
+    vegetarian: {
+      type: Boolean,
+      default: false,
+    },
+    vegan: {
+      type: Boolean,
+      default: false,
+    },
     userId: {
       type: String,
       required: true,

@@ -10,8 +10,16 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
 import { createFavorite, fetchFavorites } from '../services/api';
+import { generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
+
+function canRenderFavoriteImage(uri) {
+    const value = String(uri || '').trim();
+    return Boolean(value) && !/^data:image\/svg\+xml/i.test(value);
+}
 
 export default function FavoritesScreen({ navigation }) {
     const { user } = useAuth();
@@ -20,15 +28,16 @@ export default function FavoritesScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [isVegetarian, setIsVegetarian] = useState(true);
 
     const userId = user?.uid;
 
     const emptyMessage = useMemo(() => {
         if (!userId) {
-            return 'Sign in to sync favorites with MongoDB.';
+            return 'Sign in to build a synced recipe collection.';
         }
 
-        return 'No favorites saved yet. Add one below to test the database connection.';
+        return 'No saved recipes yet. Add one below or save a recipe from the AI results flow.';
     }, [userId]);
 
     const loadFavorites = useCallback(async (showRefresh = false) => {
@@ -83,9 +92,12 @@ export default function FavoritesScreen({ navigation }) {
 
         try {
             setSaving(true);
+            const generatedImage = await generateFavoriteImageFromTitle(title, process.env.EXPO_PUBLIC_GEMINI_KEY);
 
             const createdFavorite = await createFavorite({
                 title,
+                image: generatedImage,
+                vegetarian: isVegetarian,
                 userId,
                 source: 'favorites-screen',
             });
@@ -95,7 +107,6 @@ export default function FavoritesScreen({ navigation }) {
                 return [createdFavorite, ...nextFavorites];
             });
             setNewTitle('');
-            Alert.alert('Saved', 'Recipe added to favorites.');
         } catch (error) {
             Alert.alert('Save Failed', error.message);
         } finally {
@@ -104,82 +115,131 @@ export default function FavoritesScreen({ navigation }) {
     };
 
     return (
-        <View className="flex-1 bg-[#111111] px-5 pt-16">
-            <View className="mb-6">
-                <Text className="text-xs font-extrabold uppercase tracking-[1px] text-[#22C55E]">MongoDB Favorites</Text>
-                <Text className="mt-2 text-[30px] font-extrabold text-white">Saved recipes</Text>
-                <Text className="mt-2 text-sm leading-6 text-white/65">
-                    This screen reads and writes favorites through your Express API and MongoDB.
-                </Text>
-            </View>
-
-            <View className="mb-5 rounded-[24px] border border-white/10 bg-[#181818] p-4">
-                <Text className="mb-2 text-sm font-semibold text-white">Add a favorite</Text>
-                <TextInput
-                    value={newTitle}
-                    onChangeText={setNewTitle}
-                    placeholder="Example: Garlic Mushroom Pasta"
-                    placeholderTextColor="#94A3B8"
-                    className="rounded-2xl border border-white/10 bg-[#101010] px-4 py-3 text-white"
-                />
-                <TouchableOpacity
-                    className={`mt-3 items-center rounded-2xl px-4 py-3 ${saving || !newTitle.trim() ? 'bg-[#22C55E]/50' : 'bg-[#22C55E]'}`}
-                    activeOpacity={0.85}
-                    onPress={handleAddFavorite}
-                    disabled={saving || !newTitle.trim()}
-                >
-                    <Text className="text-sm font-extrabold text-[#111111]">
-                        {saving ? 'Saving...' : 'Save to MongoDB'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {loading ? (
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#22C55E" />
-                </View>
-            ) : (
-                <FlatList
-                    data={favorites}
-                    keyExtractor={(item) => item._id}
-                    refreshControl={(
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={() => loadFavorites(true)}
-                            tintColor="#22C55E"
-                        />
-                    )}
-                    contentContainerStyle={{ paddingBottom: 24, flexGrow: favorites.length ? 0 : 1 }}
-                    ListEmptyComponent={(
-                        <View className="flex-1 items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-[#151515] px-6 py-10">
-                            <Text className="text-center text-sm leading-6 text-white/60">{emptyMessage}</Text>
+        <SafeAreaView className="flex-1 bg-[#07141d]" edges={['top', 'left', 'right']}>
+            <FlatList
+                data={favorites}
+                keyExtractor={(item) => item._id}
+                showsVerticalScrollIndicator={false}
+                refreshControl={(
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={() => loadFavorites(true)}
+                        tintColor="#F6B44F"
+                    />
+                )}
+                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 }}
+                ListHeaderComponent={(
+                    <View>
+                        <View className="mb-5 mt-2">
+                            <View>
+                                <Text className="text-[11px] font-extrabold uppercase tracking-[1.8px] text-[#F6B44F]">Saved Collection</Text>
+                                <Text className="mt-2 text-[32px] font-black text-white">Favorites</Text>
+                                <Text className="mt-2 max-w-[300px] text-sm leading-6 text-[#93A6B8]">
+                                    Keep your best meals, AI finds, and pantry staples in one clean archive.
+                                </Text>
+                            </View>
+                            <View className="mt-4 self-start rounded-full border border-white/10 bg-white/5 px-4 py-2.5">
+                                <Text className="text-[12px] font-semibold text-white">{favorites.length} saved</Text>
+                            </View>
                         </View>
-                    )}
-                    renderItem={({ item }) => (
-                        <View className="mb-3 rounded-[22px] border border-white/10 bg-[#181818] p-4">
-                            <View className="flex-row items-center">
-                                {item.image ? (
-                                    <Image
-                                        source={{ uri: item.image }}
-                                        className="mr-4 h-[64px] w-[64px] rounded-2xl bg-[#101010]"
-                                        resizeMode="cover"
-                                    />
-                                ) : (
-                                    <View className="mr-4 h-[64px] w-[64px] items-center justify-center rounded-2xl bg-[#101010]">
-                                        <Text className="text-[11px] font-bold uppercase tracking-[1px] text-white/45">Recipe</Text>
+
+                        <View className="mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[#0d1721] px-5 pb-5 pt-6">
+                            <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#f6b44f1f]" />
+                            <View className="absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-[#00c89614]" />
+                            <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px] text-[#F6B44F]">Manual Save</Text>
+                            <Text className="mt-3 text-[24px] font-black leading-8 text-white">Add a recipe you want to keep on hand.</Text>
+
+                            <TextInput
+                                value={newTitle}
+                                onChangeText={setNewTitle}
+                                placeholder="Recipe title"
+                                placeholderTextColor="#64788C"
+                                className="mt-5 rounded-[20px] border border-white/10 bg-[#08131c] px-4 py-4 text-white"
+                            />
+
+                            <View className="mt-3 rounded-[20px] border border-[#F6B44F]/20 bg-[#F6B44F]/8 px-4 py-3">
+                                <Text className="text-[11px] font-black uppercase tracking-[1px] text-[#F6B44F]">Auto Image</Text>
+                                <Text className="mt-1 text-sm leading-5 text-[#D0D8E2]">
+                                    CookSmart will generate the recipe image automatically from the title when you save.
+                                </Text>
+                            </View>
+
+                            <View className="mt-4 flex-row gap-2">
+                                <TouchableOpacity
+                                    onPress={() => setIsVegetarian(true)}
+                                    className={`rounded-full px-4 py-2.5 ${isVegetarian ? 'bg-[#00C896]' : 'border border-white/10 bg-white/5'}`}
+                                    activeOpacity={0.85}
+                                >
+                                    <Text className={`text-[12px] font-black uppercase tracking-[0.8px] ${isVegetarian ? 'text-[#08131c]' : 'text-white/70'}`}>Veg</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setIsVegetarian(false)}
+                                    className={`rounded-full px-4 py-2.5 ${!isVegetarian ? 'bg-[#F6B44F]' : 'border border-white/10 bg-white/5'}`}
+                                    activeOpacity={0.85}
+                                >
+                                    <Text className={`text-[12px] font-black uppercase tracking-[0.8px] ${!isVegetarian ? 'text-[#08131c]' : 'text-white/70'}`}>Non-Veg</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                className={`mt-5 items-center rounded-[22px] px-4 py-4 ${saving || !newTitle.trim() ? 'bg-[#F6B44F]/40' : 'bg-[#F6B44F]'}`}
+                                activeOpacity={0.85}
+                                onPress={handleAddFavorite}
+                                disabled={saving || !newTitle.trim()}
+                            >
+                                <Text className="text-[14px] font-black uppercase tracking-[1px] text-[#08131c]">
+                                    {saving ? 'Generating Image...' : 'Add To Favorites'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {loading ? (
+                            <View className="items-center justify-center py-16">
+                                <ActivityIndicator size="large" color="#F6B44F" />
+                            </View>
+                        ) : null}
+                    </View>
+                )}
+                ListEmptyComponent={!loading ? (
+                    <View className="items-center rounded-[28px] border border-dashed border-white/10 bg-[#0d1721] px-6 py-10">
+                        <Text className="text-center text-sm leading-6 text-[#A4B5C5]">{emptyMessage}</Text>
+                    </View>
+                ) : null}
+                renderItem={({ item }) => {
+                    const isVeg = item.vegetarian || item.vegan;
+                    const hasRenderableImage = canRenderFavoriteImage(item.image);
+                    return (
+                        <View className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]">
+                            {hasRenderableImage ? (
+                                <Image
+                                    source={{ uri: item.image }}
+                                    className="h-[180px] w-full bg-[#101b27]"
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <View className="h-[180px] w-full items-center justify-center bg-[#101b27]">
+                                    <Text className="text-[13px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">Saved Recipe</Text>
+                                </View>
+                            )}
+                            <View className="px-5 pb-5 pt-4">
+                                <View className="flex-row items-start justify-between">
+                                    <View className="flex-1 pr-4">
+                                        <Text className="text-[12px] font-extrabold uppercase tracking-[1.4px] text-[#F6B44F]">
+                                            {item.provider || item.source || 'manual'}
+                                        </Text>
+                                        <Text className="mt-2 text-[22px] font-black leading-7 text-white">{item.title}</Text>
                                     </View>
-                                )}
-                                <View className="flex-1">
-                                    <Text className="text-lg font-bold text-white">{item.title}</Text>
-                                    <Text className="mt-1 text-xs uppercase tracking-[1px] text-white/45">
-                                        {item.provider || item.source || 'manual'}
-                                    </Text>
+                                    <View className={`rounded-full px-3 py-1.5 ${isVeg ? 'bg-[#00c89620]' : 'bg-[#ff6b6b20]'}`}>
+                                        <Text className={`text-[11px] font-black uppercase tracking-[0.8px] ${isVeg ? 'text-[#89E3CC]' : 'text-[#FF9A9A]'}`}>
+                                            {isVeg ? 'Veg' : 'Non-Veg'}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
                         </View>
-                    )}
-                />
-            )}
-        </View>
+                    );
+                }}
+            />
+        </SafeAreaView>
     );
 }

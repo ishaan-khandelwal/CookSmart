@@ -1,8 +1,8 @@
-﻿import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { DarkTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { AuthProvider, useAuth } from '../context/AuthContext';
 import BottomTabBar from '../components/BottomTabBar';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import CameraScanScreen from '../screens/CameraScanScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -18,11 +18,27 @@ import SplashScreen from '../screens/SplashScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const navigationTheme = {
+    ...DarkTheme,
+    colors: {
+        ...DarkTheme.colors,
+        background: '#050A10',
+        card: '#050A10',
+        primary: '#F6B44F',
+        text: '#FFFFFF',
+        border: 'rgba(255,255,255,0.08)',
+    },
+};
+
 function MainTabs() {
     return (
         <Tab.Navigator
             initialRouteName="Home"
-            screenOptions={{ headerShown: false }}
+            screenOptions={{
+                headerShown: false,
+                sceneStyle: { backgroundColor: '#050A10' },
+                tabBarHideOnKeyboard: true,
+            }}
             tabBar={(props) => <BottomTabBar {...props} />}
         >
             <Tab.Screen
@@ -92,7 +108,7 @@ function AppScreens() {
 export default function AppNavigator() {
     return (
         <AuthProvider>
-            <NavigationContainer>
+            <NavigationContainer theme={navigationTheme}>
                 <AppScreens />
             </NavigationContainer>
         </AuthProvider>

@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
+import RecipeCard from '../components/RecipeCard';
 import { useAuth } from '../context/AuthContext';
 import { createHistory } from '../services/api';
-import RecipeCard from '../components/RecipeCard';
 import { fetchRecipesByIngredients } from '../services/spoonacularApi';
 
 const FILTERS = [
@@ -39,6 +39,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
     const [quota, setQuota] = useState(null);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
+    const [providerNotice, setProviderNotice] = useState('');
     const [activeFilter, setActiveFilter] = useState('all');
 
     useEffect(() => {
@@ -48,16 +49,16 @@ export default function RecipeResultsScreen({ navigation, route }) {
             setLoading(true);
             setErrorMessage('');
             setQuota(null);
+            setProviderNotice('');
 
             try {
                 const result = await fetchRecipesByIngredients(ingredients);
-                if (!isMounted) {
-                    return;
-                }
+                if (!isMounted) return;
 
                 const nextRecipes = result?.recipes ?? [];
                 setRecipes(nextRecipes);
                 setQuota(result?.quota ?? null);
+                setProviderNotice(result?.notice || '');
                 persistRecentRecipeResults(nextRecipes, ingredients, result?.provider).catch(() => {});
 
                 if (user?.uid) {
@@ -71,17 +72,8 @@ export default function RecipeResultsScreen({ navigation, route }) {
                     }).catch(() => {});
                 }
             } catch (error) {
-                if (!isMounted) {
-                    return;
-                }
-
-                if (error?.code === 'MISSING_API_KEY') {
-                    setErrorMessage('Spoonacular API key is missing. Add EXPO_PUBLIC_SPOONACULAR_API_KEY and restart Expo.');
-                } else if (error?.code === 'AUTH_ERROR') {
-                    setErrorMessage(error?.message || 'Spoonacular rejected the API key or quota is exhausted.');
-                } else {
-                    setErrorMessage(error?.message || 'Could not load recipes right now. Try again in a moment.');
-                }
+                if (!isMounted) return;
+                setErrorMessage(error?.message || 'Could not load recipes right now. Try again in a moment.');
                 setRecipes([]);
             } finally {
                 if (isMounted) {
@@ -109,76 +101,111 @@ export default function RecipeResultsScreen({ navigation, route }) {
         return recipes;
     }, [activeFilter, recipes]);
 
+    const primaryProvider = recipes[0]?.provider || '';
+    const heroLabel = primaryProvider === 'gemini' ? 'AI Recipe Studio' : primaryProvider === 'edamam' ? 'Curated Web Picks' : 'Pantry Recipe Matches';
+    const heroTone = primaryProvider === 'gemini' ? '#F6B44F' : primaryProvider === 'edamam' ? '#60A5FA' : '#00C896';
+
     return (
-        <SafeAreaView className="flex-1 bg-background px-5 pt-2.5">
-            <View className="mb-[18px] flex-row items-center justify-between">
-                <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-card" onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-                </Pressable>
-                <Text className="text-xl font-bold text-textPrimary">Recipe Matches</Text>
-                <View className="h-10 w-10" />
-            </View>
-
-            <View className="mb-4 rounded-[20px] border border-white/10 bg-card p-[18px]">
-                <Text className="mb-1.5 text-lg font-bold text-textPrimary">
-                    CookSmart found {filteredRecipes.length} recipe{filteredRecipes.length === 1 ? '' : 's'}
-                </Text>
-                <Text className="text-sm leading-5 text-textSecondary">
-                    Built around {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} from your search.
-                </Text>
-                {typeof quota?.remaining === 'number' ? (
-                    <View className="mt-3 self-start rounded-full bg-white/5 px-3 py-2">
-                        <Text className="text-xs font-semibold text-textPrimary">
-                            Spoonacular credits left: {quota.remaining.toFixed(2)} / {quota.dailyLimit}
-                        </Text>
-                    </View>
-                ) : null}
-            </View>
-
-            <View className="mb-4 flex-row gap-2">
-                {FILTERS.map((filter) => {
-                    const selected = activeFilter === filter.key;
-                    return (
-                        <Pressable
-                            key={filter.key}
-                            className={`rounded-full border px-4 py-2 ${selected ? 'border-primary bg-primary' : 'border-white/10 bg-card'}`}
-                            onPress={() => setActiveFilter(filter.key)}
-                        >
-                            <Text className={`text-sm font-bold ${selected ? 'text-background' : 'text-textPrimary'}`}>
-                                {filter.label}
-                            </Text>
-                        </Pressable>
-                    );
-                })}
-            </View>
-
-            {errorMessage ? (
-                <View className="mb-4 rounded-2xl border border-[#ff6b6b40] bg-[#ff6b6b14] p-4">
-                    <Text className="text-sm leading-5 text-textPrimary">{errorMessage}</Text>
+        <SafeAreaView className="flex-1 bg-[#07141d]">
+            <ScrollView contentContainerClassName="px-5 pb-8 pt-2.5" showsVerticalScrollIndicator={false}>
+                <View className="mb-[18px] flex-row items-center justify-between">
+                    <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#0d1721]" onPress={() => navigation.goBack()}>
+                        <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                    </Pressable>
+                    <Text className="text-xl font-bold text-textPrimary">Recipe Matches</Text>
+                    <View className="h-11 w-11" />
                 </View>
-            ) : null}
 
-            <ScrollView contentContainerClassName="pb-6" showsVerticalScrollIndicator={false}>
+                <View className="overflow-hidden rounded-[34px] border border-white/10 bg-[#0d1721] px-5 pb-5 pt-6">
+                    <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#f6b44f22]" />
+                    <View className="absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-[#00c89612]" />
+                    <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px]" style={{ color: heroTone }}>
+                        {heroLabel}
+                    </Text>
+                    <Text className="mt-3 text-[31px] font-black leading-9 text-white">
+                        {filteredRecipes.length} recipe{filteredRecipes.length === 1 ? '' : 's'} shaped around your ingredients.
+                    </Text>
+                    <Text className="mt-3 max-w-[310px] text-[14px] leading-6 text-[#91A4B8]">
+                        Built from {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} you selected, with a cleaner path from search to cooking steps.
+                    </Text>
+
+                    <View className="mt-5 flex-row flex-wrap gap-2">
+                        {ingredients.slice(0, 6).map((ingredient) => (
+                            <View key={ingredient} className="rounded-full border border-white/8 bg-white/5 px-3.5 py-2">
+                                <Text className="text-[12px] font-semibold capitalize text-white">{ingredient}</Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    <View className="mt-5 flex-row flex-wrap gap-3">
+                        <View className="rounded-full border border-white/8 bg-white/5 px-4 py-2.5">
+                            <Text className="text-[12px] font-semibold text-white">{recipes.length} total options</Text>
+                        </View>
+                        {primaryProvider === 'gemini' ? (
+                            <View className="rounded-full border border-[#f6b44f33] bg-[#f6b44f14] px-4 py-2.5 flex-row items-center">
+                                <Ionicons name="sparkles" size={12} color="#F6B44F" />
+                                <Text className="ml-2 text-[12px] font-semibold text-[#F8D08B]">AI-curated recipes</Text>
+                            </View>
+                        ) : null}
+                        {typeof quota?.remaining === 'number' && primaryProvider === 'spoonacular' ? (
+                            <View className="rounded-full border border-white/8 bg-white/5 px-4 py-2.5">
+                                <Text className="text-[12px] font-semibold text-white">{quota.remaining.toFixed(0)} Spoonacular credits left</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                </View>
+
+                <View className="mb-5 mt-5 flex-row gap-2">
+                    {FILTERS.map((filter) => {
+                        const selected = activeFilter === filter.key;
+                        return (
+                            <Pressable
+                                key={filter.key}
+                                className={`rounded-full border px-4 py-2.5 ${selected ? 'border-[#F6B44F] bg-[#F6B44F]' : 'border-white/10 bg-[#0d1721]'}`}
+                                onPress={() => setActiveFilter(filter.key)}
+                            >
+                                <Text className={`text-sm font-bold ${selected ? 'text-[#08131c]' : 'text-textPrimary'}`}>
+                                    {filter.label}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+
+                {providerNotice ? (
+                    <View className="mb-4 rounded-[22px] border border-white/10 bg-[#0d1721] px-4 py-3.5">
+                        <Text className="text-sm leading-6 text-[#B5C3D1]">{providerNotice}</Text>
+                    </View>
+                ) : null}
+
+                {errorMessage ? (
+                    <View className="mb-4 rounded-[24px] border border-[#ff6b6b33] bg-[#2a1518] px-4 py-4">
+                        <Text className="text-sm leading-6 text-textPrimary">{errorMessage}</Text>
+                    </View>
+                ) : null}
+
                 {!loading && !errorMessage && !filteredRecipes.length ? (
-                    <View className="rounded-3xl border border-white/10 bg-card p-6">
-                        <Text className="mb-2 text-lg font-bold text-textPrimary">No recipe matches yet</Text>
-                        <Text className="text-sm leading-5 text-textSecondary">
-                            Try another filter or scan again with staple ingredients like onion, tomato, pasta, rice, or eggs.
+                    <View className="rounded-[28px] border border-white/10 bg-[#0d1721] p-6">
+                        <Text className="text-lg font-bold text-textPrimary">No recipe matches yet</Text>
+                        <Text className="mt-2 text-sm leading-6 text-textSecondary">
+                            Try scanning again with pantry staples like onion, tomato, rice, eggs, herbs, or pasta for stronger matches.
                         </Text>
                     </View>
                 ) : null}
 
-                {filteredRecipes.map((recipe) => (
-                    <RecipeCard
-                        key={recipe.id}
-                        recipe={recipe}
-                        onPress={() => navigation.navigate('RecipeDetail', {
-                            recipeId: recipe.id,
-                            recipe,
-                            selectedIngredients: ingredients,
-                        })}
-                    />
-                ))}
+                <View className="mt-1">
+                    {filteredRecipes.map((recipe) => (
+                        <RecipeCard
+                            key={recipe.id}
+                            recipe={recipe}
+                            onPress={() => navigation.navigate('RecipeDetail', {
+                                recipeId: recipe.id,
+                                recipe,
+                                selectedIngredients: ingredients,
+                            })}
+                        />
+                    ))}
+                </View>
             </ScrollView>
 
             <LoadingOverlay visible={loading} message="Finding recipes..." />

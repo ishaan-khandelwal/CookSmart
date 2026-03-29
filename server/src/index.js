@@ -16,9 +16,11 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const port = process.env.PORT || 5000;
+const BODY_SIZE_LIMIT = process.env.BODY_SIZE_LIMIT || '20mb';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: BODY_SIZE_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_SIZE_LIMIT }));
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -50,6 +52,8 @@ app.post('/favorites', async (req, res) => {
       title,
       image = '',
       source = 'manual',
+      vegetarian = false,
+      vegan = false,
       userId,
     } = req.body;
 
@@ -58,24 +62,36 @@ app.post('/favorites', async (req, res) => {
     }
 
     const normalizedTitle = String(title).trim();
+    const normalizedRecipeId = String(recipeId).trim();
+    const normalizedProvider = String(provider).trim() || 'manual';
+    const normalizedSource = String(source).trim() || 'manual';
+    const normalizedImage = String(image || '').trim();
+    const existingFavorite = await Favorite.findOne({
+      userId,
+      title: normalizedTitle,
+    });
+
     const favorite = await Favorite.findOneAndUpdate(
       {
         userId,
         title: normalizedTitle,
       },
       {
-        $setOnInsert: {
-          recipeId: String(recipeId).trim(),
-          provider: String(provider).trim() || 'manual',
+        $set: {
+          recipeId: normalizedRecipeId || existingFavorite?.recipeId || '',
+          provider: normalizedProvider || existingFavorite?.provider || 'manual',
           title: normalizedTitle,
-          image,
-          source,
+          image: normalizedImage || existingFavorite?.image || '',
+          source: normalizedSource || existingFavorite?.source || 'manual',
+          vegetarian: Boolean(vegetarian),
+          vegan: Boolean(vegan),
           userId,
         },
       },
       {
         new: true,
         upsert: true,
+        setDefaultsOnInsert: true,
       }
     );
 
@@ -133,6 +149,16 @@ app.post('/history', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ message: 'Failed to save history' });
   }
+});
+
+app.use((error, _req, res, next) => {
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).json({
+      message: 'Uploaded recipe image is too large. Please try again with a smaller image.',
+    });
+  }
+
+  return next(error);
 });
 
 async function start() {

@@ -10,38 +10,58 @@ export default function RecipeCard({ recipe, onPress }) {
     const stripeColor = difficultyStripe[recipe.difficulty] ?? '#00C896';
     const dietLabel = recipe.vegan ? 'Vegan' : recipe.vegetarian ? 'Veg' : 'Non-Veg';
     const dietColor = recipe.vegan || recipe.vegetarian ? '#22C55E' : '#FF6B6B';
+    const providerLabel = recipe.provider === 'gemini' ? 'AI recipe' : recipe.provider === 'edamam' ? 'Web source' : 'Pantry match';
 
     return (
-        <Pressable className="mb-3.5 flex-row items-center overflow-hidden rounded-xl border border-white/10 bg-card" onPress={onPress}>
-            <View className="w-2 self-stretch" style={{ backgroundColor: stripeColor }} />
+        <Pressable className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]" onPress={onPress}>
+            <View className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: stripeColor }} />
             {recipe.image ? (
-                <Image source={{ uri: recipe.image }} className="m-3.5 h-[78px] w-[78px] rounded-xl bg-[#233146]" resizeMode="cover" />
+                <Image source={{ uri: recipe.image }} className="h-[190px] w-full bg-[#152435]" resizeMode="cover" />
             ) : (
-                <View className="m-3.5 h-[78px] w-[78px] items-center justify-center rounded-xl bg-[#233146]">
-                    <Text className="text-[13px] font-bold text-textPrimary">{recipe.imageLabel}</Text>
+                <View className="h-[190px] items-center justify-center bg-[#152435]">
+                    <View className="rounded-full border border-white/10 bg-white/5 px-4 py-2">
+                        <Text className="text-[12px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">{providerLabel}</Text>
+                    </View>
+                    <Text className="mt-4 text-[28px] font-black text-textPrimary">{recipe.imageLabel}</Text>
                 </View>
             )}
-            <View className="flex-1 py-3.5 pr-3.5">
-                <View className="mb-2 flex-row items-start justify-between">
-                    <Text className="mr-2.5 flex-1 text-base font-bold text-textPrimary">{recipe.name}</Text>
+            <View className="px-5 pb-5 pt-4">
+                <View className="mb-3 flex-row items-start justify-between">
+                    <View className="flex-1 pr-4">
+                        <Text className="text-[11px] font-extrabold uppercase tracking-[1.4px] text-[#F6B44F]">{providerLabel}</Text>
+                        <Text className="mt-2 text-[22px] font-black leading-7 text-textPrimary">{recipe.name}</Text>
+                    </View>
                     <View className="items-end">
-                        <View className="rounded-full px-2.5 py-1.5" style={{ backgroundColor: `${stripeColor}22` }}>
-                            <Text className="text-xs font-bold" style={{ color: stripeColor }}>{recipe.difficulty}</Text>
+                        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: `${stripeColor}20` }}>
+                            <Text className="text-[11px] font-black uppercase tracking-[0.8px]" style={{ color: stripeColor }}>{recipe.difficulty}</Text>
                         </View>
-                        <View className="mt-1 rounded-full px-2.5 py-1.5" style={{ backgroundColor: `${dietColor}22` }}>
-                            <Text className="text-[11px] font-bold" style={{ color: dietColor }}>{dietLabel}</Text>
+                        <View className="mt-2 rounded-full px-3 py-1.5" style={{ backgroundColor: `${dietColor}20` }}>
+                            <Text className="text-[11px] font-black uppercase tracking-[0.8px]" style={{ color: dietColor }}>{dietLabel}</Text>
                         </View>
                     </View>
                 </View>
-                <Text className="mb-1 text-[13px] text-textSecondary">{recipe.cookTime}</Text>
-                <Text className="text-[13px] font-semibold text-textPrimary">
-                    {recipe.matchingCount} matching ingredient{recipe.matchingCount === 1 ? '' : 's'}
+
+                <Text className="text-[14px] leading-6 text-textSecondary" numberOfLines={2}>
+                    {recipe.summary || 'Clean, practical recipe ideas built from your selected ingredients.'}
                 </Text>
-                {typeof recipe.missingCount === 'number' ? (
-                    <Text className="mt-1 text-[12px] text-textSecondary">
-                        {recipe.missingCount} ingredient{recipe.missingCount === 1 ? '' : 's'} still needed
-                    </Text>
-                ) : null}
+
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                    <View className="rounded-full border border-white/8 bg-white/5 px-3 py-2">
+                        <Text className="text-[12px] font-semibold text-textPrimary">{recipe.cookTime}</Text>
+                    </View>
+                    <View className="rounded-full border border-[#00c89630] bg-[#00c89614] px-3 py-2">
+                        <Text className="text-[12px] font-semibold text-[#9FE6D3]">
+                            {recipe.matchingCount} ingredient{recipe.matchingCount === 1 ? '' : 's'} ready
+                        </Text>
+                    </View>
+                    {typeof recipe.missingCount === 'number' ? (
+                        <View className="rounded-full border border-[#f6b44f30] bg-[#f6b44f14] px-3 py-2">
+                            <Text className="text-[12px] font-semibold text-[#F8D08B]">
+                                {recipe.missingCount} to add
+                            </Text>
+                        </View>
+                    ) : null}
+                </View>
             </View>
         </Pressable>
     );

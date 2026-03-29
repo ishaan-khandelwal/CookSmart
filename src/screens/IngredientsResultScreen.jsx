@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import IngredientChip from '../components/IngredientChip';
+import { getIngredientIcon } from '../services/claudeApi';
 
 function normalizeIngredients(list) {
     return Array.from(
@@ -89,7 +90,7 @@ export default function IngredientsResultScreen({ navigation, route }) {
                                 {items.map((ingredient, index) => (
                                     <IngredientChip
                                         key={ingredient}
-                                        label={ingredient}
+                                        label={`${getIngredientIcon(ingredient)} ${ingredient}`}
                                         delay={index * 90}
                                         onRemove={() => removeIngredient(ingredient)}
                                     />
