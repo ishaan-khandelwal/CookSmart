@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -13,6 +14,23 @@ const FILTERS = [
     { key: 'veg', label: 'Veg' },
     { key: 'non-veg', label: 'Non-Veg' },
 ];
+
+const RECENT_RECIPE_RESULTS_KEY = 'cooksmart:recentRecipeResults';
+
+async function persistRecentRecipeResults(recipes, ingredients, provider) {
+    const payload = (Array.isArray(recipes) ? recipes : []).slice(0, 12).map((recipe) => ({
+        ...recipe,
+        selectedIngredients: ingredients,
+        storedAt: new Date().toISOString(),
+        sourceProvider: provider || recipe.provider || 'unknown',
+    }));
+
+    try {
+        await AsyncStorage.setItem(RECENT_RECIPE_RESULTS_KEY, JSON.stringify(payload));
+    } catch {
+        // Planner can still work without local recent results.
+    }
+}
 
 export default function RecipeResultsScreen({ navigation, route }) {
     const ingredients = route.params?.ingredients ?? [];
@@ -40,6 +58,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 const nextRecipes = result?.recipes ?? [];
                 setRecipes(nextRecipes);
                 setQuota(result?.quota ?? null);
+                persistRecentRecipeResults(nextRecipes, ingredients, result?.provider).catch(() => {});
 
                 if (user?.uid) {
                     createHistory({
