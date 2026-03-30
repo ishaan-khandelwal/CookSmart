@@ -1,5 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SCAN_LIFT = 14;
@@ -41,10 +41,8 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                 style={{
                     bottom: dockBottom,
                     height: DOCK_HEIGHT,
-                    left: Platform.OS === 'web' ? undefined : DOCK_SIDE_PADDING,
-                    right: Platform.OS === 'web' ? undefined : DOCK_SIDE_PADDING,
-                    width: Platform.OS === 'web' ? '100%' : undefined,
-                    maxWidth: Platform.OS === 'web' ? 398 : undefined,
+                    left: DOCK_SIDE_PADDING,
+                    right: DOCK_SIDE_PADDING,
                     alignSelf: 'center',
                     shadowColor: '#000000',
                     shadowOpacity: 0.24,

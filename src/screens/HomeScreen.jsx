@@ -2,7 +2,7 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
@@ -206,7 +206,7 @@ export default function HomeScreen({ navigation }) {
                     scrollEventThrottle={16}
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
                 >
-                    <View style={[styles.pagePadding, Platform.OS === 'web' ? styles.webPagePadding : null]}>
+                    <View style={styles.pagePadding}>
                         <Animated.View style={{ opacity: introOpacity, transform: [{ translateY: introLift }, { translateY: heroShift }, { scale: heroScale }] }}>
                             <View style={[styles.hero, isCompact && styles.heroCompact]}>
                                 <View style={styles.heroGlowA} />
@@ -417,7 +417,6 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#050A10' },
     scrollContent: { paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 },
     pagePadding: { paddingHorizontal: 22 },
-    webPagePadding: { width: '100%', maxWidth: 398, alignSelf: 'center', paddingTop: 8 },
 
     orbTop: { position: 'absolute', top: -100, right: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(245, 158, 11, 0.16)' },
 

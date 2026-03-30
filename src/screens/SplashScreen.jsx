@@ -3,9 +3,7 @@ import { useEffect, useRef } from 'react';
 import {
     Animated,
     Easing,
-    Platform,
     StatusBar,
-    StyleSheet,
     Text,
     View,
 } from 'react-native';
@@ -97,7 +95,7 @@ export default function SplashScreen({ navigation }) {
     });
 
     return (
-        <View className="flex-1 justify-between bg-[#111111] px-6 pt-24 pb-[72px]" style={Platform.OS === 'web' ? styles.webSplash : undefined}>
+        <View className="flex-1 justify-between bg-[#111111] px-6 pt-24 pb-[72px]">
             <StatusBar barStyle="light-content" />
 
             <View className="absolute right-[-30px] top-20 h-[220px] w-[220px] rounded-full bg-[#f59e0b29]" />
@@ -156,11 +154,3 @@ export default function SplashScreen({ navigation }) {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    webSplash: {
-        width: '100%',
-        maxWidth: 398,
-        alignSelf: 'center',
-    },
-});
