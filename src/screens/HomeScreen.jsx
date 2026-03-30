@@ -395,8 +395,12 @@ export default function HomeScreen({ navigation }) {
                                         onPress={() => { }}
                                         containerStyle={{ backgroundColor: item.bg, borderRadius: 30 }}
                                     >
-                                        <Image source={item.image} className={`${isCompact ? 'h-[176px]' : 'h-[220px]'} w-full`} resizeMode="cover" />
-                                        <View className="absolute inset-x-0 bottom-0 bg-black/40 px-6 py-6 border-t border-white/5">
+                                        <Image
+                                            source={item.image}
+                                            resizeMode="cover"
+                                            style={[styles.mealImage, isCompact && styles.mealImageCompact]}
+                                        />
+                                        <View style={[styles.mealOverlay, isCompact && styles.mealOverlayCompact]}>
                                             <View className="flex-row items-center justify-between">
                                                 <Text className="text-[11px] font-black uppercase tracking-[2px]" style={{ color: item.tone }}>{item.eyebrow}</Text>
                                                 <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: item.tone }} />
@@ -443,4 +447,21 @@ const styles = StyleSheet.create({
     heroPillCompact: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14, backgroundColor: '#F8B84E', shadowColor: '#F8B84E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
 
     scanGlow: { position: 'absolute', top: -60, right: -40, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(248, 184, 78, 0.14)' },
+    mealImage: { width: '100%', height: 220, backgroundColor: '#152435' },
+    mealImageCompact: { height: 168 },
+    mealOverlay: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 24,
+        paddingVertical: 24,
+        backgroundColor: 'rgba(0,0,0,0.40)',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.05)',
+    },
+    mealOverlayCompact: {
+        paddingHorizontal: 18,
+        paddingVertical: 18,
+    },
 });

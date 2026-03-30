@@ -4,7 +4,9 @@ import {
     Alert,
     FlatList,
     Image,
+    Platform,
     RefreshControl,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -22,6 +24,7 @@ function canRenderFavoriteImage(uri) {
 }
 
 export default function FavoritesScreen({ navigation }) {
+    const isWeb = Platform.OS === 'web';
     const { user } = useAuth();
     const [favorites, setFavorites] = useState([]);
     const [newTitle, setNewTitle] = useState('');
@@ -213,11 +216,11 @@ export default function FavoritesScreen({ navigation }) {
                             {hasRenderableImage ? (
                                 <Image
                                     source={{ uri: item.image }}
-                                    className="h-[180px] w-full bg-[#101b27]"
+                                    style={[styles.favoriteImage, isWeb && styles.webFavoriteImage]}
                                     resizeMode="cover"
                                 />
                             ) : (
-                                <View className="h-[180px] w-full items-center justify-center bg-[#101b27]">
+                                <View style={[styles.favoriteImageFallback, isWeb && styles.webFavoriteImage]}>
                                     <Text className="text-[13px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">Saved Recipe</Text>
                                 </View>
                             )}
@@ -243,3 +246,21 @@ export default function FavoritesScreen({ navigation }) {
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    favoriteImage: {
+        width: '100%',
+        height: 180,
+        backgroundColor: '#101b27',
+    },
+    webFavoriteImage: {
+        height: 156,
+    },
+    favoriteImageFallback: {
+        width: '100%',
+        height: 180,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#101b27',
+    },
+});

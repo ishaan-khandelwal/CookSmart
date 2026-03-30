@@ -1,4 +1,4 @@
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const difficultyStripe = {
     Easy: '#00C896',
@@ -7,6 +7,7 @@ const difficultyStripe = {
 };
 
 export default function RecipeCard({ recipe, onPress }) {
+    const isWeb = Platform.OS === 'web';
     const stripeColor = difficultyStripe[recipe.difficulty] ?? '#00C896';
     const dietLabel = recipe.vegan ? 'Vegan' : recipe.vegetarian ? 'Veg' : 'Non-Veg';
     const dietColor = recipe.vegan || recipe.vegetarian ? '#22C55E' : '#FF6B6B';
@@ -16,9 +17,9 @@ export default function RecipeCard({ recipe, onPress }) {
         <Pressable className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]" onPress={onPress}>
             <View className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: stripeColor }} />
             {recipe.image ? (
-                <Image source={{ uri: recipe.image }} className="h-[190px] w-full bg-[#152435]" resizeMode="cover" />
+                <Image source={{ uri: recipe.image }} style={[styles.image, isWeb && styles.webImage]} resizeMode="cover" />
             ) : (
-                <View className="h-[190px] items-center justify-center bg-[#152435]">
+                <View style={[styles.imageFallback, isWeb && styles.webImage]}>
                     <View className="rounded-full border border-white/10 bg-white/5 px-4 py-2">
                         <Text className="text-[12px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">{providerLabel}</Text>
                     </View>
@@ -66,3 +67,21 @@ export default function RecipeCard({ recipe, onPress }) {
         </Pressable>
     );
 }
+
+const styles = StyleSheet.create({
+    image: {
+        width: '100%',
+        height: 190,
+        backgroundColor: '#152435',
+    },
+    webImage: {
+        height: 164,
+    },
+    imageFallback: {
+        width: '100%',
+        height: 190,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#152435',
+    },
+});
