@@ -2,7 +2,7 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
@@ -70,7 +70,7 @@ function InteractiveCard({ children, onPress, className = '', containerStyle = {
 
 export default function HomeScreen({ navigation }) {
     const { user } = useAuth();
-    const { width } = useWindowDimensions();
+    const { width, height } = useWindowDimensions();
     const [recentScan, setRecentScan] = useState({ ingredients: [], photoUri: null, scannedAt: null });
     const [favoritesCount, setFavoritesCount] = useState(0);
     const [historyCount, setHistoryCount] = useState(0);
@@ -83,7 +83,8 @@ export default function HomeScreen({ navigation }) {
         const name = user?.displayName ? user.displayName.split(' ')[0] : 'Chef';
         return name.charAt(0).toUpperCase() + name.slice(1);
     }, [user]);
-    const isCompact = width < 390;
+    const isWebPhone = Platform.OS === 'web';
+    const isCompact = width < 390 || (isWebPhone && width < 460) || height < 780;
 
     const dayPart = useMemo(() => getDayPart(), []);
     const dateLabel = useMemo(() => formatDateLabel(), []);
@@ -202,11 +203,11 @@ export default function HomeScreen({ navigation }) {
             <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
                 <Animated.ScrollView
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={[styles.scrollContent, isWebPhone && styles.webScrollContent]}
                     scrollEventThrottle={16}
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
                 >
-                    <View style={styles.pagePadding}>
+                    <View style={[styles.pagePadding, isWebPhone && styles.webPagePadding]}>
                         <Animated.View style={{ opacity: introOpacity, transform: [{ translateY: introLift }, { translateY: heroShift }, { scale: heroScale }] }}>
                             <View style={[styles.hero, isCompact && styles.heroCompact]}>
                                 <View style={styles.heroGlowA} />
@@ -394,7 +395,7 @@ export default function HomeScreen({ navigation }) {
                                         onPress={() => { }}
                                         containerStyle={{ backgroundColor: item.bg, borderRadius: 30 }}
                                     >
-                                        <Image source={item.image} className="h-[220px] w-full" resizeMode="cover" />
+                                        <Image source={item.image} className={`${isCompact ? 'h-[176px]' : 'h-[220px]'} w-full`} resizeMode="cover" />
                                         <View className="absolute inset-x-0 bottom-0 bg-black/40 px-6 py-6 border-t border-white/5">
                                             <View className="flex-row items-center justify-between">
                                                 <Text className="text-[11px] font-black uppercase tracking-[2px]" style={{ color: item.tone }}>{item.eyebrow}</Text>
@@ -417,6 +418,8 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#050A10' },
     scrollContent: { paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 },
     pagePadding: { paddingHorizontal: 22 },
+    webScrollContent: { paddingTop: 8, paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 42 },
+    webPagePadding: { paddingTop: 4 },
 
     orbTop: { position: 'absolute', top: -100, right: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(245, 158, 11, 0.16)' },
 
