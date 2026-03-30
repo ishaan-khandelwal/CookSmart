@@ -4,8 +4,10 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StatusBar,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -42,6 +44,7 @@ export default function LoginScreen({ navigation }) {
             <ScrollView
                 className="flex-1 bg-[#111111]"
                 contentContainerClassName="flex-grow pb-9"
+                contentContainerStyle={Platform.OS === 'web' ? styles.webScrollContent : undefined}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
                 showsVerticalScrollIndicator={false}
@@ -49,7 +52,7 @@ export default function LoginScreen({ navigation }) {
                 <View className="absolute right-[-50px] top-[70px] h-[220px] w-[220px] rounded-full bg-[#f59e0b2e]" />
                 <View className="absolute bottom-[120px] left-[-70px] h-[260px] w-[260px] rounded-full bg-[#22c55e1c]" />
 
-                <View className="min-h-full px-6 pb-6 pt-[72px]">
+                <View className="min-h-full px-6 pb-6 pt-[72px]" style={Platform.OS === 'web' ? styles.webAuthContent : undefined}>
                     <View className="mb-7">
                         <View className="mb-[18px] h-14 w-14 items-center justify-center rounded-[18px] border border-white/10 bg-[#1d1d1d]">
                             <FontAwesome5 name="utensils" size={24} color="#FFF7ED" />
@@ -143,3 +146,15 @@ export default function LoginScreen({ navigation }) {
         </KeyboardAvoidingView>
     );
 }
+
+const styles = StyleSheet.create({
+    webScrollContent: {
+        paddingVertical: 32,
+    },
+    webAuthContent: {
+        width: '100%',
+        maxWidth: 540,
+        alignSelf: 'center',
+        justifyContent: 'center',
+    },
+});
