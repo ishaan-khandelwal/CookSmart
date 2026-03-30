@@ -27,6 +27,11 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
     const scanLift = isWeb ? WEB_SCAN_LIFT : SCAN_LIFT;
     const dockBottom = Math.max(insets.bottom, DOCK_BOTTOM_GAP);
     const reservedHeight = dockHeight + dockBottom + DOCK_EXTRA_CLEARANCE;
+    const activeRoute = state.routes[state.index];
+
+    if (activeRoute?.name === 'Scan') {
+        return null;
+    }
 
     return (
         <View
@@ -42,17 +47,18 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
             }}
         >
             <View
-                className="absolute left-0 right-0 overflow-hidden rounded-[32px] border border-white/8 bg-transparent"
+                className="absolute left-0 right-0 overflow-hidden rounded-[32px] border border-white/8"
                 style={{
                     bottom: dockBottom,
                     height: dockHeight,
                     left: DOCK_SIDE_PADDING,
                     right: DOCK_SIDE_PADDING,
                     alignSelf: 'center',
+                    backgroundColor: 'rgba(7,16,24,0.9)',
                     shadowColor: '#000000',
-                    shadowOpacity: 0.24,
-                    shadowRadius: 28,
-                    shadowOffset: { width: 0, height: 14 },
+                    shadowOpacity: 0.28,
+                    shadowRadius: 24,
+                    shadowOffset: { width: 0, height: 12 },
                     elevation: 20,
                 }}
             >
