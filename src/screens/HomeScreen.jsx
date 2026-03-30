@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#050A10' },
     scrollContent: { paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 },
     pagePadding: { paddingHorizontal: 22 },
-    webPagePadding: { width: '100%', maxWidth: 920, alignSelf: 'center', paddingTop: 8 },
+    webPagePadding: { width: '100%', maxWidth: 398, alignSelf: 'center', paddingTop: 8 },
 
     orbTop: { position: 'absolute', top: -100, right: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(245, 158, 11, 0.16)' },
 

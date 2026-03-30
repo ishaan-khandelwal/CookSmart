@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     },
     webAuthContent: {
         width: '100%',
-        maxWidth: 540,
+        maxWidth: 398,
         alignSelf: 'center',
         justifyContent: 'center',
     },

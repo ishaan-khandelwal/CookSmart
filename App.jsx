@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     webShell: {
         flex: 1,
         width: '100%',
-        maxWidth: 980,
+        maxWidth: 430,
         alignSelf: 'center',
         overflow: 'hidden',
         borderRadius: 34,

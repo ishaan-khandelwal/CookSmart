@@ -160,7 +160,7 @@ export default function SplashScreen({ navigation }) {
 const styles = StyleSheet.create({
     webSplash: {
         width: '100%',
-        maxWidth: 540,
+        maxWidth: 398,
         alignSelf: 'center',
     },
 });

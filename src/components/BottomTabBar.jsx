@@ -44,7 +44,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                     left: Platform.OS === 'web' ? undefined : DOCK_SIDE_PADDING,
                     right: Platform.OS === 'web' ? undefined : DOCK_SIDE_PADDING,
                     width: Platform.OS === 'web' ? '100%' : undefined,
-                    maxWidth: Platform.OS === 'web' ? 720 : undefined,
+                    maxWidth: Platform.OS === 'web' ? 398 : undefined,
                     alignSelf: 'center',
                     shadowColor: '#000000',
                     shadowOpacity: 0.24,
