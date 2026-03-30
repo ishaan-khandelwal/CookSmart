@@ -245,9 +245,12 @@ export default function HomeScreen({ navigation }) {
                                     </Text>
                                 </View>
 
-                                <View className={`mt-8 gap-4 ${isCompact ? '' : 'flex-row'}`}>
+                                <View style={[styles.heroActionGroup, isCompact ? styles.heroActionGroupCompact : styles.heroActionGroupWide]}>
                                     <InteractiveCard
-                                        containerStyle={{ flex: isCompact ? 0 : 1 }}
+                                        containerStyle={[
+                                            styles.heroPrimaryActionWrap,
+                                            isCompact ? styles.heroPrimaryActionWrapCompact : styles.heroPrimaryActionWrapWide,
+                                        ]}
                                         className="flex-row items-center justify-center rounded-[20px] bg-[#F59E0B] px-5 py-5 shadow-xl shadow-[#F59E0B]/30"
                                         onPress={() => navigation.navigate('Scan')}
                                     >
@@ -255,6 +258,7 @@ export default function HomeScreen({ navigation }) {
                                         <Text className="ml-2.5 text-[15px] font-black uppercase text-[#111111]">Scan Pantry</Text>
                                     </InteractiveCard>
                                     <InteractiveCard
+                                        containerStyle={[styles.heroSecondaryActionWrap, isCompact && styles.heroSecondaryActionWrapCompact]}
                                         className="flex-row items-center justify-center rounded-[20px] border border-white/20 bg-white/10 px-5 py-5"
                                         onPress={() => navigation.navigate('Recipes')}
                                     >
@@ -437,6 +441,31 @@ const styles = StyleSheet.create({
     heroGlowA: { position: 'absolute', top: -70, right: -60, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(245, 158, 11, 0.22)' },
 
     heroGlowB: { position: 'absolute', bottom: -100, left: -80, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(34, 197, 94, 0.18)' },
+    heroActionGroup: {
+        marginTop: 32,
+    },
+    heroActionGroupWide: {
+        flexDirection: 'row',
+        columnGap: 16,
+    },
+    heroActionGroupCompact: {
+        rowGap: 12,
+    },
+    heroPrimaryActionWrap: {
+        width: '100%',
+    },
+    heroPrimaryActionWrapWide: {
+        flex: 1,
+    },
+    heroPrimaryActionWrapCompact: {
+        width: '100%',
+    },
+    heroSecondaryActionWrap: {
+        width: '100%',
+    },
+    heroSecondaryActionWrapCompact: {
+        width: '100%',
+    },
 
     heroBadge: { position: 'absolute', right: 20, top: 180, width: 156, borderRadius: 24, padding: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
 
