@@ -1,13 +1,16 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
+    browserLocalPersistence,
     createUserWithEmailAndPassword,
+    getAuth,
     getReactNativePersistence,
     initializeAuth,
     signInWithEmailAndPassword,
     signOut,
     updateProfile,
 } from 'firebase/auth';
+import { Platform } from 'react-native';
 
 const firebaseConfig = {
     apiKey: 'AIzaSyCUUIALVtuDqw23nhV8Osfp1O1blQ5UEbo',
@@ -19,10 +22,29 @@ const firebaseConfig = {
     measurementId: 'G-HSFVMQQ5YX',
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-});
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+function createAuth() {
+    if (Platform.OS === 'web') {
+        try {
+            return initializeAuth(app, {
+                persistence: browserLocalPersistence,
+            });
+        } catch {
+            return getAuth(app);
+        }
+    }
+
+    try {
+        return initializeAuth(app, {
+            persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+        });
+    } catch {
+        return getAuth(app);
+    }
+}
+
+const auth = createAuth();
 
 export const signInWithEmail = async (email, password) => {
     try {
