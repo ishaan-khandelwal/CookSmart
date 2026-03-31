@@ -1,5 +1,5 @@
 import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -20,6 +20,7 @@ export default function LoginScreen({ navigation }) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const passwordInputRef = useRef(null);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -48,7 +49,8 @@ export default function LoginScreen({ navigation }) {
                 <ScrollView
                     className="flex-1 bg-[#111111]"
                     contentContainerClassName="flex-grow px-6 pb-9 pt-6"
-                    keyboardShouldPersistTaps="always"
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                     showsVerticalScrollIndicator={false}
                 >
                     <View className="absolute right-[-50px] top-[70px] h-[220px] w-[220px] rounded-full bg-[#f59e0b2e]" />
@@ -85,8 +87,13 @@ export default function LoginScreen({ navigation }) {
                                         keyboardType="email-address"
                                         autoCapitalize="none"
                                         autoCorrect={false}
+                                        autoComplete="email"
+                                        textContentType="username"
+                                        returnKeyType="next"
+                                        blurOnSubmit={false}
                                         value={email}
                                         onChangeText={setEmail}
+                                        onSubmitEditing={() => passwordInputRef.current?.focus()}
                                     />
                                 </View>
                             </View>
@@ -96,12 +103,20 @@ export default function LoginScreen({ navigation }) {
                                 <View className="min-h-14 flex-row items-center gap-3 rounded-[18px] border border-white/10 bg-[#151515] px-4">
                                     <Feather name="lock" size={19} color="#8A8A8A" />
                                     <TextInput
+                                        ref={passwordInputRef}
                                         placeholder="Enter your password"
                                         placeholderTextColor="#8A8A8A"
                                         className="flex-1 text-[15px] text-white"
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        spellCheck={false}
+                                        autoComplete={Platform.OS === 'android' ? 'off' : 'current-password'}
+                                        textContentType="password"
+                                        returnKeyType="done"
                                         secureTextEntry={!showPassword}
                                         value={password}
                                         onChangeText={setPassword}
+                                        onSubmitEditing={handleLogin}
                                     />
                                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                                         <Text className="text-[13px] font-bold text-[#F6C453]">{showPassword ? 'Hide' : 'Show'}</Text>
