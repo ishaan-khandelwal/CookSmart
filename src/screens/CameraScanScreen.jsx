@@ -14,6 +14,7 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,8 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
+const TARGET_CAMERA_RATIO = '4:3';
+const TARGET_PICTURE_ASPECT = 4 / 3;
 
 function inferMimeType(uri, fallback = 'image/jpeg') {
     const normalizedUri = String(uri || '').toLowerCase();
@@ -44,6 +47,47 @@ function FrameCorner({ style }) {
     return <View pointerEvents="none" style={[styles.frameCorner, style]} />;
 }
 
+function scorePictureSize(size) {
+    if (typeof size !== 'string') {
+        return 0;
+    }
+
+    const normalized = size.toLowerCase();
+    const dimensionsMatch = normalized.match(/(\d+)x(\d+)/);
+
+    if (dimensionsMatch) {
+        const width = Number(dimensionsMatch[1]);
+        const height = Number(dimensionsMatch[2]);
+
+        if (!width || !height) {
+            return 0;
+        }
+
+        const aspect = Math.max(width, height) / Math.min(width, height);
+        const aspectPenalty = Math.abs(aspect - TARGET_PICTURE_ASPECT) * 1_000_000;
+
+        return width * height - aspectPenalty;
+    }
+
+    if (normalized === 'max' || normalized === 'high') {
+        return 5_000_000_000;
+    }
+
+    if (normalized === 'medium') {
+        return 4_000_000_000;
+    }
+
+    if (normalized === 'low') {
+        return 3_000_000_000;
+    }
+
+    return 0;
+}
+
+function selectBestPictureSize(sizes = []) {
+    return [...sizes].sort((first, second) => scorePictureSize(second) - scorePictureSize(first))[0];
+}
+
 export default function CameraScanScreen({ navigation }) {
     const cameraRef = useRef(null);
     const [permission, requestPermission] = useCameraPermissions();
@@ -51,8 +95,21 @@ export default function CameraScanScreen({ navigation }) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [recentIngredients, setRecentIngredients] = useState([]);
     const [lastPhotoUri, setLastPhotoUri] = useState(null);
+    const [cameraReady, setCameraReady] = useState(false);
+    const [pictureSize, setPictureSize] = useState(undefined);
+    const { width, height } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
-    const recentPreview = recentIngredients.slice(0, 6);
+    const isCompact = width < 390 || height < 760;
+    const isVeryCompact = height < 700;
+    const recentPreview = recentIngredients.slice(0, isVeryCompact ? 4 : 6);
+    const frameWidth = Math.min(width - 40, isVeryCompact ? 280 : isCompact ? 300 : 324);
+    const frameHeight = Math.max(
+        196,
+        Math.min(isVeryCompact ? 220 : isCompact ? 250 : 300, height * (isVeryCompact ? 0.32 : 0.38)),
+    );
+    const helperMessage = cameraReady
+        ? 'High-detail capture is enabled for cleaner scan results.'
+        : 'Optimizing the camera for a sharper scan...';
 
     const loadRecentScan = useCallback(async () => {
         try {
@@ -77,6 +134,11 @@ export default function CameraScanScreen({ navigation }) {
         const unsubscribe = navigation.addListener('focus', loadRecentScan);
         return unsubscribe;
     }, [loadRecentScan, navigation]);
+
+    useEffect(() => {
+        setCameraReady(false);
+        setPictureSize(undefined);
+    }, [cameraFacing]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -150,7 +212,7 @@ export default function CameraScanScreen({ navigation }) {
     );
 
     const handleCapture = useCallback(async () => {
-        if (!cameraRef.current || isProcessing) {
+        if (!cameraRef.current || isProcessing || !cameraReady) {
             return;
         }
 
@@ -162,9 +224,12 @@ export default function CameraScanScreen({ navigation }) {
 
         try {
             const photo = await cameraRef.current.takePictureAsync({
-                quality: isWeb ? 0.92 : 0.82,
+                quality: 1,
                 base64: true,
+                exif: true,
                 skipProcessing: false,
+                imageType: isWeb ? 'jpg' : undefined,
+                scale: isWeb ? 1 : undefined,
             });
 
             if (photo?.uri) {
@@ -177,7 +242,7 @@ export default function CameraScanScreen({ navigation }) {
         } catch {
             Alert.alert('Camera error', 'Could not capture the photo. Please try again.');
         }
-    }, [isProcessing, isWeb, processImageAsset]);
+    }, [cameraReady, isProcessing, isWeb, processImageAsset]);
 
     const handlePickFromGallery = useCallback(async () => {
         if (isProcessing) {
@@ -229,6 +294,25 @@ export default function CameraScanScreen({ navigation }) {
         navigation.navigate('MainTabs', { screen: 'Home' });
     }, [navigation]);
 
+    const handleCameraReady = useCallback(async () => {
+        setCameraReady(true);
+
+        if (isWeb || !cameraRef.current?.getAvailablePictureSizesAsync) {
+            return;
+        }
+
+        try {
+            const availableSizes = await cameraRef.current.getAvailablePictureSizesAsync();
+            const bestPictureSize = selectBestPictureSize(availableSizes);
+
+            if (bestPictureSize) {
+                setPictureSize((current) => (current === bestPictureSize ? current : bestPictureSize));
+            }
+        } catch {
+            // Some devices do not expose picture sizes reliably.
+        }
+    }, [isWeb]);
+
     if (!permission) {
         return (
             <View className="flex-1 items-center justify-center bg-background px-6">
@@ -262,7 +346,15 @@ export default function CameraScanScreen({ navigation }) {
     return (
         <View style={styles.screen}>
             <StatusBar barStyle="light-content" />
-            <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing={cameraFacing} />
+            <CameraView
+                ref={cameraRef}
+                style={StyleSheet.absoluteFillObject}
+                facing={cameraFacing}
+                onCameraReady={handleCameraReady}
+                pictureSize={pictureSize}
+                ratio={isWeb ? undefined : TARGET_CAMERA_RATIO}
+                mirror={cameraFacing === 'front'}
+            />
 
             <View pointerEvents="none" style={styles.cameraOverlay}>
                 <View style={styles.overlayGlowTop} />
@@ -271,119 +363,138 @@ export default function CameraScanScreen({ navigation }) {
                 <View style={styles.overlayShadeBottom} />
             </View>
 
-            <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-                <View style={styles.headerRow}>
-                    <Pressable style={styles.headerButton} onPress={handleBack}>
-                        <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-                    </Pressable>
+            <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+                <View style={styles.contentShell}>
+                    <View style={styles.headerBlock}>
+                        <View style={styles.headerRow}>
+                            <Pressable style={styles.headerButton} onPress={handleBack}>
+                                <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                            </Pressable>
 
-                    <View style={styles.headerTextWrap}>
-                        <Text className="text-center text-[28px] font-black text-white">Scan Ingredients</Text>
-                        <Text className="mt-1 text-center text-[13px] leading-5 text-white/70">
-                            Capture one clear shot and let CookSmart sort the pantry for you.
-                        </Text>
-                    </View>
+                            <View style={styles.headerTextWrap}>
+                                <Text style={[styles.headerTitle, isCompact && styles.headerTitleCompact]}>
+                                    Scan Ingredients
+                                </Text>
+                                <Text style={[styles.headerSubtitle, isVeryCompact && styles.headerSubtitleCompact]}>
+                                    {isVeryCompact
+                                        ? 'Use one clean shot so CookSmart can read produce, labels, and pantry items.'
+                                        : 'Hold steady for one clean shot and let CookSmart sort the pantry for you.'}
+                                </Text>
+                            </View>
 
-                    <View style={styles.headerSpacer} />
-                </View>
-
-                <View style={styles.stage}>
-                    <View style={styles.tipRow}>
-                        <View style={styles.tipPill}>
-                            <Ionicons name="sunny-outline" size={15} color="#F6B44F" />
-                            <Text className="ml-2 text-[12px] font-bold text-white">Bright light</Text>
+                            <View style={styles.headerSpacer} />
                         </View>
-                        <View style={styles.tipPill}>
-                            <Ionicons name="scan-outline" size={15} color="#F6B44F" />
-                            <Text className="ml-2 text-[12px] font-bold text-white">Fill the frame</Text>
-                        </View>
-                    </View>
 
-                    <View style={[styles.scanFrame, isWeb && styles.scanFrameWeb]}>
-                        <View style={styles.scanBadge}>
-                            <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-[#F6B44F]">
-                                Scan zone
-                            </Text>
-                        </View>
-                        <View style={styles.frameCenterLine} />
-                        <FrameCorner style={styles.frameCornerTopLeft} />
-                        <FrameCorner style={styles.frameCornerTopRight} />
-                        <FrameCorner style={styles.frameCornerBottomLeft} />
-                        <FrameCorner style={styles.frameCornerBottomRight} />
-                    </View>
-
-                    <View style={styles.guidanceCard}>
-                        <Text className="text-center text-[24px] font-black leading-8 text-white">
-                            Aim for detail, not distance
-                        </Text>
-                        <Text style={styles.guidanceBody}>
-                            Keep the main ingredients inside the frame with a little spacing so the scanner can
-                            separate produce, labels, and pantry items more accurately.
-                        </Text>
-                    </View>
-                </View>
-            </SafeAreaView>
-
-            <SafeAreaView style={styles.bottomArea} edges={['bottom', 'left', 'right']}>
-                {recentPreview.length > 0 ? (
-                    <View style={styles.recentPanel}>
-                        <View className="mb-3 flex-row items-center justify-between">
-                            <Text style={styles.recentLabel}>Recent scan</Text>
-                            <Text className="text-[12px] font-semibold text-[#F6B44F]">
-                                {recentPreview.length} item{recentPreview.length === 1 ? '' : 's'}
-                            </Text>
-                        </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentContent}>
-                            {recentPreview.map((ingredient) => (
-                                <View key={ingredient} style={styles.recentChip}>
-                                    <Text className="text-[13px] font-semibold text-white">{ingredient}</Text>
-                                </View>
-                            ))}
-                        </ScrollView>
-                    </View>
-                ) : (
-                    <View style={styles.tipStrip}>
-                        <Ionicons name="sparkles-outline" size={16} color="#F6B44F" />
-                        <Text style={styles.tipStripText}>
-                            Best results come from a single layer of ingredients with minimal shadow.
-                        </Text>
-                    </View>
-                )}
-
-                <View style={styles.controlDock}>
-                    <Pressable
-                        style={styles.sideControl}
-                        onPress={() => setCameraFacing((current) => (current === 'back' ? 'front' : 'back'))}
-                    >
-                        <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
-                    </Pressable>
-
-                    <Pressable
-                        style={[styles.shutterButton, isProcessing && styles.shutterButtonDisabled]}
-                        onPress={handleCapture}
-                        disabled={isProcessing}
-                    >
-                        <View style={styles.shutterOuterRing}>
-                            <View style={styles.shutterInnerRing}>
-                                <View style={styles.shutterCore} />
+                        <View style={styles.tipRow}>
+                            <View style={styles.tipPill}>
+                                <Ionicons name="sunny-outline" size={15} color="#F6B44F" />
+                                <Text style={styles.tipPillText}>Bright light</Text>
+                            </View>
+                            <View style={styles.tipPill}>
+                                <Ionicons name="scan-outline" size={15} color="#F6B44F" />
+                                <Text style={styles.tipPillText}>Fill the frame</Text>
                             </View>
                         </View>
-                    </Pressable>
+                    </View>
 
-                    <Pressable style={styles.sideControl} onPress={handlePickFromGallery}>
-                        <Ionicons name="images-outline" size={24} color="#FFFFFF" />
-                    </Pressable>
-                </View>
+                    <View style={[styles.stage, isVeryCompact && styles.stageCompact]}>
+                        <View style={[styles.scanFrame, { width: frameWidth, height: frameHeight }]}>
+                            <View style={styles.scanBadge}>
+                                <Text style={styles.scanBadgeText}>Scan zone</Text>
+                            </View>
+                            <View style={styles.frameCenterLine} />
+                            <FrameCorner style={styles.frameCornerTopLeft} />
+                            <FrameCorner style={styles.frameCornerTopRight} />
+                            <FrameCorner style={styles.frameCornerBottomLeft} />
+                            <FrameCorner style={styles.frameCornerBottomRight} />
+                        </View>
 
-                <View style={styles.helperRow}>
-                    <Text style={styles.helperText}>
-                        High-detail capture is enabled for cleaner scan results.
-                    </Text>
-                    {lastPhotoUri ? (
-                        <Pressable style={styles.retryButton} onPress={handleRetryLastPhoto}>
-                            <Text className="text-[13px] font-bold text-[#F6B44F]">Retry last photo</Text>
-                        </Pressable>
-                    ) : null}
+                        <View style={[styles.guidanceCard, isVeryCompact && styles.guidanceCardCompact]}>
+                            <View style={styles.guidanceIcon}>
+                                <Ionicons name="sparkles-outline" size={16} color="#F6B44F" />
+                            </View>
+                            <View style={styles.guidanceCopy}>
+                                <Text style={styles.guidanceTitle}>
+                                    {isVeryCompact ? 'Keep it close and steady' : 'Capture one clean layer'}
+                                </Text>
+                                <Text style={[styles.guidanceBody, isVeryCompact && styles.guidanceBodyCompact]}>
+                                    {isVeryCompact
+                                        ? 'Minimal shadow, labels visible, and most of the frame filled.'
+                                        : 'Use bright light and keep the ingredients in a single layer so the scanner can separate shapes, labels, and pantry packaging more accurately.'}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    <View style={styles.bottomStack}>
+                        {recentPreview.length > 0 ? (
+                            <View style={[styles.recentPanel, isVeryCompact && styles.recentPanelCompact]}>
+                                <View style={styles.recentHeaderRow}>
+                                    <Text style={styles.recentLabel}>Recent scan</Text>
+                                    <Text style={styles.recentCount}>
+                                        {recentPreview.length} item{recentPreview.length === 1 ? '' : 's'}
+                                    </Text>
+                                </View>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.recentContent}
+                                >
+                                    {recentPreview.map((ingredient) => (
+                                        <View key={ingredient} style={styles.recentChip}>
+                                            <Text style={styles.recentChipText}>{ingredient}</Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        ) : (
+                            <View style={styles.tipStrip}>
+                                <Ionicons name="sparkles-outline" size={16} color="#F6B44F" />
+                                <Text style={styles.tipStripText}>
+                                    Best results come from one layer of ingredients with minimal shadow.
+                                </Text>
+                            </View>
+                        )}
+
+                        <View style={[styles.controlDock, isVeryCompact && styles.controlDockCompact]}>
+                            <Pressable
+                                style={[styles.sideControl, isVeryCompact && styles.sideControlCompact]}
+                                onPress={() => setCameraFacing((current) => (current === 'back' ? 'front' : 'back'))}
+                            >
+                                <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
+                            </Pressable>
+
+                            <Pressable
+                                style={[styles.shutterButton, (isProcessing || !cameraReady) && styles.shutterButtonDisabled]}
+                                onPress={handleCapture}
+                                disabled={isProcessing || !cameraReady}
+                            >
+                                <View style={[styles.shutterOuterRing, isVeryCompact && styles.shutterOuterRingCompact]}>
+                                    <View style={[styles.shutterInnerRing, isVeryCompact && styles.shutterInnerRingCompact]}>
+                                        <View style={[styles.shutterCore, isVeryCompact && styles.shutterCoreCompact]} />
+                                    </View>
+                                </View>
+                            </Pressable>
+
+                            <Pressable
+                                style={[styles.sideControl, isVeryCompact && styles.sideControlCompact]}
+                                onPress={handlePickFromGallery}
+                            >
+                                <Ionicons name="images-outline" size={24} color="#FFFFFF" />
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.helperRow}>
+                            <Text style={[styles.helperText, isVeryCompact && styles.helperTextCompact]}>
+                                {helperMessage}
+                            </Text>
+                            {lastPhotoUri ? (
+                                <Pressable style={styles.retryButton} onPress={handleRetryLastPhoto}>
+                                    <Text style={styles.retryButtonText}>Retry last photo</Text>
+                                </Pressable>
+                            ) : null}
+                        </View>
+                    </View>
                 </View>
             </SafeAreaView>
 
@@ -438,6 +549,14 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 20,
         paddingTop: 6,
+        paddingBottom: 12,
+    },
+    contentShell: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    headerBlock: {
+        paddingTop: 4,
     },
     headerRow: {
         flexDirection: 'row',
@@ -455,24 +574,47 @@ const styles = StyleSheet.create({
     },
     headerTextWrap: {
         flex: 1,
-        paddingHorizontal: 16,
+        paddingHorizontal: 14,
     },
     headerSpacer: {
         width: 46,
         height: 46,
     },
+    headerTitle: {
+        textAlign: 'center',
+        fontSize: 28,
+        fontWeight: '900',
+        color: '#FFFFFF',
+    },
+    headerTitleCompact: {
+        fontSize: 24,
+    },
+    headerSubtitle: {
+        marginTop: 6,
+        textAlign: 'center',
+        fontSize: 13,
+        lineHeight: 19,
+        color: 'rgba(255,255,255,0.7)',
+    },
+    headerSubtitleCompact: {
+        fontSize: 12,
+        lineHeight: 17,
+    },
     stage: {
         flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
-        paddingBottom: 28,
+        justifyContent: 'center',
+        paddingVertical: 18,
+    },
+    stageCompact: {
+        paddingVertical: 14,
     },
     tipRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'center',
         gap: 10,
-        marginBottom: 22,
+        marginTop: 16,
     },
     tipPill: {
         flexDirection: 'row',
@@ -482,36 +624,43 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.12)',
         backgroundColor: 'rgba(7,16,24,0.7)',
         paddingHorizontal: 14,
-        paddingVertical: 10,
+        paddingVertical: 9,
+    },
+    tipPillText: {
+        marginLeft: 8,
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
     scanFrame: {
-        width: '100%',
-        maxWidth: 312,
-        aspectRatio: 0.92,
-        borderRadius: 34,
+        borderRadius: 32,
         borderWidth: 1.5,
         borderColor: 'rgba(255,255,255,0.18)',
         backgroundColor: 'rgba(5, 10, 16, 0.12)',
         overflow: 'hidden',
     },
-    scanFrameWeb: {
-        maxWidth: 344,
-    },
     scanBadge: {
         position: 'absolute',
-        top: 18,
+        top: 14,
         alignSelf: 'center',
         borderRadius: 999,
         paddingHorizontal: 14,
-        paddingVertical: 8,
+        paddingVertical: 7,
         backgroundColor: 'rgba(7,16,24,0.75)',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
     },
+    scanBadgeText: {
+        fontSize: 11,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 1.8,
+        color: '#F6B44F',
+    },
     frameCenterLine: {
         position: 'absolute',
-        left: '18%',
-        right: '18%',
+        left: '16%',
+        right: '16%',
         top: '50%',
         height: 2,
         borderRadius: 999,
@@ -552,30 +701,53 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 18,
     },
     guidanceCard: {
-        marginTop: 24,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: 16,
         width: '100%',
-        maxWidth: 320,
+        maxWidth: 340,
         borderRadius: 28,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
         backgroundColor: 'rgba(7,16,24,0.74)',
-        paddingHorizontal: 22,
-        paddingVertical: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+    },
+    guidanceCardCompact: {
+        marginTop: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+    },
+    guidanceIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(246,180,79,0.18)',
+        backgroundColor: 'rgba(246,180,79,0.12)',
+    },
+    guidanceCopy: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    guidanceTitle: {
+        fontSize: 15,
+        fontWeight: '900',
+        color: '#FFFFFF',
     },
     guidanceBody: {
-        marginTop: 12,
-        textAlign: 'center',
-        fontSize: 14,
-        lineHeight: 24,
+        marginTop: 4,
+        fontSize: 13,
+        lineHeight: 20,
         color: 'rgba(255,255,255,0.72)',
     },
-    bottomArea: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingHorizontal: 20,
-        paddingBottom: 18,
+    guidanceBodyCompact: {
+        lineHeight: 18,
+    },
+    bottomStack: {
+        paddingTop: 8,
     },
     recentPanel: {
         borderRadius: 24,
@@ -584,7 +756,17 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(7,16,24,0.82)',
         paddingHorizontal: 16,
         paddingVertical: 16,
-        marginBottom: 14,
+        marginBottom: 12,
+    },
+    recentPanelCompact: {
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    recentHeaderRow: {
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     recentLabel: {
         fontSize: 12,
@@ -593,11 +775,16 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         color: 'rgba(255,255,255,0.55)',
     },
+    recentCount: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#F6B44F',
+    },
     recentContent: {
-        paddingRight: 10,
+        paddingRight: 6,
     },
     recentChip: {
-        marginRight: 10,
+        marginRight: 8,
         borderRadius: 999,
         borderWidth: 1,
         borderColor: 'rgba(246,180,79,0.18)',
@@ -605,22 +792,27 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 9,
     },
+    recentChipText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#FFFFFF',
+    },
     tipStrip: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 20,
+        borderRadius: 18,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
         backgroundColor: 'rgba(7,16,24,0.78)',
         paddingHorizontal: 15,
-        paddingVertical: 12,
-        marginBottom: 14,
+        paddingVertical: 11,
+        marginBottom: 12,
     },
     tipStripText: {
         marginLeft: 8,
         flex: 1,
         fontSize: 13,
-        lineHeight: 20,
+        lineHeight: 18,
         fontWeight: '500',
         color: 'rgba(255,255,255,0.72)',
     },
@@ -628,22 +820,32 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderRadius: 32,
+        borderRadius: 30,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
         backgroundColor: 'rgba(7,16,24,0.88)',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    controlDockCompact: {
+        borderRadius: 28,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
     },
     sideControl: {
-        width: 58,
-        height: 58,
+        width: 56,
+        height: 56,
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
         backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    sideControlCompact: {
+        width: 50,
+        height: 50,
+        borderRadius: 18,
     },
     shutterButton: {
         alignItems: 'center',
@@ -653,47 +855,71 @@ const styles = StyleSheet.create({
         opacity: 0.65,
     },
     shutterOuterRing: {
-        width: 102,
-        height: 102,
-        borderRadius: 51,
+        width: 96,
+        height: 96,
+        borderRadius: 48,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1.5,
         borderColor: 'rgba(246,180,79,0.7)',
         backgroundColor: 'rgba(246,180,79,0.08)',
     },
+    shutterOuterRingCompact: {
+        width: 88,
+        height: 88,
+        borderRadius: 44,
+    },
     shutterInnerRing: {
-        width: 84,
-        height: 84,
-        borderRadius: 42,
+        width: 78,
+        height: 78,
+        borderRadius: 39,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 5,
         borderColor: '#FFFFFF',
         backgroundColor: 'rgba(255,255,255,0.08)',
     },
+    shutterInnerRingCompact: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+    },
     shutterCore: {
-        width: 62,
-        height: 62,
-        borderRadius: 31,
+        width: 58,
+        height: 58,
+        borderRadius: 29,
         backgroundColor: '#F6B44F',
+    },
+    shutterCoreCompact: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
     },
     helperRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        marginTop: 12,
+        marginTop: 10,
         paddingHorizontal: 4,
     },
     helperText: {
         flex: 1,
         fontSize: 12,
-        lineHeight: 20,
+        lineHeight: 18,
         fontWeight: '500',
         color: 'rgba(255,255,255,0.58)',
+    },
+    helperTextCompact: {
+        fontSize: 11,
+        lineHeight: 16,
     },
     retryButton: {
         paddingHorizontal: 8,
         paddingVertical: 6,
+    },
+    retryButtonText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#F6B44F',
     },
 });

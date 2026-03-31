@@ -5,6 +5,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import CameraScanScreen from '../screens/CameraScanScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
+import HelpSupportScreen from '../screens/Help&Support';
 import HomeScreen from '../screens/HomeScreen';
 import IngredientsResultScreen from '../screens/IngredientsResultScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -92,6 +93,11 @@ function AppScreens() {
                     <Stack.Screen
                         name="RecipeDetail"
                         component={RecipeDetailScreen}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="HelpSupport"
+                        component={HelpSupportScreen}
                         options={{ headerShown: false }}
                     />
                 </>

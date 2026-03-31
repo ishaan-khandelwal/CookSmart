@@ -360,7 +360,7 @@ export default function HomeScreen({ navigation }) {
                             </View>
 
                             <InteractiveCard
-                                className="mt-10 overflow-hidden rounded-[34px] border border-white/10 bg-[#121F2D] px-6 py-8"
+                                className="mt-2 overflow-hidden rounded-[34px] border border-white/10 bg-[#121F2D] px-6 py-6"
                                 onPress={openRecentScan}
                             >
                                 <View style={styles.scanGlow} />

@@ -3,12 +3,11 @@ import {
     Bell,
     ChevronRight,
     Heart,
-    Info,
     LogOut,
     MessageCircle,
     Star,
     User,
-    Utensils,
+    Utensils
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -23,8 +22,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { logout } from '../backend/auth';
+import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
 import { fetchHistory } from '../services/api';
 import { getStoredSpoonacularQuota } from '../services/spoonacularApi';
@@ -131,7 +130,7 @@ export default function ProfileScreen({ navigation }) {
                         <View className="flex-1 pr-4">
                             <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px] text-[#F6B44F]">Kitchen Account</Text>
                             <Text className="mt-2 text-[30px] font-black text-white">{user?.displayName || 'CookSmart User'}</Text>
-                            <Text className="mt-2 text-sm leading-6 text-[#94A7B8]">{user?.email || 'No email provided'}</Text>
+                            {/* <Text className="mt-2 text-sm leading-6 text-[#94A7B8]">{user?.email || 'No email provided'}</Text> */}
                         </View>
                         <View className="h-16 w-16 items-center justify-center rounded-full bg-[#F6B44F]">
                             <Utensils color="#08131C" size={28} />
@@ -150,13 +149,11 @@ export default function ProfileScreen({ navigation }) {
                     <View className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]">
                         <ProfileRow icon={User} iconColor="#F6B44F" label="Account details" onPress={() => setAccountInfoVisible(true)} />
                         <Divider />
-                        <ProfileRow icon={Heart} iconColor="#00C896" label="Saved recipes" />
+                        <ProfileRow icon={Heart} iconColor="#00C896" label="Saved recipes" onPress={() => navigation.navigate('Recipes')} />
                         <Divider />
-                        <ProfileRow icon={MessageCircle} iconColor="#F6B44F" label="Help & support" />
+                        <ProfileRow icon={MessageCircle} iconColor="#F6B44F" label="Help & support" onPress={() => navigation.navigate('HelpSupport')} />
                         <Divider />
                         <ProfileRow icon={Bell} iconColor="#60A5FA" label="Notifications" />
-                        <Divider />
-                        <ProfileRow icon={Info} iconColor="#8FA3B6" label="General info" />
                     </View>
                 </View>
 
