@@ -23,7 +23,6 @@ import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const TARGET_CAMERA_RATIO = '4:3';
-const TARGET_PICTURE_ASPECT = 4 / 3;
 
 function inferMimeType(uri, fallback = 'image/jpeg') {
     const normalizedUri = String(uri || '').toLowerCase();
@@ -47,47 +46,6 @@ function FrameCorner({ style }) {
     return <View pointerEvents="none" style={[styles.frameCorner, style]} />;
 }
 
-function scorePictureSize(size) {
-    if (typeof size !== 'string') {
-        return 0;
-    }
-
-    const normalized = size.toLowerCase();
-    const dimensionsMatch = normalized.match(/(\d+)x(\d+)/);
-
-    if (dimensionsMatch) {
-        const width = Number(dimensionsMatch[1]);
-        const height = Number(dimensionsMatch[2]);
-
-        if (!width || !height) {
-            return 0;
-        }
-
-        const aspect = Math.max(width, height) / Math.min(width, height);
-        const aspectPenalty = Math.abs(aspect - TARGET_PICTURE_ASPECT) * 1_000_000;
-
-        return width * height - aspectPenalty;
-    }
-
-    if (normalized === 'max' || normalized === 'high') {
-        return 5_000_000_000;
-    }
-
-    if (normalized === 'medium') {
-        return 4_000_000_000;
-    }
-
-    if (normalized === 'low') {
-        return 3_000_000_000;
-    }
-
-    return 0;
-}
-
-function selectBestPictureSize(sizes = []) {
-    return [...sizes].sort((first, second) => scorePictureSize(second) - scorePictureSize(first))[0];
-}
-
 export default function CameraScanScreen({ navigation }) {
     const cameraRef = useRef(null);
     const [permission, requestPermission] = useCameraPermissions();
@@ -96,7 +54,6 @@ export default function CameraScanScreen({ navigation }) {
     const [recentIngredients, setRecentIngredients] = useState([]);
     const [lastPhotoUri, setLastPhotoUri] = useState(null);
     const [cameraReady, setCameraReady] = useState(false);
-    const [pictureSize, setPictureSize] = useState(undefined);
     const { width, height } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
     const isCompact = width < 390 || height < 760;
@@ -108,7 +65,7 @@ export default function CameraScanScreen({ navigation }) {
         Math.min(isVeryCompact ? 220 : isCompact ? 250 : 300, height * (isVeryCompact ? 0.32 : 0.38)),
     );
     const helperMessage = cameraReady
-        ? 'High-detail capture is enabled for cleaner scan results.'
+        ? 'Camera is ready with a more natural full-frame preview.'
         : 'Optimizing the camera for a sharper scan...';
 
     const loadRecentScan = useCallback(async () => {
@@ -137,7 +94,6 @@ export default function CameraScanScreen({ navigation }) {
 
     useEffect(() => {
         setCameraReady(false);
-        setPictureSize(undefined);
     }, [cameraFacing]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
@@ -294,24 +250,9 @@ export default function CameraScanScreen({ navigation }) {
         navigation.navigate('MainTabs', { screen: 'Home' });
     }, [navigation]);
 
-    const handleCameraReady = useCallback(async () => {
+    const handleCameraReady = useCallback(() => {
         setCameraReady(true);
-
-        if (isWeb || !cameraRef.current?.getAvailablePictureSizesAsync) {
-            return;
-        }
-
-        try {
-            const availableSizes = await cameraRef.current.getAvailablePictureSizesAsync();
-            const bestPictureSize = selectBestPictureSize(availableSizes);
-
-            if (bestPictureSize) {
-                setPictureSize((current) => (current === bestPictureSize ? current : bestPictureSize));
-            }
-        } catch {
-            // Some devices do not expose picture sizes reliably.
-        }
-    }, [isWeb]);
+    }, []);
 
     if (!permission) {
         return (
@@ -351,9 +292,9 @@ export default function CameraScanScreen({ navigation }) {
                 style={StyleSheet.absoluteFillObject}
                 facing={cameraFacing}
                 onCameraReady={handleCameraReady}
-                pictureSize={pictureSize}
                 ratio={isWeb ? undefined : TARGET_CAMERA_RATIO}
                 mirror={cameraFacing === 'front'}
+                zoom={0}
             />
 
             <View pointerEvents="none" style={styles.cameraOverlay}>

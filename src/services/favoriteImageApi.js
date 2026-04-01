@@ -6,7 +6,42 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_GEMINI_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
 const THEMEALDB_BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
 const EDAMAM_BASE_URL = 'https://api.edamam.com';
+const SPOONACULAR_BASE_URL = 'https://api.spoonacular.com';
 const EDAMAM_ACCOUNT_USER = 'cooksmart-app';
+const CURATED_REAL_FAVORITE_PHOTOS = [
+    {
+        aliases: ['aloo paratha', 'aaloo paratha', 'alu paratha'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Aloo%20Paratha%20%2896238%29.jpg',
+    },
+    {
+        aliases: ['masala dosa', 'dosa'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Masala%20dosa%20%2896279%29.jpg',
+    },
+    {
+        aliases: ['paneer tikka'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Paneer%20tikka.jpg',
+    },
+    {
+        aliases: ['paneer butter masala', 'butter paneer', 'paneer makhani', 'paneer butter curry'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Butter%20Paneer.JPG',
+    },
+    {
+        aliases: ['chole bhature', 'chole bhatura', 'chhole bhature', 'chhola bhatura'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/CHOLE%20BHATURE.JPG',
+    },
+    {
+        aliases: ['veg biryani', 'vegetable biryani'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Vegetable%20Biryani%20002.JPG',
+    },
+    {
+        aliases: ['chicken biryani', 'hyderabadi chicken biryani'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hyderabadi%20Chicken%20Biryani.jpg',
+    },
+    {
+        aliases: ['mutton biryani', 'lamb biryani'],
+        image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Mutton%20Biryani.jpg',
+    },
+];
 
 function sanitizeRecipeTitle(title) {
     return String(title || '')
@@ -43,6 +78,10 @@ function sanitizeApiKey(rawValue) {
     return apiKey;
 }
 
+function getSpoonacularApiKey() {
+    return sanitizeApiKey(getEnvValue('EXPO_PUBLIC_SPOONACULAR_API_KEY') || getEnvValue('SPOONACULAR_API_KEY'));
+}
+
 function getOpenRouterImageConfig() {
     const apiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENROUTER_KEY')) || sanitizeApiKey(getEnvValue('EXPO_PUBLIC_ANTHROPIC_KEY'));
 
@@ -68,12 +107,18 @@ function createFallbackFavoriteCover(title) {
     return `https://placehold.co/1200x900/0d1721/F6B44F.png?text=${encodeURIComponent(safeTitle)}`;
 }
 
-function tokenizeTitle(value) {
+function normalizeRecipeLookupTitle(value) {
     return String(value || '')
         .toLowerCase()
+        .replace(/&/g, ' and ')
         .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(Boolean);
+        .replace(/\b(style|recipe|homemade|easy|quick|best|authentic|restaurant)\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function tokenizeTitle(value) {
+    return normalizeRecipeLookupTitle(value).split(/\s+/).filter(Boolean);
 }
 
 function scoreRecipeNameMatch(queryTitle, candidateTitle) {
@@ -127,6 +172,40 @@ function extractGeneratedImage(response) {
 
 function buildFavoriteImagePrompt(title) {
     return `Create a premium, realistic food photograph of "${title}" plated beautifully on a dark restaurant table. No text, no watermark, appetizing, warm lighting, mobile-app friendly framing.`;
+}
+
+function findCuratedFavoritePhoto(title) {
+    const normalizedTitle = normalizeRecipeLookupTitle(title);
+    if (!normalizedTitle) {
+        return '';
+    }
+
+    let bestMatch = { score: 0, image: '' };
+
+    CURATED_REAL_FAVORITE_PHOTOS.forEach((entry) => {
+        entry.aliases.forEach((alias) => {
+            const normalizedAlias = normalizeRecipeLookupTitle(alias);
+
+            if (!normalizedAlias) {
+                return;
+            }
+
+            let score = 0;
+            if (normalizedTitle === normalizedAlias) {
+                score = 100;
+            } else if (normalizedTitle.includes(normalizedAlias)) {
+                score = 80 + normalizedAlias.length;
+            } else if (normalizedAlias.includes(normalizedTitle)) {
+                score = 60 + normalizedTitle.length;
+            }
+
+            if (score > bestMatch.score) {
+                bestMatch = { score, image: entry.image };
+            }
+        });
+    });
+
+    return bestMatch.image;
 }
 
 async function parseError(response) {
@@ -209,6 +288,32 @@ async function generateOpenRouterFavoriteImage(title) {
     return data?.choices?.[0]?.message?.images?.[0]?.image_url?.url || '';
 }
 
+async function generateSpoonacularFavoriteImage(title) {
+    const apiKey = getSpoonacularApiKey();
+    if (!apiKey) {
+        return '';
+    }
+
+    const params = new URLSearchParams({
+        query: title,
+        number: '10',
+        apiKey,
+    });
+
+    const data = await fetchJson(`${SPOONACULAR_BASE_URL}/recipes/complexSearch?${params.toString()}`);
+    const recipes = Array.isArray(data?.results) ? data.results : [];
+    const rankedRecipes = recipes
+        .filter((recipe) => recipe?.image)
+        .map((recipe) => ({
+            image: recipe.image,
+            score: scoreRecipeNameMatch(title, recipe?.title),
+        }))
+        .filter((recipe) => recipe.score >= 4)
+        .sort((left, right) => right.score - left.score);
+
+    return rankedRecipes[0]?.image || '';
+}
+
 async function generateMealDbFavoriteImage(title) {
     const data = await fetchJson(`${THEMEALDB_BASE_URL}/search.php?s=${encodeURIComponent(title)}`);
     const meals = Array.isArray(data?.meals) ? data.meals : [];
@@ -256,23 +361,21 @@ async function generateEdamamFavoriteImage(title) {
     return rankedHits[0]?.image || '';
 }
 
-export async function generateFavoriteImageFromTitle(title, geminiApiKey) {
+export async function findRealFavoriteImageFromTitle(title) {
     const safeTitle = sanitizeRecipeTitle(title);
     if (!safeTitle) {
         return '';
     }
 
-    try {
-        const geminiImage = await generateDirectGeminiFavoriteImage(safeTitle, geminiApiKey);
-        if (geminiImage) {
-            return geminiImage;
-        }
-    } catch { }
+    const curatedImage = findCuratedFavoritePhoto(safeTitle);
+    if (curatedImage) {
+        return curatedImage;
+    }
 
     try {
-        const openRouterImage = await generateOpenRouterFavoriteImage(safeTitle);
-        if (openRouterImage) {
-            return openRouterImage;
+        const spoonacularImage = await generateSpoonacularFavoriteImage(safeTitle);
+        if (spoonacularImage) {
+            return spoonacularImage;
         }
     } catch { }
 
@@ -287,6 +390,36 @@ export async function generateFavoriteImageFromTitle(title, geminiApiKey) {
         const edamamImage = await generateEdamamFavoriteImage(safeTitle);
         if (edamamImage) {
             return edamamImage;
+        }
+    } catch { }
+
+    return '';
+}
+
+export async function generateFavoriteImageFromTitle(title, geminiApiKey) {
+    const safeTitle = sanitizeRecipeTitle(title);
+    if (!safeTitle) {
+        return '';
+    }
+
+    try {
+        const realFavoriteImage = await findRealFavoriteImageFromTitle(safeTitle);
+        if (realFavoriteImage) {
+            return realFavoriteImage;
+        }
+    } catch { }
+
+    try {
+        const geminiImage = await generateDirectGeminiFavoriteImage(safeTitle, geminiApiKey);
+        if (geminiImage) {
+            return geminiImage;
+        }
+    } catch { }
+
+    try {
+        const openRouterImage = await generateOpenRouterFavoriteImage(safeTitle);
+        if (openRouterImage) {
+            return openRouterImage;
         }
     } catch { }
 

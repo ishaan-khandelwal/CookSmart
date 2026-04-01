@@ -16,11 +16,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
 import { createFavorite, fetchFavorites } from '../services/api';
-import { generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
+import { findRealFavoriteImageFromTitle, generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 
 function canRenderFavoriteImage(uri) {
     const value = String(uri || '').trim();
     return Boolean(value) && !/^data:image\/svg\+xml/i.test(value);
+}
+
+function shouldUpgradeFavoriteImage(uri) {
+    const value = String(uri || '').trim().toLowerCase();
+    if (!value) {
+        return true;
+    }
+
+    return /^data:image\//i.test(value) || value.includes('placehold.co');
 }
 
 export default function FavoritesScreen({ navigation }) {
@@ -43,6 +52,42 @@ export default function FavoritesScreen({ navigation }) {
         return 'No saved recipes yet. Add one below or save a recipe from the AI results flow.';
     }, [userId]);
 
+    const refreshFavoriteImages = useCallback(async (items) => {
+        if (!userId || !Array.isArray(items) || !items.length) {
+            return;
+        }
+
+        for (const item of items) {
+            if (!item?.title || !shouldUpgradeFavoriteImage(item.image)) {
+                continue;
+            }
+
+            try {
+                const realImage = await findRealFavoriteImageFromTitle(item.title);
+                if (!realImage || realImage === item.image) {
+                    continue;
+                }
+
+                const updatedFavorite = await createFavorite({
+                    recipeId: item.recipeId || '',
+                    provider: item.provider || 'manual',
+                    title: item.title,
+                    image: realImage,
+                    vegetarian: Boolean(item.vegetarian),
+                    vegan: Boolean(item.vegan),
+                    userId,
+                    source: item.source || 'favorites-screen',
+                });
+
+                setFavorites((currentFavorites) => currentFavorites.map((favorite) => (
+                    favorite._id === item._id || favorite.title === item.title ? updatedFavorite : favorite
+                )));
+            } catch {
+                // Keep the current image if the upgrade lookup fails.
+            }
+        }
+    }, [userId]);
+
     const loadFavorites = useCallback(async (showRefresh = false) => {
         if (!userId) {
             setFavorites([]);
@@ -59,14 +104,16 @@ export default function FavoritesScreen({ navigation }) {
             }
 
             const data = await fetchFavorites(userId);
-            setFavorites(Array.isArray(data) ? data : []);
+            const favoritesList = Array.isArray(data) ? data : [];
+            setFavorites(favoritesList);
+            refreshFavoriteImages(favoritesList);
         } catch (error) {
             Alert.alert('Load Failed', error.message);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [userId]);
+    }, [refreshFavoriteImages, userId]);
 
     useEffect(() => {
         loadFavorites();
@@ -163,7 +210,7 @@ export default function FavoritesScreen({ navigation }) {
                             <View className="mt-3 rounded-[20px] border border-[#F6B44F]/20 bg-[#F6B44F]/8 px-4 py-3">
                                 <Text className="text-[11px] font-black uppercase tracking-[1px] text-[#F6B44F]">Auto Image</Text>
                                 <Text className="mt-1 text-sm leading-5 text-[#D0D8E2]">
-                                    CookSmart will generate the recipe image automatically from the title when you save.
+                                    CookSmart will look for a real food photo first, then fall back to generated art only if needed.
                                 </Text>
                             </View>
 
