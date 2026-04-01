@@ -11,7 +11,7 @@ export default function RecipeCard({ recipe, onPress }) {
     const stripeColor = difficultyStripe[recipe.difficulty] ?? '#00C896';
     const dietLabel = recipe.vegan ? 'Vegan' : recipe.vegetarian ? 'Veg' : 'Non-Veg';
     const dietColor = recipe.vegan || recipe.vegetarian ? '#22C55E' : '#FF6B6B';
-    const providerLabel = recipe.provider === 'gemini' ? 'AI recipe' : recipe.provider === 'edamam' ? 'Web source' : 'Pantry match';
+    const providerLabel = recipe.provider === 'gemini' ? 'Pantry recipe' : recipe.provider === 'edamam' ? 'Home match' : 'Pantry match';
 
     return (
         <Pressable className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]" onPress={onPress}>
@@ -52,13 +52,13 @@ export default function RecipeCard({ recipe, onPress }) {
                     </View>
                     <View className="rounded-full border border-[#00c89630] bg-[#00c89614] px-3 py-2">
                         <Text className="text-[12px] font-semibold text-[#9FE6D3]">
-                            {recipe.matchingCount} ingredient{recipe.matchingCount === 1 ? '' : 's'} ready
+                            Uses {recipe.matchingCount} ingredient{recipe.matchingCount === 1 ? '' : 's'} you have
                         </Text>
                     </View>
-                    {typeof recipe.missingCount === 'number' ? (
-                        <View className="rounded-full border border-[#f6b44f30] bg-[#f6b44f14] px-3 py-2">
+                    {Array.isArray(recipe.pantryStaples) && recipe.pantryStaples.length ? (
+                        <View className="rounded-full border border-white/8 bg-white/5 px-3 py-2">
                             <Text className="text-[12px] font-semibold text-[#F8D08B]">
-                                {recipe.missingCount} to add
+                                Pantry basics only
                             </Text>
                         </View>
                     ) : null}

@@ -1,4 +1,14 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import Constants from 'expo-constants';
+
+function getExtraConfigValue(key) {
+  return (
+    Constants.expoConfig?.extra?.[key] ||
+    Constants.manifest2?.extra?.expoClient?.extra?.[key] ||
+    ''
+  );
+}
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || getExtraConfigValue('EXPO_PUBLIC_API_URL');
 
 function buildUrl(path, query = {}) {
   if (!API_URL) {

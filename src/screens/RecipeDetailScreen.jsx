@@ -28,17 +28,15 @@ function uniqueList(items) {
     return Array.from(new Set((items || []).map((item) => String(item).trim()).filter(Boolean)));
 }
 
-function buildShoppingUrl(ingredientName) {
-    return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${ingredientName} online`)}`;
-}
-
 function getIngredientBuckets(recipe, selectedIngredients) {
     const usedIngredients = uniqueList(recipe?.usedIngredients);
+    const pantryStaples = uniqueList(recipe?.pantryStaples);
     const missingIngredients = uniqueList(recipe?.missingIngredients);
 
-    if (usedIngredients.length || missingIngredients.length) {
+    if (usedIngredients.length || pantryStaples.length || missingIngredients.length) {
         return {
             have: usedIngredients,
+            pantryStaples,
             missing: missingIngredients,
         };
     }
@@ -46,7 +44,7 @@ function getIngredientBuckets(recipe, selectedIngredients) {
     const available = new Set((selectedIngredients || []).map(normalizeIngredient).filter(Boolean));
     const allIngredients = uniqueList(recipe?.ingredients);
     const have = [];
-    const missing = [];
+    const pantryStaplesFallback = [];
 
     allIngredients.forEach((ingredient) => {
         const normalizedIngredient = normalizeIngredient(ingredient);
@@ -57,11 +55,11 @@ function getIngredientBuckets(recipe, selectedIngredients) {
         if (matches) {
             have.push(ingredient);
         } else {
-            missing.push(ingredient);
+            pantryStaplesFallback.push(ingredient);
         }
     });
 
-    return { have, missing };
+    return { have, pantryStaples: pantryStaplesFallback, missing: [] };
 }
 
 export default function RecipeDetailScreen({ navigation, route }) {
@@ -137,10 +135,6 @@ export default function RecipeDetailScreen({ navigation, route }) {
             isMounted = false;
         };
     }, [initialRecipe?.name, recipeId, selectedIngredients, user?.uid]);
-
-    const openShoppingSearch = async (ingredientName) => {
-        await Linking.openURL(buildShoppingUrl(ingredientName));
-    };
 
     const handleSaveFavorite = async () => {
         if (!user?.uid) {
@@ -220,11 +214,16 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                 </View>
                             ) : null}
                             <View className="rounded-full bg-white/5 px-3 py-2">
-                                <Text className="text-xs font-semibold text-textPrimary">
-                                    {ingredientBuckets.have.length} have / {ingredientBuckets.missing.length} missing
-                                </Text>
+                                    <Text className="text-xs font-semibold text-textPrimary">
+                                        {ingredientBuckets.have.length} from your scan
+                                    </Text>
+                                </View>
+                                {ingredientBuckets.pantryStaples.length ? (
+                                    <View className="rounded-full bg-white/5 px-3 py-2">
+                                        <Text className="text-xs font-semibold text-textPrimary">Pantry basics assumed</Text>
+                                    </View>
+                                ) : null}
                             </View>
-                        </View>
 
                         <View className="mb-5 flex-row gap-3">
                             <Pressable className="flex-1 items-center rounded-2xl bg-primary px-4 py-3.5" onPress={handleSaveFavorite}>
@@ -284,15 +283,15 @@ export default function RecipeDetailScreen({ navigation, route }) {
 
                                 {(ingredientBuckets.have.length || ingredientBuckets.missing.length) ? (
                                     <View className="mt-4 rounded-[24px] border border-white/10 bg-[#111927] p-4">
-                                        <Text className="mb-1 text-lg font-bold text-textPrimary">What You Have vs Need</Text>
+                                        <Text className="mb-1 text-lg font-bold text-textPrimary">Cook From What You Have</Text>
                                         <Text className="mb-4 text-sm leading-5 text-textSecondary">
-                                            Based on the ingredients you selected before opening this recipe.
+                                            This recipe is filtered to fit what you already have at home.
                                         </Text>
 
                                         <View className="mb-4 rounded-2xl border border-[#00c89633] bg-[#00c89614] p-4">
                                             <View className="mb-3 flex-row items-center">
                                                 <Ionicons name="checkmark-circle" size={18} color="#00C896" />
-                                                <Text className="ml-2 text-base font-bold text-textPrimary">You already have</Text>
+                                                <Text className="ml-2 text-base font-bold text-textPrimary">From your ingredients</Text>
                                             </View>
                                             {ingredientBuckets.have.length ? (
                                                 ingredientBuckets.have.map((ingredient) => (
@@ -302,37 +301,36 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                                 ))
                                             ) : (
                                                 <Text className="text-sm leading-5 text-textSecondary">
-                                                    No exact ingredient matches were detected from your current list.
+                                                    CookSmart matched this recipe using your scanned pantry context.
                                                 </Text>
                                             )}
                                         </View>
 
-                                        <View className="rounded-2xl border border-[#ffb54733] bg-[#ffb54714] p-4">
-                                            <View className="mb-3 flex-row items-center">
-                                                <Ionicons name="cart-outline" size={18} color="#FFB547" />
-                                                <Text className="ml-2 text-base font-bold text-textPrimary">Still missing</Text>
+                                        {ingredientBuckets.pantryStaples.length ? (
+                                            <View className="rounded-2xl border border-white/10 bg-background/30 p-4">
+                                                <View className="mb-3 flex-row items-center">
+                                                    <Ionicons name="restaurant-outline" size={18} color="#F6B44F" />
+                                                    <Text className="ml-2 text-base font-bold text-textPrimary">Pantry basics</Text>
+                                                </View>
+                                                {ingredientBuckets.pantryStaples.map((ingredient) => (
+                                                    <Text key={`staple-${ingredient}`} className="mb-2 text-[15px] leading-6 text-textPrimary">
+                                                        - {ingredient}
+                                                    </Text>
+                                                ))}
                                             </View>
-                                            {ingredientBuckets.missing.length ? (
-                                                ingredientBuckets.missing.map((ingredient) => (
-                                                    <View
-                                                        key={`missing-${ingredient}`}
-                                                        className="mb-3 rounded-2xl border border-white/10 bg-background/30 p-3"
-                                                    >
-                                                        <Text className="mb-2 text-[15px] leading-6 text-textPrimary">{ingredient}</Text>
-                                                        <Pressable
-                                                            className="self-start rounded-full bg-primary px-3.5 py-2"
-                                                            onPress={() => openShoppingSearch(ingredient)}
-                                                        >
-                                                            <Text className="text-xs font-bold text-background">Search Online</Text>
-                                                        </Pressable>
-                                                    </View>
-                                                ))
-                                            ) : (
+                                        ) : null}
+
+                                        {ingredientBuckets.missing.length ? (
+                                            <View className="mt-4 rounded-2xl border border-[#ffb54733] bg-[#ffb54714] p-4">
+                                                <View className="mb-3 flex-row items-center">
+                                                    <Ionicons name="alert-circle-outline" size={18} color="#FFB547" />
+                                                    <Text className="ml-2 text-base font-bold text-textPrimary">Check this recipe</Text>
+                                                </View>
                                                 <Text className="text-sm leading-5 text-textSecondary">
-                                                    You already have everything needed from this recipe match.
+                                                    This recipe still references a few extra items, so you may want to use the pantry-only matches list instead.
                                                 </Text>
-                                            )}
-                                        </View>
+                                            </View>
+                                        ) : null}
                                     </View>
                                 ) : null}
                             </View>

@@ -102,7 +102,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
     }, [activeFilter, recipes]);
 
     const primaryProvider = recipes[0]?.provider || '';
-    const heroLabel = primaryProvider === 'gemini' ? 'AI Recipe Studio' : primaryProvider === 'edamam' ? 'Curated Web Picks' : 'Pantry Recipe Matches';
+    const heroLabel = primaryProvider === 'gemini' ? 'Pantry Recipe Studio' : primaryProvider === 'edamam' ? 'At-Home Matches' : 'Pantry Recipe Matches';
     const heroTone = primaryProvider === 'gemini' ? '#F6B44F' : primaryProvider === 'edamam' ? '#60A5FA' : '#00C896';
 
     return (
@@ -123,10 +123,10 @@ export default function RecipeResultsScreen({ navigation, route }) {
                         {heroLabel}
                     </Text>
                     <Text className="mt-3 text-[31px] font-black leading-9 text-white">
-                        {filteredRecipes.length} recipe{filteredRecipes.length === 1 ? '' : 's'} shaped around your ingredients.
+                        {filteredRecipes.length} recipe{filteredRecipes.length === 1 ? '' : 's'} you can cook with what you have.
                     </Text>
                     <Text className="mt-3 max-w-[310px] text-[14px] leading-6 text-[#91A4B8]">
-                        Built from {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} you selected, with a cleaner path from search to cooking steps.
+                        Built from {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} you selected at home, without needing a market run.
                     </Text>
 
                     <View className="mt-5 flex-row flex-wrap gap-2">
@@ -144,7 +144,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
                         {primaryProvider === 'gemini' ? (
                             <View className="rounded-full border border-[#f6b44f33] bg-[#f6b44f14] px-4 py-2.5 flex-row items-center">
                                 <Ionicons name="sparkles" size={12} color="#F6B44F" />
-                                <Text className="ml-2 text-[12px] font-semibold text-[#F8D08B]">AI-curated recipes</Text>
+                                <Text className="ml-2 text-[12px] font-semibold text-[#F8D08B]">Pantry-only recipes</Text>
                             </View>
                         ) : null}
                         {typeof quota?.remaining === 'number' && primaryProvider === 'spoonacular' ? (
@@ -186,9 +186,9 @@ export default function RecipeResultsScreen({ navigation, route }) {
 
                 {!loading && !errorMessage && !filteredRecipes.length ? (
                     <View className="rounded-[28px] border border-white/10 bg-[#0d1721] p-6">
-                        <Text className="text-lg font-bold text-textPrimary">No recipe matches yet</Text>
+                        <Text className="text-lg font-bold text-textPrimary">No pantry-only recipe matches yet</Text>
                         <Text className="mt-2 text-sm leading-6 text-textSecondary">
-                            Try scanning again with pantry staples like onion, tomato, rice, eggs, herbs, or pasta for stronger matches.
+                            Try scanning more of what you already have at home so CookSmart can build fuller recipes without adding outside ingredients.
                         </Text>
                     </View>
                 ) : null}

@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Linking,
@@ -47,16 +47,31 @@ function FrameCorner({ style }) {
 
 export default function CameraScanScreen({ navigation }) {
     const cameraRef = useRef(null);
+    const webVideoRef = useRef(null);
+    const webStreamRef = useRef(null);
     const [permission, requestPermission] = useCameraPermissions();
     const [cameraFacing, setCameraFacing] = useState('back');
     const [isProcessing, setIsProcessing] = useState(false);
     const [recentIngredients, setRecentIngredients] = useState([]);
     const [lastPhotoUri, setLastPhotoUri] = useState(null);
     const [cameraReady, setCameraReady] = useState(false);
+    const [webCameraError, setWebCameraError] = useState('');
+    const [webReloadToken, setWebReloadToken] = useState(0);
     const { width, height } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
     const frameWidth = Math.min(width - 30, 360);
     const frameHeight = Math.min(Math.max(height * (isWeb ? 0.5 : 0.42), 280), isWeb ? 460 : 400);
+
+    const stopWebCameraStream = useCallback(() => {
+        const activeStream = webStreamRef.current;
+        if (!activeStream?.getTracks) {
+            webStreamRef.current = null;
+            return;
+        }
+
+        activeStream.getTracks().forEach((track) => track.stop());
+        webStreamRef.current = null;
+    }, []);
 
     const loadRecentScan = useCallback(async () => {
         try {
@@ -85,6 +100,76 @@ export default function CameraScanScreen({ navigation }) {
     useEffect(() => {
         setCameraReady(false);
     }, [cameraFacing]);
+
+    useEffect(() => {
+        if (!isWeb || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+            return undefined;
+        }
+
+        let isActive = true;
+
+        const startWebCamera = async () => {
+            setCameraReady(false);
+            setWebCameraError('');
+            stopWebCameraStream();
+
+            try {
+                let stream;
+
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: {
+                            facingMode: cameraFacing === 'back' ? { ideal: 'environment' } : 'user',
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                        },
+                    });
+                } catch {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: true,
+                    });
+                }
+
+                if (!isActive) {
+                    stream?.getTracks?.().forEach((track) => track.stop());
+                    return;
+                }
+
+                webStreamRef.current = stream;
+
+                const videoElement = webVideoRef.current;
+                if (!videoElement) {
+                    return;
+                }
+
+                videoElement.srcObject = stream;
+                videoElement.onloadedmetadata = async () => {
+                    try {
+                        await videoElement.play();
+                    } catch {
+                        // Browsers may block autoplay until metadata is loaded.
+                    }
+
+                    if (isActive) {
+                        setCameraReady(true);
+                    }
+                };
+            } catch {
+                if (isActive) {
+                    setWebCameraError('Camera access is blocked in the browser. Allow camera permission and reload the scanner.');
+                }
+            }
+        };
+
+        startWebCamera();
+
+        return () => {
+            isActive = false;
+            stopWebCameraStream();
+        };
+    }, [cameraFacing, isWeb, stopWebCameraStream, webReloadToken]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -158,7 +243,7 @@ export default function CameraScanScreen({ navigation }) {
     );
 
     const handleCapture = useCallback(async () => {
-        if (!cameraRef.current || isProcessing || !cameraReady) {
+        if (isProcessing || !cameraReady) {
             return;
         }
 
@@ -169,13 +254,50 @@ export default function CameraScanScreen({ navigation }) {
         }
 
         try {
+            if (isWeb) {
+                const videoElement = webVideoRef.current;
+                const captureWidth = videoElement?.videoWidth;
+                const captureHeight = videoElement?.videoHeight;
+
+                if (!videoElement || !captureWidth || !captureHeight || typeof document === 'undefined') {
+                    throw new Error('Web camera not ready');
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = captureWidth;
+                canvas.height = captureHeight;
+
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    throw new Error('Canvas unavailable');
+                }
+
+                if (cameraFacing === 'front') {
+                    context.translate(captureWidth, 0);
+                    context.scale(-1, 1);
+                }
+
+                context.drawImage(videoElement, 0, 0, captureWidth, captureHeight);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.96);
+
+                await processImageAsset({
+                    uri: dataUrl,
+                    base64: dataUrl.split(',')[1] || '',
+                    mimeType: 'image/jpeg',
+                });
+
+                return;
+            }
+
+            if (!cameraRef.current) {
+                throw new Error('Camera not ready');
+            }
+
             const photo = await cameraRef.current.takePictureAsync({
                 quality: 1,
                 base64: true,
                 exif: true,
                 skipProcessing: false,
-                imageType: isWeb ? 'jpg' : undefined,
-                scale: isWeb ? 1 : undefined,
             });
 
             if (photo?.uri) {
@@ -188,7 +310,7 @@ export default function CameraScanScreen({ navigation }) {
         } catch {
             Alert.alert('Camera error', 'Could not capture the photo. Please try again.');
         }
-    }, [cameraReady, isProcessing, isWeb, processImageAsset]);
+    }, [cameraFacing, cameraReady, isProcessing, isWeb, processImageAsset]);
 
     const handlePickFromGallery = useCallback(async () => {
         if (isProcessing) {
@@ -238,7 +360,7 @@ export default function CameraScanScreen({ navigation }) {
         setCameraReady(true);
     }, []);
 
-    if (!permission) {
+    if (!isWeb && !permission) {
         return (
             <View className="flex-1 items-center justify-center bg-background px-6">
                 <Text className="text-[22px] font-bold text-textPrimary">Preparing camera...</Text>
@@ -246,7 +368,26 @@ export default function CameraScanScreen({ navigation }) {
         );
     }
 
-    if (!permission.granted) {
+    if (isWeb && webCameraError) {
+        return (
+            <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
+                <View className="w-full items-center rounded-3xl border border-white/10 bg-card p-6">
+                    <Ionicons name="camera-outline" size={42} color="#00C896" />
+                    <Text className="mt-4 text-center text-[20px] font-bold leading-[28px] text-textPrimary">
+                        Browser camera permission needed.
+                    </Text>
+                    <Text className="mb-[22px] mt-2.5 text-center text-[15px] leading-[22px] text-textSecondary">
+                        {webCameraError}
+                    </Text>
+                    <Pressable className="w-full items-center rounded-2xl bg-primary py-3.5" onPress={() => setWebReloadToken((value) => value + 1)}>
+                        <Text className="text-[15px] font-bold text-background">Try Again</Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (!isWeb && !permission.granted) {
         return (
             <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
                 <View className="w-full items-center rounded-3xl border border-white/10 bg-card p-6">
@@ -271,16 +412,34 @@ export default function CameraScanScreen({ navigation }) {
     return (
         <View style={styles.screen}>
             <StatusBar barStyle="light-content" />
-            <View style={StyleSheet.absoluteFillObject} className={isWeb ? 'scanner-camera-web' : undefined}>
-                <CameraView
-                    ref={cameraRef}
-                    style={StyleSheet.absoluteFillObject}
-                    facing={cameraFacing}
-                    onCameraReady={handleCameraReady}
-                    ratio={isWeb ? undefined : TARGET_CAMERA_RATIO}
-                    mirror={cameraFacing === 'front'}
-                    zoom={0}
-                />
+            <View style={StyleSheet.absoluteFillObject}>
+                {isWeb
+                    ? createElement('video', {
+                        ref: webVideoRef,
+                        autoPlay: true,
+                        muted: true,
+                        playsInline: true,
+                        style: {
+                            position: 'absolute',
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            backgroundColor: '#050A10',
+                            transform: cameraFacing === 'front' ? 'scaleX(-1)' : undefined,
+                        },
+                    })
+                    : (
+                        <CameraView
+                            ref={cameraRef}
+                            style={StyleSheet.absoluteFillObject}
+                            facing={cameraFacing}
+                            onCameraReady={handleCameraReady}
+                            ratio={TARGET_CAMERA_RATIO}
+                            mirror={cameraFacing === 'front'}
+                            zoom={0}
+                        />
+                    )}
             </View>
 
             <View pointerEvents="none" style={styles.cameraOverlay}>

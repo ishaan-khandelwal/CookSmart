@@ -10,6 +10,30 @@ const GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENROUTER_GEMINI_MODEL = 'google/gemini-2.0-flash-001';
 const EDAMAM_ACCOUNT_USER = 'cooksmart-app';
 const ENABLE_RECIPE_DEBUG_LOGS = false;
+const OPTIONAL_PANTRY_STAPLES = [
+    'salt',
+    'black pepper',
+    'pepper',
+    'water',
+    'oil',
+    'olive oil',
+    'vegetable oil',
+    'butter',
+    'ghee',
+    'cumin',
+    'cumin seeds',
+    'ajwain',
+    'turmeric',
+    'turmeric powder',
+    'chili powder',
+    'red chili powder',
+    'coriander powder',
+];
+const PANTRY_INGREDIENT_ALIASES = {
+    flour: ['flour', 'wheat flour', 'whole wheat flour', 'atta', 'maida', 'all purpose flour'],
+    potato: ['potato', 'potatoes', 'aloo'],
+    onion: ['onion', 'onions', 'pyaz'],
+};
 
 function logRecipeProviderEvent(label, error) {
     if (!ENABLE_RECIPE_DEBUG_LOGS) return;
@@ -83,6 +107,113 @@ function uniqueList(items) {
     return Array.from(new Set((items || []).map((item) => String(item).trim()).filter(Boolean)));
 }
 
+function isOptionalPantryStaple(value) {
+    const normalizedValue = normalizeIngredient(value);
+    if (!normalizedValue) {
+        return false;
+    }
+
+    return OPTIONAL_PANTRY_STAPLES.some((staple) => {
+        const normalizedStaple = normalizeIngredient(staple);
+        return normalizedValue === normalizedStaple || normalizedValue.includes(normalizedStaple) || normalizedStaple.includes(normalizedValue);
+    });
+}
+
+function hasPantryIngredient(ingredients, aliases) {
+    const normalizedIngredients = (ingredients || []).map(normalizeIngredient).filter(Boolean);
+    const normalizedAliases = aliases.map(normalizeIngredient).filter(Boolean);
+
+    return normalizedAliases.some((alias) => normalizedIngredients.some(
+        (ingredient) => ingredient === alias || ingredient.includes(alias) || alias.includes(ingredient),
+    ));
+}
+
+function createCookSmartRecipe({
+    id,
+    name,
+    summary,
+    cookTime,
+    difficulty,
+    ingredients,
+    selectedIngredients,
+    vegetarian = true,
+    vegan = false,
+    pantryStaples = [],
+    instructionSteps = [],
+}) {
+    const ingredientMatch = buildIngredientMatch(selectedIngredients, ingredients);
+
+    return {
+        id,
+        providerId: id,
+        provider: 'cooksmart',
+        name,
+        summary,
+        cookTime,
+        readyInMinutes: Number.parseInt(String(cookTime).replace(/[^\d]/g, ''), 10) || null,
+        difficulty,
+        vegetarian,
+        vegan,
+        matchingCount: ingredientMatch.have.length,
+        missingCount: 0,
+        ingredients: uniqueList(ingredients),
+        usedIngredients: ingredientMatch.have,
+        pantryStaples: uniqueList([...pantryStaples, ...ingredientMatch.pantryStaples]),
+        missingIngredients: [],
+        instructionSteps: uniqueList(instructionSteps),
+        instructions: uniqueList(instructionSteps).join('\n'),
+        imageLabel: String(name || 'RECIPE').slice(0, 8).toUpperCase(),
+    };
+}
+
+function getLocalPantryRecipes(ingredients) {
+    const recipes = [];
+    const hasFlour = hasPantryIngredient(ingredients, PANTRY_INGREDIENT_ALIASES.flour);
+    const hasPotato = hasPantryIngredient(ingredients, PANTRY_INGREDIENT_ALIASES.potato);
+    const hasOnion = hasPantryIngredient(ingredients, PANTRY_INGREDIENT_ALIASES.onion);
+
+    if (hasFlour && hasPotato) {
+        recipes.push(createCookSmartRecipe({
+            id: 'cooksmart-aloo-paratha',
+            name: 'Aloo Paratha',
+            summary: 'A classic stuffed paratha built from potato and flour, using only common pantry basics and optional everyday spices.',
+            cookTime: '30 min',
+            difficulty: 'Medium',
+            ingredients: hasOnion
+                ? ['potato', 'flour', 'onion', 'salt', 'water', 'oil', 'cumin', 'chili powder']
+                : ['potato', 'flour', 'salt', 'water', 'oil', 'cumin', 'chili powder'],
+            selectedIngredients: ingredients,
+            pantryStaples: ['salt', 'water', 'oil', 'cumin', 'chili powder'],
+            instructionSteps: [
+                'Boil the potato until soft, then mash it well in a bowl.',
+                hasOnion
+                    ? 'Mix the mashed potato with chopped onion, cumin, chili powder, and salt.'
+                    : 'Mix the mashed potato with cumin, chili powder, and salt.',
+                'Knead the flour with water, a little oil, and a pinch of salt into a soft dough.',
+                'Divide the dough, fill each portion with the potato mixture, and seal it gently.',
+                'Roll each stuffed dough ball into a paratha without pressing too hard.',
+                'Cook on a hot pan with a little oil or ghee until both sides are golden.',
+            ],
+        }));
+    }
+
+    return recipes;
+}
+
+function mergeRecipeSources(primaryRecipes, secondaryRecipes = []) {
+    const seen = new Set();
+
+    return [...primaryRecipes, ...secondaryRecipes].filter((recipe) => {
+        const key = `${String(recipe?.name || '').trim().toLowerCase()}::${String(recipe?.provider || '').trim().toLowerCase()}`;
+        if (!key || seen.has(key)) {
+            return false;
+        }
+
+        seen.add(key);
+        return true;
+    });
+}
+
 async function parseError(response) {
     try {
         const payload = await response.json();
@@ -149,16 +280,26 @@ function buildIngredientMatch(selectedIngredients, sourceIngredients) {
     const available = new Set((selectedIngredients || []).map(normalizeIngredient).filter(Boolean));
     const allIngredients = uniqueList(sourceIngredients);
     const have = [];
+    const pantryStaples = [];
     const missing = [];
     allIngredients.forEach((ingredient) => {
         const normalizedIngredient = normalizeIngredient(ingredient);
         const matches = Array.from(available).some(
             (item) => normalizedIngredient.includes(item) || item.includes(normalizedIngredient),
         );
-        if (matches) have.push(ingredient);
-        else missing.push(ingredient);
+        if (matches) {
+            have.push(ingredient);
+            return;
+        }
+
+        if (isOptionalPantryStaple(ingredient)) {
+            pantryStaples.push(ingredient);
+            return;
+        }
+
+        missing.push(ingredient);
     });
-    return { have, missing };
+    return { have, pantryStaples, missing };
 }
 
 function parseOpenRouterText(data) {
@@ -222,6 +363,7 @@ function normalizeAiRecipe(recipe, selectedIngredients, fallbackId) {
         missingCount: Number.isFinite(Number(recipe?.missingCount)) ? Number(recipe.missingCount) : ingredientMatch.missing.length,
         ingredients: ingredientList,
         usedIngredients: ingredientMatch.have,
+        pantryStaples: ingredientMatch.pantryStaples,
         missingIngredients: ingredientMatch.missing,
         instructionSteps,
         instructions: instructionSteps.join('\n'),
@@ -230,6 +372,13 @@ function normalizeAiRecipe(recipe, selectedIngredients, fallbackId) {
 }
 
 function mapSpoonacularSummary(recipe) {
+    const pantryStaples = (recipe.missedIngredients || [])
+        .map((ingredient) => ingredient.original || ingredient.name)
+        .filter((ingredient) => isOptionalPantryStaple(ingredient));
+    const blockingMissing = (recipe.missedIngredients || [])
+        .map((ingredient) => ingredient.original || ingredient.name)
+        .filter((ingredient) => !isOptionalPantryStaple(ingredient));
+
     return {
         id: String(recipe.id),
         providerId: String(recipe.id),
@@ -240,13 +389,14 @@ function mapSpoonacularSummary(recipe) {
         cookTime: recipe.readyInMinutes ? `${recipe.readyInMinutes} min` : 'Quick meal',
         difficulty: recipe.readyInMinutes > 45 ? 'Hard' : recipe.readyInMinutes > 25 ? 'Medium' : 'Easy',
         matchingCount: recipe.usedIngredientCount ?? 0,
-        missingCount: recipe.missedIngredientCount ?? 0,
+        missingCount: blockingMissing.length,
         likes: recipe.likes ?? 0,
         summary: stripHtml(recipe.summary),
         vegetarian: recipe.vegetarian || null,
         vegan: recipe.vegan || null,
         usedIngredients: (recipe.usedIngredients || []).map(i => i.original || i.name),
-        missingIngredients: (recipe.missedIngredients || []).map(i => i.original || i.name),
+        pantryStaples,
+        missingIngredients: blockingMissing,
     };
 }
 
@@ -254,9 +404,13 @@ async function searchGeminiRecipes(ingredients) {
     const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
     if (!geminiKey) throw new Error('Missing Gemini Key');
 
-    const prompt = `You are a creative chef. Suggest 10 unique recipes that can be made using these ingredients: ${ingredients.join(', ')}.
+    const prompt = `You are a creative chef for a pantry-only cooking app.
+Suggest 10 unique recipes that can be made using ONLY these ingredients already available at home: ${ingredients.join(', ')}.
+You may optionally assume tiny pantry basics only: salt, pepper, water, oil, butter, or ghee.
+Do NOT include any other extra ingredients, shopping items, or market additions.
 Reply ONLY with a professional JSON array of objects.
 Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
+Set missingCount to 0 for every recipe.
 Return ONLY the JSON array.`;
 
     const { data: result } = await generateGeminiContent({
@@ -288,9 +442,13 @@ async function searchOpenRouterGeminiRecipes(ingredients) {
         throw Object.assign(new Error('Missing OpenRouter API key'), { code: 'MISSING_API_KEY', provider: 'openrouter' });
     }
 
-    const prompt = `You are a creative chef. Suggest 10 unique recipes that can be made using these ingredients: ${ingredients.join(', ')}.
+    const prompt = `You are a creative chef for a pantry-only cooking app.
+Suggest 10 unique recipes that can be made using ONLY these ingredients already available at home: ${ingredients.join(', ')}.
+You may optionally assume tiny pantry basics only: salt, pepper, water, oil, butter, or ghee.
+Do NOT include any other extra ingredients, shopping items, or market additions.
 Reply ONLY with a professional JSON array of objects.
 Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
+Set missingCount to 0 for every recipe.
 Return ONLY the JSON array.`;
 
     const data = await fetchJson(OPENROUTER_URL, {
@@ -362,6 +520,7 @@ function mapEdamamRecipe(recipe, selectedIngredients) {
         vegan: healthLabels.includes('Vegan'),
         ingredients,
         usedIngredients: ingredientMatch.have,
+        pantryStaples: ingredientMatch.pantryStaples,
         missingIngredients: ingredientMatch.missing,
         instructionSteps: [],
         instructions: 'Open the source link for the full step-by-step method.',
@@ -409,6 +568,43 @@ async function searchSpoonacularRecipes(ingredients) {
     };
 }
 
+function keepPantryReadyRecipes(result, ingredients) {
+    const pantryReadyRecipes = (result?.recipes || [])
+        .map((recipe) => {
+            if (Array.isArray(recipe?.ingredients) && (!Array.isArray(recipe?.usedIngredients) || !Array.isArray(recipe?.missingIngredients))) {
+                const ingredientMatch = buildIngredientMatch(ingredients, recipe.ingredients);
+                return {
+                    ...recipe,
+                    matchingCount: ingredientMatch.have.length,
+                    pantryStaples: ingredientMatch.pantryStaples,
+                    missingIngredients: ingredientMatch.missing,
+                    missingCount: ingredientMatch.missing.length,
+                    usedIngredients: ingredientMatch.have,
+                };
+            }
+
+            return {
+                ...recipe,
+                pantryStaples: uniqueList(recipe?.pantryStaples || []),
+                missingIngredients: uniqueList(recipe?.missingIngredients || []).filter((ingredient) => !isOptionalPantryStaple(ingredient)),
+            };
+        })
+        .map((recipe) => ({
+            ...recipe,
+            missingCount: uniqueList(recipe?.missingIngredients || []).length,
+        }))
+        .filter((recipe) => recipe.missingCount === 0)
+        .sort((left, right) => (right.matchingCount || 0) - (left.matchingCount || 0));
+
+    return {
+        ...result,
+        recipes: pantryReadyRecipes,
+        notice: pantryReadyRecipes.length
+            ? 'Showing only recipes you can cook with your current ingredients at home.'
+            : '',
+    };
+}
+
 export async function getStoredSpoonacularQuota() {
     try {
         const rawValue = await AsyncStorage.getItem(SPOONACULAR_QUOTA_STORAGE_KEY);
@@ -421,18 +617,35 @@ export async function getStoredSpoonacularQuota() {
 export async function fetchRecipesByIngredients(ingredients) {
     const normalized = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
     if (!normalized.length) return { recipes: [], quota: null, provider: null };
+    const localPantryRecipes = getLocalPantryRecipes(normalized);
 
     try {
         const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
         if (geminiKey) {
-            return await searchGeminiRecipes(normalized);
+            const result = keepPantryReadyRecipes(await searchGeminiRecipes(normalized), normalized);
+            const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
+            if (mergedRecipes.length) {
+                return {
+                    ...result,
+                    provider: mergedRecipes[0]?.provider || result.provider,
+                    recipes: mergedRecipes,
+                };
+            }
         }
     } catch (error) {
         logRecipeProviderEvent('Gemini Recipe Search Failed', error);
         const isRateLimited = error?.status === 429 || /too many requests|rate limit|resource exhausted/i.test(String(error?.message || ''));
         if (isRateLimited) {
             try {
-                return await searchOpenRouterGeminiRecipes(normalized);
+                const result = keepPantryReadyRecipes(await searchOpenRouterGeminiRecipes(normalized), normalized);
+                const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
+                if (mergedRecipes.length) {
+                    return {
+                        ...result,
+                        provider: mergedRecipes[0]?.provider || result.provider,
+                        recipes: mergedRecipes,
+                    };
+                }
             } catch (openRouterError) {
                 logRecipeProviderEvent('OpenRouter Gemini Failed', openRouterError);
             }
@@ -440,19 +653,39 @@ export async function fetchRecipesByIngredients(ingredients) {
     }
 
     try {
-        const spoonacularResult = await searchSpoonacularRecipes(normalized);
-        return spoonacularResult;
+        const spoonacularResult = keepPantryReadyRecipes(await searchSpoonacularRecipes(normalized), normalized);
+        const mergedRecipes = mergeRecipeSources(localPantryRecipes, spoonacularResult.recipes);
+        if (mergedRecipes.length) {
+            return {
+                ...spoonacularResult,
+                provider: mergedRecipes[0]?.provider || spoonacularResult.provider,
+                recipes: mergedRecipes,
+            };
+        }
     } catch (e) {
         logRecipeProviderEvent('Spoonacular Failed', e);
     }
 
     try {
-        return await searchEdamamRecipes(normalized);
+        const edamamResult = keepPantryReadyRecipes(await searchEdamamRecipes(normalized), normalized);
+        const mergedRecipes = mergeRecipeSources(localPantryRecipes, edamamResult.recipes);
+        if (mergedRecipes.length) {
+            return {
+                ...edamamResult,
+                provider: mergedRecipes[0]?.provider || edamamResult.provider,
+                recipes: mergedRecipes,
+            };
+        }
     } catch (error) {
         logRecipeProviderEvent('Edamam Failed', error);
     }
 
-    throw new Error('Could not load recipe ideas right now. Please try again shortly.');
+    return {
+        provider: localPantryRecipes[0]?.provider || null,
+        quota: null,
+        notice: '',
+        recipes: localPantryRecipes,
+    };
 }
 
 export async function fetchRecipeDetails(recipeRef, initialRecipe = null) {

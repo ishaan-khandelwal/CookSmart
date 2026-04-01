@@ -2,8 +2,18 @@ import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 
 const GEMINI_SUPPORT_MODEL = 'gemini-2.0-flash';
 
+import Constants from 'expo-constants';
+
+function getExtraConfigValue(key) {
+    return (
+        Constants.expoConfig?.extra?.[key] ||
+        Constants.manifest2?.extra?.expoClient?.extra?.[key] ||
+        ''
+    );
+}
+
 function getEnvValue(key) {
-    return process.env?.[key] || '';
+    return process.env?.[key] || getExtraConfigValue(key) || '';
 }
 
 function sanitizeApiKey(rawValue) {

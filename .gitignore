@@ -49,3 +49,5 @@ yarn-error.*
 # Windows
 Thumbs.db
 Desktop.ini
+
+.vercel
