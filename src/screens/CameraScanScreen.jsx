@@ -10,7 +10,6 @@ import {
     Linking,
     Platform,
     Pressable,
-    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -56,17 +55,8 @@ export default function CameraScanScreen({ navigation }) {
     const [cameraReady, setCameraReady] = useState(false);
     const { width, height } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
-    const isCompact = width < 390 || height < 760;
-    const isVeryCompact = height < 700;
-    const recentPreview = recentIngredients.slice(0, isVeryCompact ? 4 : 6);
-    const frameWidth = Math.min(width - 40, isVeryCompact ? 280 : isCompact ? 300 : 324);
-    const frameHeight = Math.max(
-        196,
-        Math.min(isVeryCompact ? 220 : isCompact ? 250 : 300, height * (isVeryCompact ? 0.32 : 0.38)),
-    );
-    const helperMessage = cameraReady
-        ? 'Camera is ready with a more natural full-frame preview.'
-        : 'Optimizing the camera for a sharper scan...';
+    const frameWidth = Math.min(width - 30, 360);
+    const frameHeight = Math.min(Math.max(height * (isWeb ? 0.5 : 0.42), 280), isWeb ? 460 : 400);
 
     const loadRecentScan = useCallback(async () => {
         try {
@@ -235,12 +225,6 @@ export default function CameraScanScreen({ navigation }) {
         }
     }, [isProcessing, processImageAsset]);
 
-    const handleRetryLastPhoto = useCallback(() => {
-        if (lastPhotoUri) {
-            processImageAsset({ uri: lastPhotoUri, mimeType: inferMimeType(lastPhotoUri) });
-        }
-    }, [lastPhotoUri, processImageAsset]);
-
     const handleBack = useCallback(() => {
         if (navigation.canGoBack()) {
             navigation.goBack();
@@ -287,15 +271,17 @@ export default function CameraScanScreen({ navigation }) {
     return (
         <View style={styles.screen}>
             <StatusBar barStyle="light-content" />
-            <CameraView
-                ref={cameraRef}
-                style={StyleSheet.absoluteFillObject}
-                facing={cameraFacing}
-                onCameraReady={handleCameraReady}
-                ratio={isWeb ? undefined : TARGET_CAMERA_RATIO}
-                mirror={cameraFacing === 'front'}
-                zoom={0}
-            />
+            <View style={StyleSheet.absoluteFillObject} className={isWeb ? 'scanner-camera-web' : undefined}>
+                <CameraView
+                    ref={cameraRef}
+                    style={StyleSheet.absoluteFillObject}
+                    facing={cameraFacing}
+                    onCameraReady={handleCameraReady}
+                    ratio={isWeb ? undefined : TARGET_CAMERA_RATIO}
+                    mirror={cameraFacing === 'front'}
+                    zoom={0}
+                />
+            </View>
 
             <View pointerEvents="none" style={styles.cameraOverlay}>
                 <View style={styles.overlayGlowTop} />
@@ -306,100 +292,25 @@ export default function CameraScanScreen({ navigation }) {
 
             <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
                 <View style={styles.contentShell}>
-                    <View style={styles.headerBlock}>
-                        <View style={styles.headerRow}>
-                            <Pressable style={styles.headerButton} onPress={handleBack}>
-                                <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-                            </Pressable>
-
-                            <View style={styles.headerTextWrap}>
-                                <Text style={[styles.headerTitle, isCompact && styles.headerTitleCompact]}>
-                                    Scan Ingredients
-                                </Text>
-                                <Text style={[styles.headerSubtitle, isVeryCompact && styles.headerSubtitleCompact]}>
-                                    {isVeryCompact
-                                        ? 'Use one clean shot so CookSmart can read produce, labels, and pantry items.'
-                                        : 'Hold steady for one clean shot and let CookSmart sort the pantry for you.'}
-                                </Text>
-                            </View>
-
-                            <View style={styles.headerSpacer} />
-                        </View>
-
-                        <View style={styles.tipRow}>
-                            <View style={styles.tipPill}>
-                                <Ionicons name="sunny-outline" size={15} color="#F6B44F" />
-                                <Text style={styles.tipPillText}>Bright light</Text>
-                            </View>
-                            <View style={styles.tipPill}>
-                                <Ionicons name="scan-outline" size={15} color="#F6B44F" />
-                                <Text style={styles.tipPillText}>Fill the frame</Text>
-                            </View>
-                        </View>
+                    <View style={styles.headerRow}>
+                        <Pressable style={styles.headerButton} onPress={handleBack}>
+                            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                        </Pressable>
                     </View>
 
-                    <View style={[styles.stage, isVeryCompact && styles.stageCompact]}>
+                    <View style={styles.stage}>
                         <View style={[styles.scanFrame, { width: frameWidth, height: frameHeight }]}>
-                            <View style={styles.scanBadge}>
-                                <Text style={styles.scanBadgeText}>Scan zone</Text>
-                            </View>
-                            <View style={styles.frameCenterLine} />
                             <FrameCorner style={styles.frameCornerTopLeft} />
                             <FrameCorner style={styles.frameCornerTopRight} />
                             <FrameCorner style={styles.frameCornerBottomLeft} />
                             <FrameCorner style={styles.frameCornerBottomRight} />
                         </View>
-
-                        <View style={[styles.guidanceCard, isVeryCompact && styles.guidanceCardCompact]}>
-                            <View style={styles.guidanceIcon}>
-                                <Ionicons name="sparkles-outline" size={16} color="#F6B44F" />
-                            </View>
-                            <View style={styles.guidanceCopy}>
-                                <Text style={styles.guidanceTitle}>
-                                    {isVeryCompact ? 'Keep it close and steady' : 'Capture one clean layer'}
-                                </Text>
-                                <Text style={[styles.guidanceBody, isVeryCompact && styles.guidanceBodyCompact]}>
-                                    {isVeryCompact
-                                        ? 'Minimal shadow, labels visible, and most of the frame filled.'
-                                        : 'Use bright light and keep the ingredients in a single layer so the scanner can separate shapes, labels, and pantry packaging more accurately.'}
-                                </Text>
-                            </View>
-                        </View>
                     </View>
 
                     <View style={styles.bottomStack}>
-                        {recentPreview.length > 0 ? (
-                            <View style={[styles.recentPanel, isVeryCompact && styles.recentPanelCompact]}>
-                                <View style={styles.recentHeaderRow}>
-                                    <Text style={styles.recentLabel}>Recent scan</Text>
-                                    <Text style={styles.recentCount}>
-                                        {recentPreview.length} item{recentPreview.length === 1 ? '' : 's'}
-                                    </Text>
-                                </View>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.recentContent}
-                                >
-                                    {recentPreview.map((ingredient) => (
-                                        <View key={ingredient} style={styles.recentChip}>
-                                            <Text style={styles.recentChipText}>{ingredient}</Text>
-                                        </View>
-                                    ))}
-                                </ScrollView>
-                            </View>
-                        ) : (
-                            <View style={styles.tipStrip}>
-                                <Ionicons name="sparkles-outline" size={16} color="#F6B44F" />
-                                <Text style={styles.tipStripText}>
-                                    Best results come from one layer of ingredients with minimal shadow.
-                                </Text>
-                            </View>
-                        )}
-
-                        <View style={[styles.controlDock, isVeryCompact && styles.controlDockCompact]}>
+                        <View style={styles.controlDock}>
                             <Pressable
-                                style={[styles.sideControl, isVeryCompact && styles.sideControlCompact]}
+                                style={styles.sideControl}
                                 onPress={() => setCameraFacing((current) => (current === 'back' ? 'front' : 'back'))}
                             >
                                 <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
@@ -410,30 +321,19 @@ export default function CameraScanScreen({ navigation }) {
                                 onPress={handleCapture}
                                 disabled={isProcessing || !cameraReady}
                             >
-                                <View style={[styles.shutterOuterRing, isVeryCompact && styles.shutterOuterRingCompact]}>
-                                    <View style={[styles.shutterInnerRing, isVeryCompact && styles.shutterInnerRingCompact]}>
-                                        <View style={[styles.shutterCore, isVeryCompact && styles.shutterCoreCompact]} />
+                                <View style={styles.shutterOuterRing}>
+                                    <View style={styles.shutterInnerRing}>
+                                        <View style={styles.shutterCore} />
                                     </View>
                                 </View>
                             </Pressable>
 
                             <Pressable
-                                style={[styles.sideControl, isVeryCompact && styles.sideControlCompact]}
+                                style={styles.sideControl}
                                 onPress={handlePickFromGallery}
                             >
                                 <Ionicons name="images-outline" size={24} color="#FFFFFF" />
                             </Pressable>
-                        </View>
-
-                        <View style={styles.helperRow}>
-                            <Text style={[styles.helperText, isVeryCompact && styles.helperTextCompact]}>
-                                {helperMessage}
-                            </Text>
-                            {lastPhotoUri ? (
-                                <Pressable style={styles.retryButton} onPress={handleRetryLastPhoto}>
-                                    <Text style={styles.retryButtonText}>Retry last photo</Text>
-                                </Pressable>
-                            ) : null}
                         </View>
                     </View>
                 </View>

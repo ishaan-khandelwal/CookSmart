@@ -12,3 +12,8 @@ body {
     overflow-x: hidden;
     overscroll-behavior: none;
 }
+
+.scanner-camera-web video {
+    object-fit: contain !important;
+    background: #050A10 !important;
+}
