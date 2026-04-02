@@ -87,7 +87,7 @@ export default function HomeScreen({ navigation }) {
         const name = user?.displayName ? user.displayName.split(' ')[0] : 'Chef';
         return name.charAt(0).toUpperCase() + name.slice(1);
     }, [user]);
-    const isCompact = width < 390 || height < 780;
+    const isCompact = width < 460 || height < 780;
 
     const dayPart = useMemo(() => getDayPart(), []);
     const dateLabel = useMemo(() => formatDateLabel(), []);
