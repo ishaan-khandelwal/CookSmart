@@ -8,6 +8,7 @@ import {
     Animated,
     Image,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StatusBar,
@@ -531,7 +532,7 @@ export default function PlannerScreen() {
                     contentContainerStyle={{ paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 }}
                     style={{ opacity: contentOpacity, transform: [{ translateY: contentLift }] }}
                 >
-                    <View className="px-5 pt-2.5">
+                    <View style={styles.contentShell}>
                         <View style={styles.hero}>
                             <View style={styles.heroGlow} />
                             <View className="flex-row items-start justify-between">
@@ -544,7 +545,7 @@ export default function PlannerScreen() {
                             <Text className="mt-4 max-w-[280px] text-[34px] font-black leading-[40px] text-white">
                                 {formatWeekRange(weekDays)}
                             </Text>
-                            <Text className="mt-3 max-w-[300px] text-[15px] leading-6 text-white/78">
+                            <Text className="mt-3 max-w-[300px] text-[15px] leading-6 text-white/90">
                                 Plan breakfast, lunch, and dinner around your pantry, recent recipe finds, and saved meals in one calmer workspace.
                             </Text>
 
@@ -581,7 +582,7 @@ export default function PlannerScreen() {
                                         <View className="mb-4 flex-row items-center justify-between">
                                             <View className="flex-1 pr-4">
                                                 <View className="flex-row items-center gap-2">
-                                                    <Text className={`text-[12px] font-extrabold uppercase tracking-[1.4px] ${day.isToday ? 'text-[#F8B84E]' : 'text-white/48'}`}>
+                                                    <Text className={`text-[12px] font-extrabold uppercase tracking-[1.4px] ${day.isToday ? 'text-[#F8B84E]' : 'text-white/72'}`}>
                                                         {day.shortLabel}
                                                     </Text>
                                                     {day.isToday ? (
@@ -591,7 +592,7 @@ export default function PlannerScreen() {
                                                     ) : null}
                                                 </View>
                                                 <Text className="mt-2 text-[24px] font-black text-white">{day.fullLabel}</Text>
-                                                <Text className="mt-2 text-[13px] leading-5 text-white/52">
+                                                <Text className="mt-2 text-[13px] leading-5 text-white/72">
                                                     {Object.values(plan[day.key] || {}).filter(Boolean).length} of {MEAL_SLOTS.length} slots filled
                                                 </Text>
                                             </View>
@@ -645,7 +646,7 @@ export default function PlannerScreen() {
 
                             {shoppingList.length ? (
                                 <>
-                                    <Text className="mt-3 text-[14px] leading-6 text-white/65">
+                                    <Text className="mt-3 text-[14px] leading-6 text-white/82">
                                         You still need: {missingSummary}{shoppingList.length > 6 ? ', ...' : ''}
                                     </Text>
                                     <View className="mt-5 flex-row flex-wrap">
@@ -666,7 +667,7 @@ export default function PlannerScreen() {
                                 </View>
                             ) : (
                                 <View className="mt-4 rounded-[22px] border border-white/8 bg-white/5 p-4">
-                                    <Text className="text-[14px] leading-6 text-white/65">
+                                    <Text className="text-[14px] leading-6 text-white/82">
                                         Start by planning a few meals. Your weekly missing ingredients and grocery summary will appear here automatically.
                                     </Text>
                                 </View>
@@ -704,9 +705,9 @@ export default function PlannerScreen() {
 function PlannerStat({ label, value, caption }) {
     return (
         <View className="min-w-[47%] flex-1 rounded-[22px] border border-white/10 bg-white/6 px-4 py-4">
-            <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/48">{label}</Text>
+            <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/72">{label}</Text>
             <Text className="mt-3 text-[28px] font-black text-white">{value}</Text>
-            <Text className="mt-1 text-[12px] leading-5 text-white/52">{caption}</Text>
+            <Text className="mt-1 text-[12px] leading-5 text-white/72">{caption}</Text>
         </View>
     );
 }
@@ -747,7 +748,7 @@ function EmptySlotCard({ slot, onPress }) {
                     </View>
                     <View>
                         <Text className="text-[16px] font-bold text-white">{slot.label}</Text>
-                        <Text className="mt-1 text-[13px] text-white/48">Add a recipe for this slot</Text>
+                        <Text className="mt-1 text-[13px] text-white/72">Add a recipe for this slot</Text>
                     </View>
                 </View>
                 <View className="h-10 w-10 items-center justify-center rounded-full bg-white/6">
@@ -780,7 +781,7 @@ function MealCard({
                         <Image source={{ uri: meal.image }} className="h-[102px] w-[92px] rounded-[18px] bg-[#233146]" resizeMode="cover" />
                     ) : (
                         <View className="h-[102px] w-[92px] items-center justify-center rounded-[18px] bg-[#233146]">
-                            <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/55">CookSmart</Text>
+                            <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/78">CookSmart</Text>
                         </View>
                     )}
 
@@ -790,9 +791,9 @@ function MealCard({
                                 <View className="flex-row flex-wrap items-center gap-2">
                                     <View className="flex-row items-center rounded-full bg-white/6 px-2.5 py-1.5">
                                         <View className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: slot.accent }} />
-                                        <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/65">{slot.label}</Text>
+                                        <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/82">{slot.label}</Text>
                                     </View>
-                                    <Text className="text-[11px] font-semibold uppercase tracking-[0.8px] text-white/35">
+                                    <Text className="text-[11px] font-semibold uppercase tracking-[0.8px] text-white/65">
                                         {meal.sourceLabel || 'Planner'}
                                     </Text>
                                 </View>
@@ -861,13 +862,13 @@ function MealCard({
                 </View>
 
                 {pantry.missing.length ? (
-                    <Text className="mt-3 text-[12px] leading-5 text-white/48">
+                    <Text className="mt-3 text-[12px] leading-5 text-white/72">
                         Need {pantry.missing.slice(0, 3).join(', ')}{pantry.missing.length > 3 ? ', ...' : ''}
                     </Text>
                 ) : pantry.score !== null ? (
                     <Text className="mt-3 text-[12px] leading-5 text-[#22C55E]">Ready to cook from what you already have.</Text>
                 ) : (
-                    <Text className="mt-3 text-[12px] leading-5 text-white/48">Ingredient detail will improve after recipe enrichment.</Text>
+                    <Text className="mt-3 text-[12px] leading-5 text-white/72">Ingredient detail will improve after recipe enrichment.</Text>
                 )}
             </View>
         </View>
@@ -878,13 +879,13 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View className="flex-1 justify-end bg-black/55">
-                <View className="max-h-[86%] rounded-t-[34px] border border-white/8 bg-[#0F1824] px-5 pb-8 pt-5">
+                <View style={styles.bottomSheet}>
                     <View className="mb-5 h-1.5 w-16 self-center rounded-full bg-white/15" />
                     <View className="flex-row items-start justify-between">
                         <View className="flex-1 pr-4">
                             <Text className="text-[12px] font-extrabold uppercase tracking-[1.4px] text-[#F8B84E]">Add recipe to day</Text>
                             <Text className="mt-2 text-[28px] font-black leading-9 text-white">Choose a recipe source.</Text>
-                            <Text className="mt-2 text-[14px] leading-6 text-white/60">
+                            <Text className="mt-2 text-[14px] leading-6 text-white/82">
                                 Saved favorites, recent matches, or the strongest pantry-friendly options.
                             </Text>
                         </View>
@@ -928,7 +929,7 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                                         <View className="flex-1 px-4 py-4">
                                             <View className="flex-row items-start justify-between">
                                                 <View className="mr-3 flex-1">
-                                                    <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/35">
+                                                    <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/65">
                                                         {candidate.sourceLabel || (source === 'saved' ? 'Saved' : source === 'pantry' ? 'Pantry' : 'Recent')}
                                                     </Text>
                                                     <Text className="mt-2 text-[17px] font-black leading-6 text-white">{candidate.name}</Text>
@@ -937,14 +938,14 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                                                     <Text className="text-[11px] font-bold" style={{ color: diet.tone }}>{diet.label}</Text>
                                                 </View>
                                             </View>
-                                            <Text className="mt-2 text-[13px] text-white/55">
+                                            <Text className="mt-2 text-[13px] text-white/80">
                                                 {candidate.cookTime || 'Quick meal'}
                                                 {candidate.servings ? ` - ${candidate.servings} servings` : ''}
                                             </Text>
                                             {pantry.score !== null ? (
                                                 <Text className="mt-2 text-[13px] font-semibold text-[#F8B84E]">{pantry.score}% pantry match</Text>
                                             ) : (
-                                                <Text className="mt-2 text-[13px] text-white/45">Add to planner and enrich details on save.</Text>
+                                                <Text className="mt-2 text-[13px] text-white/72">Add to planner and enrich details on save.</Text>
                                             )}
                                         </View>
                                     </Pressable>
@@ -952,7 +953,7 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                             })
                         ) : (
                             <View className="rounded-[24px] border border-white/8 bg-white/5 p-4">
-                                <Text className="text-[14px] leading-6 text-white/65">
+                                <Text className="text-[14px] leading-6 text-white/82">
                                     {source === 'saved'
                                         ? 'No saved recipes yet. Save a recipe from the detail screen first.'
                                         : source === 'pantry'
@@ -983,12 +984,12 @@ function MoveMealModal({ visible, moveState, weekDays, plan, onClose, onMove }) 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View className="flex-1 justify-center bg-black/55 px-5">
-                <View className="rounded-[30px] border border-white/8 bg-[#0F1824] p-5">
+                <View style={styles.dialogCard}>
                     <View className="flex-row items-start justify-between">
                         <View className="flex-1 pr-4">
                             <Text className="text-[12px] font-extrabold uppercase tracking-[1.4px] text-[#60A5FA]">Move meal</Text>
                             <Text className="mt-2 text-[26px] font-black leading-8 text-white">{moveState?.meal?.name || 'Choose a new slot'}</Text>
-                            <Text className="mt-2 text-[14px] leading-6 text-white/60">
+                            <Text className="mt-2 text-[14px] leading-6 text-white/82">
                                 Pick another day and slot. If the target is occupied, the meals will swap places.
                             </Text>
                         </View>
@@ -1054,7 +1055,7 @@ function ManualAddForm({ onSelect }) {
     return (
         <View className="rounded-[28px] border border-white/8 bg-white/5 p-5">
             <Text className="mb-2 text-xs font-bold uppercase tracking-[1px] text-[#F8B84E]">Manual meal</Text>
-            <Text className="mb-4 text-[14px] leading-6 text-white/60">
+            <Text className="mb-4 text-[14px] leading-6 text-white/82">
                 Add a one-off meal with an optional image link if you want the planner to hold custom meals too.
             </Text>
             
@@ -1075,19 +1076,19 @@ function ManualAddForm({ onSelect }) {
             />
 
             <View className="mb-5 flex-row items-center justify-between px-1">
-                <Text className="text-sm font-semibold text-white/70">Dietary</Text>
+                <Text className="text-sm font-semibold text-white/85">Dietary</Text>
                 <View className="flex-row gap-2">
                     <TouchableOpacity 
                         onPress={() => setIsVegetarian(true)}
                         className={`rounded-full px-4 py-2 ${isVegetarian ? 'bg-[#22C55E]' : 'bg-white/5 border border-white/10'}`}
                     >
-                        <Text className={`text-[12px] font-bold ${isVegetarian ? 'text-[#111111]' : 'text-white/60'}`}>Veg</Text>
+                        <Text className={`text-[12px] font-bold ${isVegetarian ? 'text-[#111111]' : 'text-white/85'}`}>Veg</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
                         onPress={() => setIsVegetarian(false)}
                         className={`rounded-full px-4 py-2 ${!isVegetarian ? 'bg-[#FB7185]' : 'bg-white/5 border border-white/10'}`}
                     >
-                        <Text className={`text-[12px] font-bold ${!isVegetarian ? 'text-[#111111]' : 'text-white/60'}`}>Non-Veg</Text>
+                        <Text className={`text-[12px] font-bold ${!isVegetarian ? 'text-[#111111]' : 'text-white/85'}`}>Non-Veg</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -1108,11 +1109,42 @@ function ManualAddForm({ onSelect }) {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#071018' },
+    contentShell: {
+        width: '100%',
+        alignSelf: 'center',
+        maxWidth: Platform.OS === 'web' ? 860 : undefined,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+    },
     orbTop: { position: 'absolute', top: -60, right: -40, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(245, 158, 11, 0.14)' },
     orbLeft: { position: 'absolute', top: 280, left: -90, width: 210, height: 210, borderRadius: 105, backgroundColor: 'rgba(34, 197, 94, 0.12)' },
     orbBottom: { position: 'absolute', bottom: 140, right: -60, width: 190, height: 190, borderRadius: 95, backgroundColor: 'rgba(96, 165, 250, 0.11)' },
     hero: { overflow: 'hidden', borderRadius: 34, padding: 24, backgroundColor: '#101A26', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     heroGlow: { position: 'absolute', top: -40, right: -30, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(248, 184, 78, 0.12)' },
     heroCounter: { minWidth: 88, alignItems: 'center', borderRadius: 24, paddingHorizontal: 14, paddingVertical: 16, backgroundColor: '#F8B84E' },
+    bottomSheet: {
+        width: '100%',
+        alignSelf: 'center',
+        maxHeight: '86%',
+        maxWidth: Platform.OS === 'web' ? 760 : undefined,
+        borderTopLeftRadius: 34,
+        borderTopRightRadius: 34,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: '#0F1824',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 32,
+    },
+    dialogCard: {
+        width: '100%',
+        alignSelf: 'center',
+        maxWidth: Platform.OS === 'web' ? 680 : undefined,
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: '#0F1824',
+        padding: 20,
+    },
     shoppingGlow: { position: 'absolute', top: -55, right: -40, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(96, 165, 250, 0.1)' },
 });
