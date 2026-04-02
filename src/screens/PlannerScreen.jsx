@@ -1057,7 +1057,7 @@ function ManualAddForm({ onSelect }) {
             <Text className="mb-4 text-[14px] leading-6 text-white/82">
                 Add a one-off meal with an optional image link if you want the planner to hold custom meals too.
             </Text>
-            
+
             <TextInput
                 value={title}
                 onChangeText={setTitle}
@@ -1077,13 +1077,13 @@ function ManualAddForm({ onSelect }) {
             <View className="mb-5 flex-row items-center justify-between px-1">
                 <Text className="text-sm font-semibold text-white/85">Dietary</Text>
                 <View className="flex-row gap-2">
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={() => setIsVegetarian(true)}
                         className={`rounded-full px-4 py-2 ${isVegetarian ? 'bg-[#22C55E]' : 'bg-white/5 border border-white/10'}`}
                     >
                         <Text className={`text-[12px] font-bold ${isVegetarian ? 'text-[#111111]' : 'text-white/85'}`}>Veg</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={() => setIsVegetarian(false)}
                         className={`rounded-full px-4 py-2 ${!isVegetarian ? 'bg-[#FB7185]' : 'bg-white/5 border border-white/10'}`}
                     >
@@ -1111,6 +1111,7 @@ const styles = StyleSheet.create({
     contentShell: {
         width: '100%',
         alignSelf: 'center',
+        maxWidth: Platform.OS === 'web' ? 860 : undefined,
         paddingHorizontal: 16,
         paddingTop: 12,
     },
@@ -1124,6 +1125,7 @@ const styles = StyleSheet.create({
         width: '100%',
         alignSelf: 'center',
         maxHeight: '86%',
+        maxWidth: Platform.OS === 'web' ? 760 : undefined,
         borderTopLeftRadius: 34,
         borderTopRightRadius: 34,
         borderWidth: 1,
@@ -1136,6 +1138,7 @@ const styles = StyleSheet.create({
     dialogCard: {
         width: '100%',
         alignSelf: 'center',
+        maxWidth: Platform.OS === 'web' ? 680 : undefined,
         borderRadius: 30,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
