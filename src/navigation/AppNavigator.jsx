@@ -3,6 +3,7 @@ import { DarkTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabBar from '../components/BottomTabBar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { RecipeModeProvider } from '../context/RecipeModeContext';
 import CameraScanScreen from '../screens/CameraScanScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import HelpSupportScreen from '../screens/Help&Support';
@@ -114,9 +115,11 @@ function AppScreens() {
 export default function AppNavigator() {
     return (
         <AuthProvider>
-            <NavigationContainer theme={navigationTheme}>
-                <AppScreens />
-            </NavigationContainer>
+            <RecipeModeProvider>
+                <NavigationContainer theme={navigationTheme}>
+                    <AppScreens />
+                </NavigationContainer>
+            </RecipeModeProvider>
         </AuthProvider>
     );
 }

@@ -5,7 +5,9 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
 import RecipeCard from '../components/RecipeCard';
+import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, getRecipeModeMeta } from '../constants/recipeModes';
 import { useAuth } from '../context/AuthContext';
+import { useRecipeMode } from '../context/RecipeModeContext';
 import { createHistory } from '../services/api';
 import { fetchRecipesByIngredients } from '../services/spoonacularApi';
 
@@ -17,12 +19,13 @@ const FILTERS = [
 
 const RECENT_RECIPE_RESULTS_KEY = 'cooksmart:recentRecipeResults';
 
-async function persistRecentRecipeResults(recipes, ingredients, provider) {
+async function persistRecentRecipeResults(recipes, ingredients, provider, mode) {
     const payload = (Array.isArray(recipes) ? recipes : []).slice(0, 12).map((recipe) => ({
         ...recipe,
         selectedIngredients: ingredients,
         storedAt: new Date().toISOString(),
         sourceProvider: provider || recipe.provider || 'unknown',
+        selectedMode: mode || DEFAULT_RECIPE_MODE,
     }));
 
     try {
@@ -34,7 +37,10 @@ async function persistRecentRecipeResults(recipes, ingredients, provider) {
 
 export default function RecipeResultsScreen({ navigation, route }) {
     const ingredients = route.params?.ingredients ?? [];
+    const { selectedMode } = useRecipeMode();
     const { user } = useAuth();
+    const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
+    const modeMeta = useMemo(() => getRecipeModeMeta(activeMode), [activeMode]);
     const [recipes, setRecipes] = useState([]);
     const [quota, setQuota] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -52,21 +58,24 @@ export default function RecipeResultsScreen({ navigation, route }) {
             setProviderNotice('');
 
             try {
-                const result = await fetchRecipesByIngredients(ingredients);
+                const result = await fetchRecipesByIngredients(ingredients, { mode: activeMode });
                 if (!isMounted) return;
 
                 const nextRecipes = result?.recipes ?? [];
                 setRecipes(nextRecipes);
                 setQuota(result?.quota ?? null);
                 setProviderNotice(result?.notice || '');
-                persistRecentRecipeResults(nextRecipes, ingredients, result?.provider).catch(() => {});
+                persistRecentRecipeResults(nextRecipes, ingredients, result?.provider, activeMode).catch(() => {});
 
                 if (user?.uid) {
+                    const historyLabel = ingredients.length
+                        ? `Recipe search: ${ingredients.slice(0, 3).join(', ')}`
+                        : 'Recipe search: flexible inspiration';
                     createHistory({
                         userId: user.uid,
-                        title: `Recipe search: ${ingredients.slice(0, 3).join(', ')}`,
+                        title: historyLabel,
                         type: 'recipe-search',
-                        source: result?.provider || 'recipe-results',
+                        source: `${result?.provider || 'recipe-results'}:${activeMode}`,
                         ingredients,
                         resultCount: nextRecipes.length,
                     }).catch(() => {});
@@ -87,7 +96,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
         return () => {
             isMounted = false;
         };
-    }, [ingredients, user?.uid]);
+    }, [activeMode, ingredients, user?.uid]);
 
     const filteredRecipes = useMemo(() => {
         if (activeFilter === 'veg') {
@@ -101,9 +110,21 @@ export default function RecipeResultsScreen({ navigation, route }) {
         return recipes;
     }, [activeFilter, recipes]);
 
-    const primaryProvider = recipes[0]?.provider || '';
-    const heroLabel = primaryProvider === 'gemini' ? 'Pantry Recipe Studio' : primaryProvider === 'edamam' ? 'At-Home Matches' : 'Pantry Recipe Matches';
-    const heroTone = primaryProvider === 'gemini' ? '#F6B44F' : primaryProvider === 'edamam' ? '#60A5FA' : '#00C896';
+    const missingRecipeCount = useMemo(
+        () => filteredRecipes.filter((recipe) => Number(recipe?.missingCount || 0) > 0).length,
+        [filteredRecipes],
+    );
+    const isCookFreedom = activeMode === RECIPE_MODE_IDS.COOK_FREEDOM;
+    const heroLabel = isCookFreedom ? 'CookFreedom Studio' : 'PantryChef Matches';
+    const heroTone = modeMeta.accent;
+    const heroTitle = isCookFreedom
+        ? `${filteredRecipes.length} recipe${filteredRecipes.length === 1 ? '' : 's'} you can explore right now.`
+        : `${filteredRecipes.length} recipe${filteredRecipes.length === 1 ? '' : 's'} you can cook with what you have.`;
+    const heroBody = isCookFreedom
+        ? ingredients.length
+            ? `Built around ${ingredients.length} ingredient${ingredients.length === 1 ? '' : 's'} you already have, while still allowing extra items when a better dish needs them.`
+            : 'Browse full recipe suggestions first, then decide what to add to your basket before cooking.'
+        : `Built from ${ingredients.length} ingredient${ingredients.length === 1 ? '' : 's'} you selected at home, without needing a market run.`;
 
     return (
         <SafeAreaView className="flex-1 bg-[#07141d]">
@@ -122,32 +143,39 @@ export default function RecipeResultsScreen({ navigation, route }) {
                     <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px]" style={{ color: heroTone }}>
                         {heroLabel}
                     </Text>
-                    <Text className="mt-3 text-[31px] font-black leading-9 text-white">
-                        {filteredRecipes.length} recipe{filteredRecipes.length === 1 ? '' : 's'} you can cook with what you have.
-                    </Text>
+                    <Text className="mt-3 text-[31px] font-black leading-9 text-white">{heroTitle}</Text>
                     <Text className="mt-3 max-w-[310px] text-[14px] leading-6 text-[#91A4B8]">
-                        Built from {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'} you selected at home, without needing a market run.
+                        {heroBody}
                     </Text>
 
-                    <View className="mt-5 flex-row flex-wrap gap-2">
-                        {ingredients.slice(0, 6).map((ingredient) => (
-                            <View key={ingredient} className="rounded-full border border-white/8 bg-white/5 px-3.5 py-2">
-                                <Text className="text-[12px] font-semibold capitalize text-white">{ingredient}</Text>
-                            </View>
-                        ))}
-                    </View>
+                    {ingredients.length ? (
+                        <View className="mt-5 flex-row flex-wrap gap-2">
+                            {ingredients.slice(0, 6).map((ingredient) => (
+                                <View key={ingredient} className="rounded-full border border-white/8 bg-white/5 px-3.5 py-2">
+                                    <Text className="text-[12px] font-semibold capitalize text-white">{ingredient}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : null}
 
                     <View className="mt-5 flex-row flex-wrap gap-3">
                         <View className="rounded-full border border-white/8 bg-white/5 px-4 py-2.5">
                             <Text className="text-[12px] font-semibold text-white">{recipes.length} total options</Text>
                         </View>
-                        {primaryProvider === 'gemini' ? (
-                            <View className="rounded-full border border-[#f6b44f33] bg-[#f6b44f14] px-4 py-2.5 flex-row items-center">
-                                <Ionicons name="sparkles" size={12} color="#F6B44F" />
-                                <Text className="ml-2 text-[12px] font-semibold text-[#F8D08B]">Pantry-only recipes</Text>
+                        {isCookFreedom ? (
+                            <View className="rounded-full border px-4 py-2.5 flex-row items-center" style={{ borderColor: `${heroTone}44`, backgroundColor: `${heroTone}18` }}>
+                                <Ionicons name="sparkles" size={12} color={heroTone} />
+                                <Text className="ml-2 text-[12px] font-semibold" style={{ color: '#F8D08B' }}>
+                                    {missingRecipeCount ? `${missingRecipeCount} order-ready picks` : 'Flexible recipe ideas'}
+                                </Text>
                             </View>
-                        ) : null}
-                        {typeof quota?.remaining === 'number' && primaryProvider === 'spoonacular' ? (
+                        ) : (
+                            <View className="rounded-full border border-[#00c89633] bg-[#00c89614] px-4 py-2.5 flex-row items-center">
+                                <Ionicons name="checkmark-circle" size={12} color="#00C896" />
+                                <Text className="ml-2 text-[12px] font-semibold text-[#9FE6D3]">Pantry-only recipes</Text>
+                            </View>
+                        )}
+                        {typeof quota?.remaining === 'number' && recipes[0]?.provider === 'spoonacular' ? (
                             <View className="rounded-full border border-white/8 bg-white/5 px-4 py-2.5">
                                 <Text className="text-[12px] font-semibold text-white">{quota.remaining.toFixed(0)} Spoonacular credits left</Text>
                             </View>
@@ -186,9 +214,13 @@ export default function RecipeResultsScreen({ navigation, route }) {
 
                 {!loading && !errorMessage && !filteredRecipes.length ? (
                     <View className="rounded-[28px] border border-white/10 bg-[#0d1721] p-6">
-                        <Text className="text-lg font-bold text-textPrimary">No pantry-only recipe matches yet</Text>
+                        <Text className="text-lg font-bold text-textPrimary">
+                            {isCookFreedom ? 'No CookFreedom ideas yet' : 'No pantry-only recipe matches yet'}
+                        </Text>
                         <Text className="mt-2 text-sm leading-6 text-textSecondary">
-                            Try scanning more of what you already have at home so CookSmart can build fuller recipes without adding outside ingredients.
+                            {isCookFreedom
+                                ? 'Try adding a few ingredients or switch back to PantryChef if you want stricter matches from your current kitchen.'
+                                : 'Try scanning more of what you already have at home so CookSmart can build fuller recipes without adding outside ingredients.'}
                         </Text>
                     </View>
                 ) : null}
@@ -198,10 +230,12 @@ export default function RecipeResultsScreen({ navigation, route }) {
                         <RecipeCard
                             key={recipe.id}
                             recipe={recipe}
+                            mode={activeMode}
                             onPress={() => navigation.navigate('RecipeDetail', {
                                 recipeId: recipe.id,
                                 recipe,
                                 selectedIngredients: ingredients,
+                                mode: activeMode,
                             })}
                         />
                     ))}

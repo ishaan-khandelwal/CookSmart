@@ -1,11 +1,14 @@
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Feather, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
+import RecipeModeCard from '../components/RecipeModeCard';
+import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, RECIPE_MODE_OPTIONS, getRecipeModeMeta } from '../constants/recipeModes';
 import { useAuth } from '../context/AuthContext';
+import { useRecipeMode } from '../context/RecipeModeContext';
 import { fetchFavorites, fetchHistory } from '../services/api';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
@@ -70,6 +73,7 @@ function InteractiveCard({ children, onPress, className = '', containerStyle = {
 
 export default function HomeScreen({ navigation }) {
     const { user } = useAuth();
+    const { selectedMode, setSelectedMode } = useRecipeMode();
     const { width, height } = useWindowDimensions();
     const [recentScan, setRecentScan] = useState({ ingredients: [], photoUri: null, scannedAt: null });
     const [favoritesCount, setFavoritesCount] = useState(0);
@@ -83,12 +87,12 @@ export default function HomeScreen({ navigation }) {
         const name = user?.displayName ? user.displayName.split(' ')[0] : 'Chef';
         return name.charAt(0).toUpperCase() + name.slice(1);
     }, [user]);
-    const isWebPhone = Platform.OS === 'web';
-    const isCompact = width < 390 || (isWebPhone && width < 460) || height < 780;
+    const isCompact = width < 390 || height < 780;
 
     const dayPart = useMemo(() => getDayPart(), []);
     const dateLabel = useMemo(() => formatDateLabel(), []);
     const syncLabel = user?.uid && process.env.EXPO_PUBLIC_API_URL ? 'Cloud Kitchen Active' : 'Offline Local Mode';
+    const activeMode = useMemo(() => getRecipeModeMeta(selectedMode || DEFAULT_RECIPE_MODE), [selectedMode]);
 
     const pantryReadiness = useMemo(() => {
         const base = recentScan.ingredients.length ? 34 : 16;
@@ -183,15 +187,40 @@ export default function HomeScreen({ navigation }) {
 
     const openRecentScan = useCallback(() => {
         if (!recentScan.ingredients.length) {
-            navigation.navigate('Scan');
+            if (selectedMode === RECIPE_MODE_IDS.COOK_FREEDOM) {
+                const rootNavigation = navigation.getParent() ?? navigation;
+                rootNavigation.navigate('IngredientsResult', {
+                    ingredients: [],
+                    photoUri: null,
+                    mode: selectedMode,
+                });
+                return;
+            }
+
+            navigation.navigate('Scan', { mode: selectedMode });
             return;
         }
         const rootNavigation = navigation.getParent() ?? navigation;
         rootNavigation.navigate('IngredientsResult', {
             ingredients: recentScan.ingredients,
             photoUri: recentScan.photoUri,
+            mode: selectedMode,
         });
-    }, [navigation, recentScan.ingredients, recentScan.photoUri]);
+    }, [navigation, recentScan.ingredients, recentScan.photoUri, selectedMode]);
+
+    const handlePrimaryModeAction = useCallback(() => {
+        if (selectedMode === RECIPE_MODE_IDS.COOK_FREEDOM) {
+            const rootNavigation = navigation.getParent() ?? navigation;
+            rootNavigation.navigate('IngredientsResult', {
+                ingredients: recentScan.ingredients,
+                photoUri: recentScan.photoUri,
+                mode: selectedMode,
+            });
+            return;
+        }
+
+        navigation.navigate('Scan', { mode: selectedMode });
+    }, [navigation, recentScan.ingredients, recentScan.photoUri, selectedMode]);
 
     return (
         <View style={styles.screen}>
@@ -203,11 +232,11 @@ export default function HomeScreen({ navigation }) {
             <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
                 <Animated.ScrollView
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={[styles.scrollContent, isWebPhone && styles.webScrollContent]}
+                    contentContainerStyle={styles.scrollContent}
                     scrollEventThrottle={16}
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
                 >
-                    <View style={[styles.pagePadding, isWebPhone && styles.webPagePadding]}>
+                    <View style={styles.pagePadding}>
                         <Animated.View style={{ opacity: introOpacity, transform: [{ translateY: introLift }, { translateY: heroShift }, { scale: heroScale }] }}>
                             <View style={[styles.hero, isCompact && styles.heroCompact]}>
                                 <View style={styles.heroGlowA} />
@@ -252,10 +281,10 @@ export default function HomeScreen({ navigation }) {
                                             isCompact ? styles.heroPrimaryActionWrapCompact : styles.heroPrimaryActionWrapWide,
                                         ]}
                                         className="flex-row items-center justify-center rounded-[20px] bg-[#F59E0B] px-5 py-5 shadow-xl shadow-[#F59E0B]/30"
-                                        onPress={() => navigation.navigate('Scan')}
+                                        onPress={handlePrimaryModeAction}
                                     >
-                                        <Feather name="camera" size={20} color="#111111" />
-                                        <Text className="ml-2.5 text-[15px] font-black uppercase text-[#111111]">Scan Pantry</Text>
+                                        <Ionicons name={activeMode.icon} size={20} color="#111111" />
+                                        <Text className="ml-2.5 text-[15px] font-black uppercase text-[#111111]">{activeMode.ctaLabel}</Text>
                                     </InteractiveCard>
                                     <InteractiveCard
                                         containerStyle={[styles.heroSecondaryActionWrap, isCompact && styles.heroSecondaryActionWrapCompact]}
@@ -303,11 +332,45 @@ export default function HomeScreen({ navigation }) {
 
                         <Animated.View style={{ opacity: introOpacity, transform: [{ translateY: introLift }] }}>
                             <View className="mt-8">
-                                <View className={`mb-5 ${isCompact ? 'gap-3' : 'flex-row items-end justify-between'}`}>
-                                    <View>
-                                        <Text className="text-[26px] font-black text-white">Kitchen Pulse</Text>
-                                        <Text className="mt-1.5 text-[14px] font-medium text-white/50">Your active inventory at a glance.</Text>
+                                    <View className={`mb-5 ${isCompact ? 'gap-3' : 'flex-row items-end justify-between'}`}>
+                                        <View>
+                                            <Text className="text-[26px] font-black text-white">Cooking Modes</Text>
+                                            <Text className="mt-1.5 text-[14px] font-medium text-white/50">Pick how strict CookSmart should be before we generate recipes.</Text>
+                                        </View>
+                                        <View className="self-start rounded-full border border-white/10 bg-white/5 px-4 py-2">
+                                            <Text className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: activeMode.accent }}>{activeMode.shortTitle} Active</Text>
+                                        </View>
                                     </View>
+
+                                    <View className={`gap-4 ${isCompact ? '' : 'flex-row'}`}>
+                                        {RECIPE_MODE_OPTIONS.map((mode) => (
+                                            <RecipeModeCard
+                                                key={mode.id}
+                                                mode={mode}
+                                                selected={selectedMode === mode.id}
+                                                onPress={() => setSelectedMode(mode.id)}
+                                            />
+                                        ))}
+                                    </View>
+
+                                    <View style={[styles.modeSummary, { borderColor: activeMode.border, backgroundColor: `${activeMode.accent}12` }]}>
+                                        <View className="flex-1 pr-4">
+                                            <Text className="text-[11px] font-extrabold uppercase tracking-[1.5px]" style={{ color: activeMode.accent }}>Selected Workflow</Text>
+                                            <Text className="mt-2 text-[18px] font-black text-white">{activeMode.shortTitle}</Text>
+                                            <Text className="mt-2 text-[14px] leading-6 text-white/70">{activeMode.ctaDescription}</Text>
+                                        </View>
+                                        <Pressable style={[styles.modeActionButton, { backgroundColor: activeMode.accent }]} onPress={handlePrimaryModeAction}>
+                                            <Text style={styles.modeActionText}>Continue</Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+
+                                <View className="mt-10">
+                                    <View className={`mb-5 ${isCompact ? 'gap-3' : 'flex-row items-end justify-between'}`}>
+                                        <View>
+                                            <Text className="text-[26px] font-black text-white">Kitchen Pulse</Text>
+                                            <Text className="mt-1.5 text-[14px] font-medium text-white/50">Your active inventory at a glance.</Text>
+                                        </View>
                                     <View className="self-start rounded-full border border-white/10 bg-white/5 px-4 py-2">
                                         <Text className="text-[11px] font-bold uppercase tracking-[1px] text-white/80">{formatLastScanLabel(recentScan.scannedAt)}</Text>
                                     </View>
@@ -330,7 +393,7 @@ export default function HomeScreen({ navigation }) {
                                 <View className={`mt-5 gap-4 ${isCompact ? '' : 'flex-row'}`}>
                                     <InteractiveCard
                                         className="rounded-[32px] px-6 py-8"
-                                        onPress={() => navigation.navigate(quickActions[0].screen)}
+                                        onPress={() => navigation.navigate(quickActions[0].screen, { mode: selectedMode })}
                                         containerStyle={{ backgroundColor: quickActions[0].bg, borderRadius: 32, flex: isCompact ? 0 : 1 }}
                                     >
                                         <View className="h-16 w-16 items-center justify-center rounded-[22px]" style={{ backgroundColor: quickActions[0].accent }}>
@@ -426,8 +489,6 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#050A10' },
     scrollContent: { paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 },
     pagePadding: { paddingHorizontal: 22 },
-    webScrollContent: { paddingTop: 8, paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 42 },
-    webPagePadding: { paddingTop: 4 },
 
     orbTop: { position: 'absolute', top: -100, right: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(245, 158, 11, 0.16)' },
 
@@ -474,6 +535,31 @@ const styles = StyleSheet.create({
     heroBadgeCompact: { borderRadius: 24, padding: 16, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
 
     heroPillCompact: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14, backgroundColor: '#F8B84E', shadowColor: '#F8B84E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+
+    modeSummary: {
+        marginTop: 18,
+        borderRadius: 28,
+        borderWidth: 1,
+        paddingHorizontal: 18,
+        paddingVertical: 18,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    modeActionButton: {
+        minWidth: 108,
+        borderRadius: 18,
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modeActionText: {
+        fontSize: 14,
+        fontWeight: '900',
+        color: '#0B1016',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
 
     scanGlow: { position: 'absolute', top: -60, right: -40, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(248, 184, 78, 0.14)' },
     mealImage: { width: '100%', height: 220, backgroundColor: '#152435' },

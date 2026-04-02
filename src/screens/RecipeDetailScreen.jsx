@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
+import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, getRecipeModeMeta } from '../constants/recipeModes';
 import { useAuth } from '../context/AuthContext';
+import { useRecipeMode } from '../context/RecipeModeContext';
 import { createFavorite, createHistory } from '../services/api';
 import { generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 import { fetchRecipeDetails } from '../services/spoonacularApi';
@@ -66,7 +68,10 @@ export default function RecipeDetailScreen({ navigation, route }) {
     const initialRecipe = route.params?.recipe ?? null;
     const recipeId = route.params?.recipeId ?? initialRecipe?.id;
     const selectedIngredients = route.params?.selectedIngredients ?? [];
+    const { selectedMode } = useRecipeMode();
     const { user } = useAuth();
+    const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
+    const modeMeta = useMemo(() => getRecipeModeMeta(activeMode), [activeMode]);
     const [recipe, setRecipe] = useState(initialRecipe);
     const [loading, setLoading] = useState(Boolean(recipeId));
     const [errorMessage, setErrorMessage] = useState('');
@@ -81,6 +86,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
     const dietLabel = recipe?.vegan ? 'Vegan' : recipe?.vegetarian ? 'Veg' : 'Non-Veg';
     const dietTone = recipe?.vegan || recipe?.vegetarian ? '#22C55E' : '#FF6B6B';
     const instructionSteps = recipe?.instructionSteps?.length ? recipe.instructionSteps : [];
+    const isCookFreedom = activeMode === RECIPE_MODE_IDS.COOK_FREEDOM;
 
     useEffect(() => {
         let isMounted = true;
@@ -167,6 +173,16 @@ export default function RecipeDetailScreen({ navigation, route }) {
         }
     };
 
+    const handleOrderIngredients = () => {
+        const missingList = ingredientBuckets.missing.slice(0, 6).join(', ');
+        Alert.alert(
+            'Order Ingredients',
+            missingList
+                ? `CookSmart would open an ordering flow for: ${missingList}.`
+                : 'This recipe is already covered by what you have, so there is nothing extra to order.',
+        );
+    };
+
     return (
         <SafeAreaView className="flex-1 bg-background">
             <ScrollView contentContainerClassName="px-5 pt-2.5 pb-8" showsVerticalScrollIndicator={false}>
@@ -194,7 +210,9 @@ export default function RecipeDetailScreen({ navigation, route }) {
                             <View className="flex-1 pr-3">
                                 <Text className="text-2xl font-bold text-textPrimary">{recipe?.name ?? 'Recipe Detail'}</Text>
                                 <Text className="mt-2 text-sm leading-5 text-textSecondary">
-                                    Smart cooking breakdown based on the ingredients you selected.
+                                    {isCookFreedom
+                                        ? 'A full recipe breakdown with the items you already have and what you may want to order.'
+                                        : 'Smart cooking breakdown based on the ingredients you selected.'}
                                 </Text>
                             </View>
                             <View className="rounded-full px-3 py-2" style={{ backgroundColor: `${dietTone}22` }}>
@@ -218,6 +236,9 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                         {ingredientBuckets.have.length} from your scan
                                     </Text>
                                 </View>
+                                <View className="rounded-full px-3 py-2" style={{ backgroundColor: `${modeMeta.accent}18` }}>
+                                    <Text className="text-xs font-semibold" style={{ color: modeMeta.accent }}>{modeMeta.shortTitle}</Text>
+                                </View>
                                 {ingredientBuckets.pantryStaples.length ? (
                                     <View className="rounded-full bg-white/5 px-3 py-2">
                                         <Text className="text-xs font-semibold text-textPrimary">Pantry basics assumed</Text>
@@ -225,14 +246,19 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                 ) : null}
                             </View>
 
-                        <View className="mb-5 flex-row gap-3">
-                            <Pressable className="flex-1 items-center rounded-2xl bg-primary px-4 py-3.5" onPress={handleSaveFavorite}>
+                        <View className="mb-5 gap-3">
+                            <Pressable className="items-center rounded-2xl bg-primary px-4 py-3.5" onPress={handleSaveFavorite}>
                                 <Text className="text-[15px] font-bold text-background">
                                     {savingFavorite ? 'Saving...' : 'Save Recipe'}
                                 </Text>
                             </Pressable>
+                            {isCookFreedom && ingredientBuckets.missing.length ? (
+                                <Pressable className="items-center rounded-2xl border border-[#f59e0b55] bg-[#f59e0b14] px-4 py-3.5" onPress={handleOrderIngredients}>
+                                    <Text className="text-[15px] font-bold text-[#F8D08B]">Order Ingredients</Text>
+                                </Pressable>
+                            ) : null}
                             {recipe?.sourceUrl ? (
-                                <Pressable className="flex-1 items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5" onPress={() => Linking.openURL(recipe.sourceUrl)}>
+                                <Pressable className="items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5" onPress={() => Linking.openURL(recipe.sourceUrl)}>
                                     <Text className="text-[15px] font-bold text-textPrimary">Open Source</Text>
                                 </Pressable>
                             ) : null}
@@ -281,11 +307,15 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                     </View>
                                 ) : null}
 
-                                {(ingredientBuckets.have.length || ingredientBuckets.missing.length) ? (
+                                {(ingredientBuckets.have.length || ingredientBuckets.missing.length || ingredientBuckets.pantryStaples.length) ? (
                                     <View className="mt-4 rounded-[24px] border border-white/10 bg-[#111927] p-4">
-                                        <Text className="mb-1 text-lg font-bold text-textPrimary">Cook From What You Have</Text>
+                                        <Text className="mb-1 text-lg font-bold text-textPrimary">
+                                            {isCookFreedom ? 'Kitchen Match Breakdown' : 'Cook From What You Have'}
+                                        </Text>
                                         <Text className="mb-4 text-sm leading-5 text-textSecondary">
-                                            This recipe is filtered to fit what you already have at home.
+                                            {isCookFreedom
+                                                ? 'CookFreedom keeps the full recipe visible, then shows exactly what you already have and what still needs to be picked up.'
+                                                : 'This recipe is filtered to fit what you already have at home.'}
                                         </Text>
 
                                         <View className="mb-4 rounded-2xl border border-[#00c89633] bg-[#00c89614] p-4">
@@ -324,11 +354,25 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                             <View className="mt-4 rounded-2xl border border-[#ffb54733] bg-[#ffb54714] p-4">
                                                 <View className="mb-3 flex-row items-center">
                                                     <Ionicons name="alert-circle-outline" size={18} color="#FFB547" />
-                                                    <Text className="ml-2 text-base font-bold text-textPrimary">Check this recipe</Text>
+                                                    <Text className="ml-2 text-base font-bold text-textPrimary">
+                                                        {isCookFreedom ? 'Missing ingredients' : 'Check this recipe'}
+                                                    </Text>
                                                 </View>
-                                                <Text className="text-sm leading-5 text-textSecondary">
-                                                    This recipe still references a few extra items, so you may want to use the pantry-only matches list instead.
+                                                {ingredientBuckets.missing.map((ingredient) => (
+                                                    <Text key={`missing-${ingredient}`} className="mb-2 text-[15px] leading-6 text-textPrimary">
+                                                        - {ingredient}
+                                                    </Text>
+                                                ))}
+                                                <Text className="mt-1 text-sm leading-5 text-textSecondary">
+                                                    {isCookFreedom
+                                                        ? 'You can keep the full recipe and order these items directly before cooking.'
+                                                        : 'This recipe still references a few extra items, so you may want to use the pantry-only matches list instead.'}
                                                 </Text>
+                                                {isCookFreedom ? (
+                                                    <Pressable className="mt-4 items-center rounded-2xl bg-[#F59E0B] px-4 py-3.5" onPress={handleOrderIngredients}>
+                                                        <Text className="text-[15px] font-bold text-[#08131c]">Order Ingredients</Text>
+                                                    </Pressable>
+                                                ) : null}
                                             </View>
                                         ) : null}
                                     </View>

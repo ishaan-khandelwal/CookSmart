@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react';
 import {
     Animated,
     Easing,
-    Platform,
     StatusBar,
     StyleSheet,
     Text,
@@ -12,7 +11,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 export default function SplashScreen({ navigation }) {
-    const isWeb = Platform.OS === 'web';
     const { user, loading } = useAuth();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const translateAnim = useRef(new Animated.Value(24)).current;
@@ -98,16 +96,15 @@ export default function SplashScreen({ navigation }) {
     });
 
     return (
-        <View style={[styles.container, isWeb && styles.webContainer]}>
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" />
 
-            <View style={[styles.orbTop, isWeb && styles.webOrbTop]} />
-            <View style={[styles.orbBottom, isWeb && styles.webOrbBottom]} />
+            <View style={styles.orbTop} />
+            <View style={styles.orbBottom} />
 
             <Animated.View
                 style={[
                     styles.heroBlock,
-                    isWeb && styles.webHeroBlock,
                     {
                         opacity: fadeAnim,
                         transform: [{ translateY: translateAnim }],
@@ -117,7 +114,6 @@ export default function SplashScreen({ navigation }) {
                 <Animated.View
                     style={[
                         styles.logoOrbitWrap,
-                        isWeb && styles.webLogoOrbitWrap,
                         {
                             transform: [{ scale: scaleAnim }, { scale: pulseAnim }],
                         },
@@ -126,29 +122,26 @@ export default function SplashScreen({ navigation }) {
                     <Animated.View
                         style={[
                             styles.orbitRing,
-                            isWeb && styles.webOrbitRing,
                             { transform: [{ rotate: orbitSpin }] },
                         ]}
                     >
-                        <View style={[styles.orbitDotPrimary, isWeb && styles.webOrbitDotPrimary]} />
-                        <View style={[styles.orbitDotSecondary, isWeb && styles.webOrbitDotSecondary]} />
+                        <View style={styles.orbitDotPrimary} />
+                        <View style={styles.orbitDotSecondary} />
                     </Animated.View>
 
-                    <View
-                        style={[styles.logoCard, isWeb && styles.webLogoCard]}
-                    >
-                        <FontAwesome5 name="utensils" size={isWeb ? 30 : 34} color="#FFF7ED" />
+                    <View style={styles.logoCard}>
+                        <FontAwesome5 name="utensils" size={34} color="#FFF7ED" />
                     </View>
                 </Animated.View>
 
-                <Text style={[styles.title, isWeb && styles.webTitle]}>CookSmart</Text>
-                <Text style={[styles.subtitle, isWeb && styles.webSubtitle]}>
+                <Text style={styles.title}>CookSmart</Text>
+                <Text style={styles.subtitle}>
                     Plan smarter, cook cleaner, eat better.
                 </Text>
             </Animated.View>
 
             <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
-                <View style={[styles.progressTrack, isWeb && styles.webProgressTrack]}>
+                <View style={styles.progressTrack}>
                     <Animated.View
                         style={[
                             styles.progressFill,
@@ -173,10 +166,6 @@ const styles = StyleSheet.create({
         paddingTop: 96,
         paddingBottom: 72,
     },
-    webContainer: {
-        paddingTop: 44,
-        paddingBottom: 36,
-    },
     orbTop: {
         position: 'absolute',
         right: -30,
@@ -185,13 +174,6 @@ const styles = StyleSheet.create({
         height: 220,
         borderRadius: 110,
         backgroundColor: '#f59e0b29',
-    },
-    webOrbTop: {
-        right: -44,
-        top: 46,
-        width: 200,
-        height: 200,
-        borderRadius: 100,
     },
     orbBottom: {
         position: 'absolute',
@@ -202,21 +184,10 @@ const styles = StyleSheet.create({
         borderRadius: 120,
         backgroundColor: '#22c55e1f',
     },
-    webOrbBottom: {
-        bottom: 56,
-        left: -52,
-        width: 210,
-        height: 210,
-        borderRadius: 105,
-    },
     heroBlock: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    webHeroBlock: {
-        justifyContent: 'flex-start',
-        paddingTop: 48,
     },
     logoOrbitWrap: {
         width: 164,
@@ -225,11 +196,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: 34,
     },
-    webLogoOrbitWrap: {
-        width: 142,
-        height: 142,
-        marginBottom: 28,
-    },
     orbitRing: {
         position: 'absolute',
         width: 164,
@@ -237,11 +203,6 @@ const styles = StyleSheet.create({
         borderRadius: 82,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.10)',
-    },
-    webOrbitRing: {
-        width: 142,
-        height: 142,
-        borderRadius: 71,
     },
     orbitDotPrimary: {
         position: 'absolute',
@@ -253,9 +214,6 @@ const styles = StyleSheet.create({
         borderRadius: 7,
         backgroundColor: '#F59E0B',
     },
-    webOrbitDotPrimary: {
-        top: 8,
-    },
     orbitDotSecondary: {
         position: 'absolute',
         bottom: 24,
@@ -264,10 +222,6 @@ const styles = StyleSheet.create({
         height: 10,
         borderRadius: 5,
         backgroundColor: '#22C55E',
-    },
-    webOrbitDotSecondary: {
-        bottom: 20,
-        left: 14,
     },
     logoCard: {
         width: 118,
@@ -284,11 +238,6 @@ const styles = StyleSheet.create({
         shadowRadius: 24,
         elevation: 10,
     },
-    webLogoCard: {
-        width: 104,
-        height: 104,
-        borderRadius: 28,
-    },
     title: {
         marginBottom: 12,
         fontSize: 34,
@@ -296,20 +245,12 @@ const styles = StyleSheet.create({
         letterSpacing: 0.8,
         color: '#FFFFFF',
     },
-    webTitle: {
-        fontSize: 30,
-    },
     subtitle: {
         maxWidth: 270,
         textAlign: 'center',
         fontSize: 15,
         lineHeight: 24,
         color: 'rgba(255,255,255,0.70)',
-    },
-    webSubtitle: {
-        maxWidth: 250,
-        fontSize: 14,
-        lineHeight: 22,
     },
     footer: {
         alignItems: 'center',
@@ -321,9 +262,6 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderRadius: 999,
         backgroundColor: 'rgba(255,255,255,0.10)',
-    },
-    webProgressTrack: {
-        maxWidth: 260,
     },
     progressFill: {
         flex: 1,

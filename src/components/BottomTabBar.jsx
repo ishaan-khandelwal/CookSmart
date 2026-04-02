@@ -1,11 +1,9 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SCAN_LIFT = 14;
-const WEB_SCAN_LIFT = 10;
 const DOCK_HEIGHT = 96;
-const WEB_DOCK_HEIGHT = 88;
 const DOCK_SIDE_PADDING = 16;
 const DOCK_BOTTOM_GAP = 10;
 const DOCK_EXTRA_CLEARANCE = 12;
@@ -22,11 +20,8 @@ function getIconName(routeName, isFocused) {
 
 export default function BottomTabBar({ state, descriptors, navigation }) {
     const insets = useSafeAreaInsets();
-    const isWeb = Platform.OS === 'web';
-    const dockHeight = isWeb ? WEB_DOCK_HEIGHT : DOCK_HEIGHT;
-    const scanLift = isWeb ? WEB_SCAN_LIFT : SCAN_LIFT;
     const dockBottom = Math.max(insets.bottom, DOCK_BOTTOM_GAP);
-    const reservedHeight = dockHeight + dockBottom + DOCK_EXTRA_CLEARANCE;
+    const reservedHeight = DOCK_HEIGHT + dockBottom + DOCK_EXTRA_CLEARANCE;
     const activeRoute = state.routes[state.index];
 
     if (activeRoute?.name === 'Scan') {
@@ -50,7 +45,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                 className="absolute left-0 right-0 overflow-hidden rounded-[32px] border border-white/8"
                 style={{
                     bottom: dockBottom,
-                    height: dockHeight,
+                    height: DOCK_HEIGHT,
                     left: DOCK_SIDE_PADDING,
                     right: DOCK_SIDE_PADDING,
                     alignSelf: 'center',
@@ -100,7 +95,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                                 className="min-w-0 flex-1 items-center justify-center bg-transparent"
                                 activeOpacity={0.9}
                             >
-                                <View className="w-full items-center justify-center px-1" style={isScan ? { transform: [{ translateY: -scanLift }] } : undefined}>
+                                <View className="w-full items-center justify-center px-1" style={isScan ? { transform: [{ translateY: -SCAN_LIFT }] } : undefined}>
                                     {isScan ? (
                                         <>
                                             <View

@@ -4,7 +4,6 @@ import {
     Alert,
     FlatList,
     Image,
-    Platform,
     RefreshControl,
     StyleSheet,
     Text,
@@ -33,7 +32,6 @@ function shouldUpgradeFavoriteImage(uri) {
 }
 
 export default function FavoritesScreen({ navigation }) {
-    const isWeb = Platform.OS === 'web';
     const { user } = useAuth();
     const [favorites, setFavorites] = useState([]);
     const [newTitle, setNewTitle] = useState('');
@@ -263,11 +261,11 @@ export default function FavoritesScreen({ navigation }) {
                             {hasRenderableImage ? (
                                 <Image
                                     source={{ uri: item.image }}
-                                    style={[styles.favoriteImage, isWeb && styles.webFavoriteImage]}
+                                    style={styles.favoriteImage}
                                     resizeMode="cover"
                                 />
                             ) : (
-                                <View style={[styles.favoriteImageFallback, isWeb && styles.webFavoriteImage]}>
+                                <View style={styles.favoriteImageFallback}>
                                     <Text className="text-[13px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">Saved Recipe</Text>
                                 </View>
                             )}
@@ -299,9 +297,6 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 180,
         backgroundColor: '#101b27',
-    },
-    webFavoriteImage: {
-        height: 156,
     },
     favoriteImageFallback: {
         width: '100%',

@@ -1,4 +1,5 @@
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { RECIPE_MODE_IDS } from '../constants/recipeModes';
 
 const difficultyStripe = {
     Easy: '#00C896',
@@ -6,20 +7,22 @@ const difficultyStripe = {
     Hard: '#FF6B6B',
 };
 
-export default function RecipeCard({ recipe, onPress }) {
-    const isWeb = Platform.OS === 'web';
+export default function RecipeCard({ recipe, onPress, mode = RECIPE_MODE_IDS.PANTRY_CHEF }) {
     const stripeColor = difficultyStripe[recipe.difficulty] ?? '#00C896';
     const dietLabel = recipe.vegan ? 'Vegan' : recipe.vegetarian ? 'Veg' : 'Non-Veg';
     const dietColor = recipe.vegan || recipe.vegetarian ? '#22C55E' : '#FF6B6B';
-    const providerLabel = recipe.provider === 'gemini' ? 'Pantry recipe' : recipe.provider === 'edamam' ? 'Home match' : 'Pantry match';
+    const isCookFreedom = mode === RECIPE_MODE_IDS.COOK_FREEDOM;
+    const providerLabel = isCookFreedom
+        ? recipe.provider === 'gemini' ? 'Flexible pick' : recipe.provider === 'edamam' ? 'Recipe to explore' : 'CookFreedom pick'
+        : recipe.provider === 'gemini' ? 'Pantry recipe' : recipe.provider === 'edamam' ? 'Home match' : 'Pantry match';
 
     return (
         <Pressable className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]" onPress={onPress}>
             <View className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: stripeColor }} />
             {recipe.image ? (
-                <Image source={{ uri: recipe.image }} style={[styles.image, isWeb && styles.webImage]} resizeMode="cover" />
+                <Image source={{ uri: recipe.image }} style={styles.image} resizeMode="cover" />
             ) : (
-                <View style={[styles.imageFallback, isWeb && styles.webImage]}>
+                <View style={styles.imageFallback}>
                     <View className="rounded-full border border-white/10 bg-white/5 px-4 py-2">
                         <Text className="text-[12px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">{providerLabel}</Text>
                     </View>
@@ -50,11 +53,21 @@ export default function RecipeCard({ recipe, onPress }) {
                     <View className="rounded-full border border-white/8 bg-white/5 px-3 py-2">
                         <Text className="text-[12px] font-semibold text-textPrimary">{recipe.cookTime}</Text>
                     </View>
-                    <View className="rounded-full border border-[#00c89630] bg-[#00c89614] px-3 py-2">
-                        <Text className="text-[12px] font-semibold text-[#9FE6D3]">
-                            Uses {recipe.matchingCount} ingredient{recipe.matchingCount === 1 ? '' : 's'} you have
-                        </Text>
-                    </View>
+                    {isCookFreedom ? (
+                        <View className="rounded-full border border-[#f59e0b30] bg-[#f59e0b14] px-3 py-2">
+                            <Text className="text-[12px] font-semibold text-[#F8D08B]">
+                                {recipe.missingCount > 0
+                                    ? `Need ${recipe.missingCount} more ingredient${recipe.missingCount === 1 ? '' : 's'}`
+                                    : 'Ready with your kitchen'}
+                            </Text>
+                        </View>
+                    ) : (
+                        <View className="rounded-full border border-[#00c89630] bg-[#00c89614] px-3 py-2">
+                            <Text className="text-[12px] font-semibold text-[#9FE6D3]">
+                                Uses {recipe.matchingCount} ingredient{recipe.matchingCount === 1 ? '' : 's'} you have
+                            </Text>
+                        </View>
+                    )}
                     {Array.isArray(recipe.pantryStaples) && recipe.pantryStaples.length ? (
                         <View className="rounded-full border border-white/8 bg-white/5 px-3 py-2">
                             <Text className="text-[12px] font-semibold text-[#F8D08B]">
@@ -73,9 +86,6 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 190,
         backgroundColor: '#152435',
-    },
-    webImage: {
-        height: 164,
     },
     imageFallback: {
         width: '100%',

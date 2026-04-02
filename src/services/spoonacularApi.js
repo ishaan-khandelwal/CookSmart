@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS } from '../constants/recipeModes';
 import { findRealFavoriteImageFromTitle } from './favoriteImageApi';
 import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 
@@ -168,6 +169,45 @@ function createCookSmartRecipe({
     };
 }
 
+function createFlexibleCookSmartRecipe({
+    id,
+    name,
+    summary,
+    cookTime,
+    difficulty,
+    ingredients,
+    selectedIngredients,
+    vegetarian = true,
+    vegan = false,
+    pantryStaples = [],
+    instructionSteps = [],
+}) {
+    const ingredientMatch = buildIngredientMatch(selectedIngredients, ingredients);
+
+    return {
+        id,
+        providerId: id,
+        provider: 'cooksmart',
+        name,
+        summary,
+        cookTime,
+        readyInMinutes: Number.parseInt(String(cookTime).replace(/[^\d]/g, ''), 10) || null,
+        difficulty,
+        vegetarian,
+        vegan,
+        matchingCount: ingredientMatch.have.length,
+        missingCount: ingredientMatch.missing.length,
+        ingredients: uniqueList(ingredients),
+        usedIngredients: ingredientMatch.have,
+        pantryStaples: uniqueList([...pantryStaples, ...ingredientMatch.pantryStaples]),
+        missingIngredients: ingredientMatch.missing,
+        instructionSteps: uniqueList(instructionSteps),
+        instructions: uniqueList(instructionSteps).join('\n'),
+        image: '',
+        imageLabel: String(name || 'RECIPE').slice(0, 8).toUpperCase(),
+    };
+}
+
 function getLocalPantryRecipes(ingredients) {
     const recipes = [];
     const hasFlour = hasPantryIngredient(ingredients, PANTRY_INGREDIENT_ALIASES.flour);
@@ -200,6 +240,98 @@ function getLocalPantryRecipes(ingredients) {
     }
 
     return recipes;
+}
+
+function getLocalCookFreedomRecipes(ingredients) {
+    return [
+        createFlexibleCookSmartRecipe({
+            id: 'cooksmart-garlic-butter-pasta',
+            name: 'Garlic Butter Pasta',
+            summary: 'A fast, comforting pasta you can make tonight, with a few fresh add-ons if you want it restaurant-ready.',
+            cookTime: '20 min',
+            difficulty: 'Easy',
+            ingredients: ['pasta', 'garlic', 'butter', 'parmesan', 'lemon', 'black pepper', 'salt'],
+            selectedIngredients: ingredients,
+            vegetarian: true,
+            pantryStaples: ['salt', 'black pepper'],
+            instructionSteps: [
+                'Boil the pasta in salted water until al dente.',
+                'Melt butter in a pan and cook the garlic until fragrant.',
+                'Toss the pasta with the garlic butter and a splash of pasta water.',
+                'Finish with parmesan, lemon, and black pepper before serving.',
+            ],
+        }),
+        createFlexibleCookSmartRecipe({
+            id: 'cooksmart-veggie-fried-rice',
+            name: 'Veggie Fried Rice',
+            summary: 'A flexible wok-style dinner that works with leftover rice and whatever crisp vegetables you can add.',
+            cookTime: '25 min',
+            difficulty: 'Easy',
+            ingredients: ['rice', 'egg', 'carrot', 'peas', 'soy sauce', 'garlic', 'spring onion', 'oil'],
+            selectedIngredients: ingredients,
+            vegetarian: true,
+            pantryStaples: ['oil'],
+            instructionSteps: [
+                'Scramble the egg lightly and set it aside.',
+                'Cook garlic and vegetables in a hot pan with oil.',
+                'Add cold rice and soy sauce, then toss until heated through.',
+                'Fold the egg back in and finish with spring onion.',
+            ],
+        }),
+        createFlexibleCookSmartRecipe({
+            id: 'cooksmart-chicken-stir-fry',
+            name: 'Garlic Chicken Stir-Fry',
+            summary: 'A quick skillet dinner that still works even if you need to pick up a couple of fresh vegetables on the way home.',
+            cookTime: '30 min',
+            difficulty: 'Medium',
+            ingredients: ['chicken', 'bell pepper', 'onion', 'soy sauce', 'garlic', 'ginger', 'oil'],
+            selectedIngredients: ingredients,
+            vegetarian: false,
+            vegan: false,
+            pantryStaples: ['oil'],
+            instructionSteps: [
+                'Slice the chicken into thin strips and season lightly.',
+                'Stir-fry garlic, ginger, onion, and bell pepper until fragrant.',
+                'Add the chicken and cook until browned and fully done.',
+                'Finish with soy sauce and serve hot.',
+            ],
+        }),
+        createFlexibleCookSmartRecipe({
+            id: 'cooksmart-tomato-basil-soup',
+            name: 'Tomato Basil Soup',
+            summary: 'A cozy blended soup that can lean pantry-simple or be upgraded with cream and herbs.',
+            cookTime: '35 min',
+            difficulty: 'Easy',
+            ingredients: ['tomato', 'onion', 'garlic', 'vegetable stock', 'cream', 'basil', 'olive oil'],
+            selectedIngredients: ingredients,
+            vegetarian: true,
+            pantryStaples: ['olive oil'],
+            instructionSteps: [
+                'Cook onion and garlic in olive oil until soft.',
+                'Add tomato and stock, then simmer until the vegetables break down.',
+                'Blend until smooth and return to the pot.',
+                'Finish with cream and basil before serving.',
+            ],
+        }),
+        createFlexibleCookSmartRecipe({
+            id: 'cooksmart-chickpea-curry',
+            name: 'Chickpea Coconut Curry',
+            summary: 'A rich pantry-friendly curry that is still worth making even if you need a few groceries to round it out.',
+            cookTime: '35 min',
+            difficulty: 'Medium',
+            ingredients: ['chickpeas', 'onion', 'garlic', 'tomato', 'coconut milk', 'curry powder', 'rice', 'oil'],
+            selectedIngredients: ingredients,
+            vegetarian: true,
+            vegan: true,
+            pantryStaples: ['oil'],
+            instructionSteps: [
+                'Cook onion and garlic in oil until fragrant.',
+                'Stir in curry powder, tomato, and chickpeas.',
+                'Pour in coconut milk and simmer until thickened.',
+                'Serve over rice once the sauce turns silky.',
+            ],
+        }),
+    ];
 }
 
 function mergeRecipeSources(primaryRecipes, secondaryRecipes = []) {
@@ -322,6 +454,31 @@ function parseOpenRouterText(data) {
     return '';
 }
 
+function createPantryChefPrompt(ingredients) {
+    return `You are a creative chef for a pantry-only cooking app.
+Suggest 10 unique recipes that can be made using ONLY these ingredients already available at home: ${ingredients.join(', ')}.
+You may optionally assume tiny pantry basics only: salt, pepper, water, oil, butter, or ghee.
+Do NOT include any other extra ingredients, shopping items, or market additions.
+Reply ONLY with a professional JSON array of objects.
+Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
+Set missingCount to 0 for every recipe.
+Return ONLY the JSON array.`;
+}
+
+function createCookFreedomPrompt(ingredients) {
+    const ingredientContext = ingredients.length
+        ? `The user already has: ${ingredients.join(', ')}. Use those where helpful, but you may add other ingredients if the recipe genuinely needs them.`
+        : 'No pantry ingredients were provided yet, so suggest popular, approachable recipes worth cooking this week.';
+
+    return `You are a creative chef for a flexible cooking app.
+${ingredientContext}
+Suggest 10 full recipe ideas. It is okay if some recipes require extra ingredients the user does not have yet.
+Reply ONLY with a professional JSON array of objects.
+Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
+Use complete ingredient lists for each recipe.
+Return ONLY the JSON array.`;
+}
+
 function formatAiIngredient(item) {
     if (typeof item === 'string') {
         return item.trim();
@@ -437,18 +594,10 @@ function mapSpoonacularSummary(recipe) {
     };
 }
 
-async function searchGeminiRecipes(ingredients) {
+async function searchGeminiRecipes(ingredients, mode = DEFAULT_RECIPE_MODE) {
     const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
     if (!geminiKey) throw new Error('Missing Gemini Key');
-
-    const prompt = `You are a creative chef for a pantry-only cooking app.
-Suggest 10 unique recipes that can be made using ONLY these ingredients already available at home: ${ingredients.join(', ')}.
-You may optionally assume tiny pantry basics only: salt, pepper, water, oil, butter, or ghee.
-Do NOT include any other extra ingredients, shopping items, or market additions.
-Reply ONLY with a professional JSON array of objects.
-Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
-Set missingCount to 0 for every recipe.
-Return ONLY the JSON array.`;
+    const prompt = mode === RECIPE_MODE_IDS.COOK_FREEDOM ? createCookFreedomPrompt(ingredients) : createPantryChefPrompt(ingredients);
 
     const { data: result } = await generateGeminiContent({
         apiKey: geminiKey,
@@ -473,20 +622,12 @@ Return ONLY the JSON array.`;
     }
 }
 
-async function searchOpenRouterGeminiRecipes(ingredients) {
+async function searchOpenRouterGeminiRecipes(ingredients, mode = DEFAULT_RECIPE_MODE) {
     const { apiKey, model } = getOpenRouterRecipeConfig();
     if (!apiKey) {
         throw Object.assign(new Error('Missing OpenRouter API key'), { code: 'MISSING_API_KEY', provider: 'openrouter' });
     }
-
-    const prompt = `You are a creative chef for a pantry-only cooking app.
-Suggest 10 unique recipes that can be made using ONLY these ingredients already available at home: ${ingredients.join(', ')}.
-You may optionally assume tiny pantry basics only: salt, pepper, water, oil, butter, or ghee.
-Do NOT include any other extra ingredients, shopping items, or market additions.
-Reply ONLY with a professional JSON array of objects.
-Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
-Set missingCount to 0 for every recipe.
-Return ONLY the JSON array.`;
+    const prompt = mode === RECIPE_MODE_IDS.COOK_FREEDOM ? createCookFreedomPrompt(ingredients) : createPantryChefPrompt(ingredients);
 
     const data = await fetchJson(OPENROUTER_URL, {
         method: 'POST',
@@ -547,7 +688,7 @@ function mapEdamamRecipe(recipe, selectedIngredients) {
         name: recipe?.label || 'Recipe',
         image: recipe?.image || '',
         imageLabel: String(recipe?.label || 'RECIPE').slice(0, 8).toUpperCase(),
-        cookTime: totalTime ? `${totalTime} min` : 'Recipe from the web',
+        cookTime: totalTime ? `${totalTime} min` : 'Source recipe',
         readyInMinutes: totalTime || null,
         difficulty: totalTime > 45 ? 'Hard' : totalTime > 25 ? 'Medium' : 'Easy',
         matchingCount: ingredientMatch.have.length,
@@ -642,6 +783,56 @@ function keepPantryReadyRecipes(result, ingredients) {
     };
 }
 
+function prepareCookFreedomRecipes(result, ingredients) {
+    const flexibleRecipes = (result?.recipes || [])
+        .map((recipe) => {
+            if (Array.isArray(recipe?.ingredients)) {
+                const ingredientMatch = buildIngredientMatch(ingredients, recipe.ingredients);
+                const missingIngredients = uniqueList(
+                    (Array.isArray(recipe?.missingIngredients) && recipe.missingIngredients.length
+                        ? recipe.missingIngredients
+                        : ingredientMatch.missing)
+                        .filter((ingredient) => !isOptionalPantryStaple(ingredient)),
+                );
+
+                return {
+                    ...recipe,
+                    matchingCount: ingredientMatch.have.length,
+                    usedIngredients: uniqueList(recipe?.usedIngredients?.length ? recipe.usedIngredients : ingredientMatch.have),
+                    pantryStaples: uniqueList([...(recipe?.pantryStaples || []), ...ingredientMatch.pantryStaples]),
+                    missingIngredients,
+                    missingCount: missingIngredients.length,
+                };
+            }
+
+            const missingIngredients = uniqueList((recipe?.missingIngredients || []).filter((ingredient) => !isOptionalPantryStaple(ingredient)));
+
+            return {
+                ...recipe,
+                usedIngredients: uniqueList(recipe?.usedIngredients || []),
+                pantryStaples: uniqueList(recipe?.pantryStaples || []),
+                missingIngredients,
+                missingCount: missingIngredients.length,
+            };
+        })
+        .sort((left, right) => {
+            const matchDifference = (right.matchingCount || 0) - (left.matchingCount || 0);
+            if (matchDifference !== 0) {
+                return matchDifference;
+            }
+
+            return (left.missingCount || 0) - (right.missingCount || 0);
+        });
+
+    return {
+        ...result,
+        recipes: flexibleRecipes,
+        notice: ingredients.length
+            ? 'Showing full recipe ideas, including dishes that may need a few extra ingredients.'
+            : 'Showing flexible recipe ideas first. Add ingredients later or order what you need.',
+    };
+}
+
 export async function getStoredSpoonacularQuota() {
     try {
         const rawValue = await AsyncStorage.getItem(SPOONACULAR_QUOTA_STORAGE_KEY);
@@ -651,15 +842,91 @@ export async function getStoredSpoonacularQuota() {
     }
 }
 
-export async function fetchRecipesByIngredients(ingredients) {
+export async function fetchRecipesByIngredients(ingredients, options = {}) {
+    const mode = options?.mode === RECIPE_MODE_IDS.COOK_FREEDOM ? RECIPE_MODE_IDS.COOK_FREEDOM : DEFAULT_RECIPE_MODE;
     const normalized = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
-    if (!normalized.length) return { recipes: [], quota: null, provider: null };
+    if (!normalized.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) return { recipes: [], quota: null, provider: null };
     const localPantryRecipes = getLocalPantryRecipes(normalized);
+    const localCookFreedomRecipes = getLocalCookFreedomRecipes(normalized);
+
+    if (mode === RECIPE_MODE_IDS.COOK_FREEDOM) {
+        try {
+            const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
+            if (geminiKey) {
+                const result = prepareCookFreedomRecipes(await searchGeminiRecipes(normalized, mode), normalized);
+                const mergedRecipes = mergeRecipeSources(result.recipes, localCookFreedomRecipes);
+                if (mergedRecipes.length) {
+                    return {
+                        ...result,
+                        provider: mergedRecipes[0]?.provider || result.provider,
+                        recipes: await attachRecipeImages(mergedRecipes),
+                    };
+                }
+            }
+        } catch (error) {
+            logRecipeProviderEvent('Gemini Recipe Search Failed', error);
+            const isRateLimited = error?.status === 429 || /too many requests|rate limit|resource exhausted/i.test(String(error?.message || ''));
+            if (isRateLimited) {
+                try {
+                    const result = prepareCookFreedomRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
+                    const mergedRecipes = mergeRecipeSources(result.recipes, localCookFreedomRecipes);
+                    if (mergedRecipes.length) {
+                        return {
+                            ...result,
+                            provider: mergedRecipes[0]?.provider || result.provider,
+                            recipes: await attachRecipeImages(mergedRecipes),
+                        };
+                    }
+                } catch (openRouterError) {
+                    logRecipeProviderEvent('OpenRouter Gemini Failed', openRouterError);
+                }
+            }
+        }
+
+        if (normalized.length) {
+            try {
+                const spoonacularResult = prepareCookFreedomRecipes(await searchSpoonacularRecipes(normalized), normalized);
+                const mergedRecipes = mergeRecipeSources(spoonacularResult.recipes, localCookFreedomRecipes);
+                if (mergedRecipes.length) {
+                    return {
+                        ...spoonacularResult,
+                        provider: mergedRecipes[0]?.provider || spoonacularResult.provider,
+                        recipes: await attachRecipeImages(mergedRecipes),
+                    };
+                }
+            } catch (error) {
+                logRecipeProviderEvent('Spoonacular Failed', error);
+            }
+
+            try {
+                const edamamResult = prepareCookFreedomRecipes(await searchEdamamRecipes(normalized), normalized);
+                const mergedRecipes = mergeRecipeSources(edamamResult.recipes, localCookFreedomRecipes);
+                if (mergedRecipes.length) {
+                    return {
+                        ...edamamResult,
+                        provider: mergedRecipes[0]?.provider || edamamResult.provider,
+                        recipes: await attachRecipeImages(mergedRecipes),
+                    };
+                }
+            } catch (error) {
+                logRecipeProviderEvent('Edamam Failed', error);
+            }
+        }
+
+        return {
+            provider: localCookFreedomRecipes[0]?.provider || null,
+            quota: null,
+            notice: normalized.length
+                ? 'Showing full recipe ideas, including dishes that may need a few extra ingredients.'
+                : 'Showing flexible recipe ideas first. Add ingredients later or order what you need.',
+            recipes: await attachRecipeImages(localCookFreedomRecipes),
+        };
+    }
 
     try {
         const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
         if (geminiKey) {
-            const result = keepPantryReadyRecipes(await searchGeminiRecipes(normalized), normalized);
+            const result = keepPantryReadyRecipes(await searchGeminiRecipes(normalized, mode), normalized);
             const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
             if (mergedRecipes.length) {
                 return {
@@ -674,7 +941,7 @@ export async function fetchRecipesByIngredients(ingredients) {
         const isRateLimited = error?.status === 429 || /too many requests|rate limit|resource exhausted/i.test(String(error?.message || ''));
         if (isRateLimited) {
             try {
-                const result = keepPantryReadyRecipes(await searchOpenRouterGeminiRecipes(normalized), normalized);
+                const result = keepPantryReadyRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
                 const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
                 if (mergedRecipes.length) {
                     return {

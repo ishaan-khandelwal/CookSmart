@@ -1,7 +1,6 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
-    browserLocalPersistence,
     createUserWithEmailAndPassword,
     getAuth,
     getReactNativePersistence,
@@ -10,7 +9,6 @@ import {
     signOut,
     updateProfile,
 } from 'firebase/auth';
-import { Platform } from 'react-native';
 
 const firebaseConfig = {
     apiKey: 'AIzaSyCUUIALVtuDqw23nhV8Osfp1O1blQ5UEbo',
@@ -25,16 +23,6 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 function createAuth() {
-    if (Platform.OS === 'web') {
-        try {
-            return initializeAuth(app, {
-                persistence: browserLocalPersistence,
-            });
-        } catch {
-            return getAuth(app);
-        }
-    }
-
     try {
         return initializeAuth(app, {
             persistence: getReactNativePersistence(ReactNativeAsyncStorage),

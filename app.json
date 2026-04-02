@@ -36,10 +36,6 @@
       "backgroundColor": "#111111",
       "barStyle": "light-content"
     },
-    "web": {
-      "bundler": "metro",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       [
         "expo-camera",

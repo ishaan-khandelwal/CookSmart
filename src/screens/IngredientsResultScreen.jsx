@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import IngredientChip from '../components/IngredientChip';
+import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, getRecipeModeMeta } from '../constants/recipeModes';
+import { useRecipeMode } from '../context/RecipeModeContext';
 import { getIngredientIcon } from '../services/claudeApi';
 
 function normalizeIngredients(list) {
@@ -25,15 +27,23 @@ function normalizeIngredients(list) {
 }
 
 export default function IngredientsResultScreen({ navigation, route }) {
+    const { selectedMode } = useRecipeMode();
     const { ingredients = [], photoUri, scannerError } = route.params ?? {};
     const [items, setItems] = useState(() => normalizeIngredients(ingredients));
     const [draftIngredient, setDraftIngredient] = useState('');
     const inputRef = useRef(null);
+    const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
+    const modeMeta = useMemo(() => getRecipeModeMeta(activeMode), [activeMode]);
+    const allowEmptyContinue = activeMode === RECIPE_MODE_IDS.COOK_FREEDOM;
     const hasIngredients = items.length > 0;
 
     const emptyStateMessage = useMemo(
-        () => 'Nothing found, try better lighting or spread the ingredients out a little more.',
-        [],
+        () => (
+            allowEmptyContinue
+                ? 'Nothing scanned yet, but CookFreedom can still show full recipe ideas while you add ingredients later.'
+                : 'Nothing found, try better lighting or spread the ingredients out a little more.'
+        ),
+        [allowEmptyContinue],
     );
 
     const removeIngredient = (ingredient) => {
@@ -52,11 +62,11 @@ export default function IngredientsResultScreen({ navigation, route }) {
     };
 
     const handleFindRecipes = async () => {
-        if (!items.length) {
+        if (!items.length && !allowEmptyContinue) {
             return;
         }
 
-        navigation.navigate('RecipeResults', { ingredients: items });
+        navigation.navigate('RecipeResults', { ingredients: items, mode: activeMode });
     };
 
     return (
@@ -70,8 +80,20 @@ export default function IngredientsResultScreen({ navigation, route }) {
                         <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-card" onPress={() => navigation.goBack()}>
                             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                         </Pressable>
-                        <Text className="text-xl font-bold text-textPrimary">Detected Ingredients</Text>
+                        <Text className="text-xl font-bold text-textPrimary">{modeMeta.title}</Text>
                         <View className="h-10 w-10" />
+                    </View>
+
+                    <View className="mb-[18px] overflow-hidden rounded-[24px] border px-4 py-4" style={{ borderColor: modeMeta.border, backgroundColor: `${modeMeta.accent}12` }}>
+                        <View className="flex-row items-center">
+                            <View className="rounded-full px-3 py-2" style={{ backgroundColor: `${modeMeta.accent}24` }}>
+                                <Text className="text-[11px] font-black uppercase tracking-[1px]" style={{ color: modeMeta.accent }}>{modeMeta.shortTitle}</Text>
+                            </View>
+                        </View>
+                        <Text className="mt-3 text-[22px] font-black text-textPrimary">
+                            {allowEmptyContinue ? 'Browse first, stock up later.' : 'Cook only from your current pantry.'}
+                        </Text>
+                        <Text className="mt-2 text-sm leading-6 text-textSecondary">{modeMeta.description}</Text>
                     </View>
 
                     {photoUri ? <Image source={{ uri: photoUri }} className="mb-[22px] h-[220px] w-full rounded-[20px]" /> : null}
@@ -131,16 +153,16 @@ export default function IngredientsResultScreen({ navigation, route }) {
 
                 <View className="px-5 pb-5">
                     <Pressable
-                        className={`min-h-[54px] items-center justify-center rounded-[18px] bg-primary ${!items.length ? 'opacity-50' : ''}`}
+                        className={`min-h-[54px] items-center justify-center rounded-[18px] bg-primary ${!items.length && !allowEmptyContinue ? 'opacity-50' : ''}`}
                         onPress={handleFindRecipes}
-                        disabled={!items.length}
+                        disabled={!items.length && !allowEmptyContinue}
                     >
                         <Text className="text-base font-bold text-background">
-                            Find Recipes
+                            {allowEmptyContinue ? 'Show Any Recipes' : 'Find Pantry Recipes'}
                         </Text>
                     </Pressable>
                     <Pressable className="mt-4 items-center justify-center" onPress={() => navigation.goBack()}>
-                        <Text className="text-[15px] font-semibold text-textSecondary">Scan Again</Text>
+                        <Text className="text-[15px] font-semibold text-textSecondary">{allowEmptyContinue ? 'Scan or Edit Ingredients' : 'Scan Again'}</Text>
                     </Pressable>
                 </View>
             </KeyboardAvoidingView>
