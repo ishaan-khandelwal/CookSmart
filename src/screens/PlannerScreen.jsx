@@ -1111,7 +1111,6 @@ const styles = StyleSheet.create({
     contentShell: {
         width: '100%',
         alignSelf: 'center',
-        maxWidth: Platform.OS === 'web' ? 860 : undefined,
         paddingHorizontal: 16,
         paddingTop: 12,
     },
@@ -1125,7 +1124,6 @@ const styles = StyleSheet.create({
         width: '100%',
         alignSelf: 'center',
         maxHeight: '86%',
-        maxWidth: Platform.OS === 'web' ? 760 : undefined,
         borderTopLeftRadius: 34,
         borderTopRightRadius: 34,
         borderWidth: 1,
@@ -1138,7 +1136,6 @@ const styles = StyleSheet.create({
     dialogCard: {
         width: '100%',
         alignSelf: 'center',
-        maxWidth: Platform.OS === 'web' ? 680 : undefined,
         borderRadius: 30,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
