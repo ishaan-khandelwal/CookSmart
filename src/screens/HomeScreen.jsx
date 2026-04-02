@@ -391,11 +391,11 @@ export default function HomeScreen({ navigation }) {
                             <View className="mt-10">
                                 <Text className="text-[26px] font-black text-white">Quick Nav</Text>
                                 <Text className="mt-1.5 text-[14px] font-medium text-white/50">The fastest paths to your next dish.</Text>
-                                <View className={`mt-5 gap-4 ${useSplitSectionLayout ? 'flex-row' : ''}`}>
+                                <View className="mt-5 gap-4">
                                     <InteractiveCard
                                         className="rounded-[32px] px-6 py-8"
                                         onPress={() => navigation.navigate(quickActions[0].screen, { mode: selectedMode })}
-                                        containerStyle={{ backgroundColor: quickActions[0].bg, borderRadius: 32, flex: useSplitSectionLayout ? 1 : 0 }}
+                                        containerStyle={{ backgroundColor: quickActions[0].bg, borderRadius: 32 }}
                                     >
                                         <View className="h-16 w-16 items-center justify-center rounded-[22px]" style={{ backgroundColor: quickActions[0].accent }}>
                                             <Feather name={quickActions[0].icon} size={26} color="#111111" />
@@ -404,22 +404,20 @@ export default function HomeScreen({ navigation }) {
                                         <Text className="mt-3 text-[15px] leading-6 text-white/80">{quickActions[0].subtitle}</Text>
                                     </InteractiveCard>
 
-                                    <View className={useSplitSectionLayout ? 'w-[44%] gap-4' : 'gap-4'}>
-                                        {quickActions.slice(1).map((action) => (
-                                            <InteractiveCard
-                                                key={action.id}
-                                                className="rounded-[28px] px-5 py-6"
-                                                onPress={() => navigation.navigate(action.screen)}
-                                                containerStyle={{ backgroundColor: action.bg, borderRadius: 28 }}
-                                            >
-                                                <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: `${action.accent}33`, borderWidth: 1, borderColor: `${action.accent}66` }}>
-                                                    <Feather name={action.icon} size={20} color={action.accent} />
-                                                </View>
-                                                <Text className="mt-6 text-[17px] font-black text-white">{action.title}</Text>
-                                                <Text className="mt-1.5 text-[12px] font-medium leading-5 text-white/60">{action.subtitle}</Text>
-                                            </InteractiveCard>
-                                        ))}
-                                    </View>
+                                    {quickActions.slice(1).map((action) => (
+                                        <InteractiveCard
+                                            key={action.id}
+                                            className="rounded-[28px] px-5 py-6"
+                                            onPress={() => navigation.navigate(action.screen)}
+                                            containerStyle={{ backgroundColor: action.bg, borderRadius: 28 }}
+                                        >
+                                            <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: `${action.accent}33`, borderWidth: 1, borderColor: `${action.accent}66` }}>
+                                                <Feather name={action.icon} size={20} color={action.accent} />
+                                            </View>
+                                            <Text className="mt-6 text-[17px] font-black text-white">{action.title}</Text>
+                                            <Text className="mt-1.5 text-[12px] font-medium leading-5 text-white/60">{action.subtitle}</Text>
+                                        </InteractiveCard>
+                                    ))}
                                 </View>
                             </View>
 
