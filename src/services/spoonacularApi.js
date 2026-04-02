@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { findRealFavoriteImageFromTitle } from './favoriteImageApi';
 import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 
 const SPOONACULAR_BASE_URL = 'https://api.spoonacular.com';
@@ -162,6 +163,7 @@ function createCookSmartRecipe({
         missingIngredients: [],
         instructionSteps: uniqueList(instructionSteps),
         instructions: uniqueList(instructionSteps).join('\n'),
+        image: '',
         imageLabel: String(name || 'RECIPE').slice(0, 8).toUpperCase(),
     };
 }
@@ -367,8 +369,43 @@ function normalizeAiRecipe(recipe, selectedIngredients, fallbackId) {
         missingIngredients: ingredientMatch.missing,
         instructionSteps,
         instructions: instructionSteps.join('\n'),
+        image: String(recipe?.image || '').trim(),
         imageLabel: String(recipe?.name || 'RECIPE').slice(0, 8).toUpperCase(),
     };
+}
+
+function createRecipeImageFallback(title) {
+    const safeTitle = String(title || 'CookSmart Recipe').replace(/\s+/g, ' ').trim() || 'CookSmart Recipe';
+    return `https://placehold.co/1200x900/0d1721/F6B44F.png?text=${encodeURIComponent(safeTitle)}`;
+}
+
+async function attachRecipeImages(recipes) {
+    if (!Array.isArray(recipes) || !recipes.length) {
+        return [];
+    }
+
+    return Promise.all(recipes.map(async (recipe) => {
+        if (String(recipe?.image || '').trim()) {
+            return recipe;
+        }
+
+        try {
+            const realImage = await findRealFavoriteImageFromTitle(recipe?.name);
+            if (realImage) {
+                return {
+                    ...recipe,
+                    image: realImage,
+                };
+            }
+        } catch {
+            // Fall through to a deterministic placeholder if image lookup fails.
+        }
+
+        return {
+            ...recipe,
+            image: createRecipeImageFallback(recipe?.name),
+        };
+    }));
 }
 
 function mapSpoonacularSummary(recipe) {
@@ -628,7 +665,7 @@ export async function fetchRecipesByIngredients(ingredients) {
                 return {
                     ...result,
                     provider: mergedRecipes[0]?.provider || result.provider,
-                    recipes: mergedRecipes,
+                    recipes: await attachRecipeImages(mergedRecipes),
                 };
             }
         }
@@ -643,7 +680,7 @@ export async function fetchRecipesByIngredients(ingredients) {
                     return {
                         ...result,
                         provider: mergedRecipes[0]?.provider || result.provider,
-                        recipes: mergedRecipes,
+                        recipes: await attachRecipeImages(mergedRecipes),
                     };
                 }
             } catch (openRouterError) {
@@ -659,7 +696,7 @@ export async function fetchRecipesByIngredients(ingredients) {
             return {
                 ...spoonacularResult,
                 provider: mergedRecipes[0]?.provider || spoonacularResult.provider,
-                recipes: mergedRecipes,
+                recipes: await attachRecipeImages(mergedRecipes),
             };
         }
     } catch (e) {
@@ -673,7 +710,7 @@ export async function fetchRecipesByIngredients(ingredients) {
             return {
                 ...edamamResult,
                 provider: mergedRecipes[0]?.provider || edamamResult.provider,
-                recipes: mergedRecipes,
+                recipes: await attachRecipeImages(mergedRecipes),
             };
         }
     } catch (error) {
@@ -684,7 +721,7 @@ export async function fetchRecipesByIngredients(ingredients) {
         provider: localPantryRecipes[0]?.provider || null,
         quota: null,
         notice: '',
-        recipes: localPantryRecipes,
+        recipes: await attachRecipeImages(localPantryRecipes),
     };
 }
 
@@ -696,6 +733,7 @@ export async function fetchRecipeDetails(recipeRef, initialRecipe = null) {
         return {
             ...initialRecipe,
             provider: 'gemini',
+            image: initialRecipe.image || createRecipeImageFallback(initialRecipe.name),
             instructions: initialRecipe.instructions || (initialRecipe.instructionSteps || []).join('\n'),
         };
     }
@@ -704,19 +742,32 @@ export async function fetchRecipeDetails(recipeRef, initialRecipe = null) {
         return {
             ...initialRecipe,
             provider: 'edamam',
+            image: initialRecipe.image || createRecipeImageFallback(initialRecipe.name),
             instructions: initialRecipe.instructions || 'Open the source link for the full step-by-step method.',
         };
     }
 
     if (provider === 'spoonacular') {
         const { data } = await spoonacularFetch(`/recipes/${providerId}/information`, { includeNutrition: 'false' });
-        return {
+        const recipeDetails = {
             ...mapSpoonacularSummary(data),
             instructions: stripHtml(data.instructions),
             instructionSteps: (data.analyzedInstructions || []).flatMap(g => g.steps || []).map(s => s.step),
             ingredients: (data.extendedIngredients || []).map(i => i.original),
         };
+
+        return {
+            ...recipeDetails,
+            image: recipeDetails.image || createRecipeImageFallback(recipeDetails.name),
+        };
     }
 
-    return initialRecipe;
+    if (!initialRecipe) {
+        return initialRecipe;
+    }
+
+    return {
+        ...initialRecipe,
+        image: initialRecipe.image || createRecipeImageFallback(initialRecipe.name),
+    };
 }

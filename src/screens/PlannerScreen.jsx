@@ -534,43 +534,32 @@ export default function PlannerScreen() {
                     <View className="px-5 pt-2.5">
                         <View style={styles.hero}>
                             <View style={styles.heroGlow} />
-                            <Text className="text-[12px] font-extrabold uppercase tracking-[1.6px] text-[#F8B84E]">This Week&apos;s Plan</Text>
-                            <Text className="mt-3 max-w-[280px] text-[34px] font-black leading-[40px] text-white">
-                                Build a calmer week, one meal slot at a time.
+                            <View className="flex-row items-start justify-between">
+                                <Text className="text-[12px] font-extrabold uppercase tracking-[1.6px] text-[#F8B84E]">Weekly Planner</Text>
+                                <View style={styles.heroCounter}>
+                                    <Text className="text-[26px] font-black text-[#08131c]">{plannerMeals.length}</Text>
+                                    <Text className="mt-1 text-[11px] font-extrabold uppercase tracking-[1px] text-[#08131c]">planned</Text>
+                                </View>
+                            </View>
+                            <Text className="mt-4 max-w-[280px] text-[34px] font-black leading-[40px] text-white">
+                                {formatWeekRange(weekDays)}
                             </Text>
-                            <Text className="mt-3 max-w-[290px] text-[15px] leading-6 text-white">
-                                Plan breakfast, lunch, and dinner from saved recipes or recent matches, then let the app surface what you still need.
+                            <Text className="mt-3 max-w-[300px] text-[15px] leading-6 text-white/78">
+                                Plan breakfast, lunch, and dinner around your pantry, recent recipe finds, and saved meals in one calmer workspace.
                             </Text>
 
                             <View className="mt-6 flex-row flex-wrap gap-3">
-                                <View className="rounded-full border border-white/10 bg-white/7 px-3 py-2">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white">{formatWeekRange(weekDays)}</Text>
-                                </View>
-                                <View className="rounded-full border border-white/10 bg-white/7 px-3 py-2">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white">{plannerMeals.length} meals planned</Text>
-                                </View>
-                                <View className="rounded-full border border-white/10 bg-white/7 px-3 py-2">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white">{pantryReadyMeals} pantry-ready</Text>
-                                </View>
+                                <PlannerStat label="Pantry-ready" value={String(pantryReadyMeals)} caption="fully covered meals" />
+                                <PlannerStat label="Cooked" value={String(progressSummary.cooked)} caption="already completed" />
+                                <PlannerStat label="Shopping" value={String(shoppingList.length)} caption="items missing" />
                             </View>
 
-                            <View className="mt-6 flex-row gap-3">
-                                <View className="flex-1 rounded-[22px] bg-white/7 p-4">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/55">Cooked</Text>
-                                    <Text className="mt-3 text-[28px] font-black text-white">{progressSummary.cooked}</Text>
-                                </View>
-                                <View className="flex-1 rounded-[22px] bg-white/7 p-4">
-                                    <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/55">Shopping items</Text>
-                                    <Text className="mt-3 text-[28px] font-black text-white">{shoppingList.length}</Text>
-                                </View>
+                            <View className="mt-6 flex-row flex-wrap gap-3">
+                                <PrimaryPlannerAction label="Plan Next Slot" icon="calendar-outline" accent="#F59E0B" onPress={handlePlanThisWeek} />
+                                <PrimaryPlannerAction label="Cook From Pantry" icon="sparkles-outline" accent="#60A5FA" onPress={handleCookFromPantry} />
+                                <SecondaryPlannerAction label="Saved Recipes" icon="heart-outline" onPress={handleUseSavedRecipes} />
+                                <SecondaryPlannerAction label="Clear Week" icon="trash-outline" destructive onPress={handleClearWeek} />
                             </View>
-                        </View>
-
-                        <View className="mt-6 flex-row flex-wrap gap-3">
-                            <QuickActionCard label="Plan this week" caption="Open the next empty slot" icon="calendar-outline" accent="#F59E0B" onPress={handlePlanThisWeek} />
-                            <QuickActionCard label="Use saved recipes" caption="Pull from your favorites" icon="heart-outline" accent="#22C55E" onPress={handleUseSavedRecipes} />
-                            <QuickActionCard label="Cook from pantry" caption="Use your scanned ingredients" icon="sparkles-outline" accent="#60A5FA" onPress={handleCookFromPantry} />
-                            <QuickActionCard label="Clear week" caption="Reset the calendar" icon="trash-outline" accent="#FB7185" onPress={handleClearWeek} />
                         </View>
 
                         {notice ? (
@@ -587,14 +576,24 @@ export default function PlannerScreen() {
                                 return (
                                     <View
                                         key={day.key}
-                                        className={`mb-4 overflow-hidden rounded-[28px] border p-4 ${day.isToday ? 'border-[#F59E0B]/40 bg-[#141E2B]' : 'border-white/8 bg-[#101822]'}`}
+                                        className={`mb-4 overflow-hidden rounded-[30px] border p-4 ${day.isToday ? 'border-[#F59E0B]/40 bg-[#131e2a]' : 'border-white/8 bg-[#101822]'}`}
                                     >
-                                        <View className="mb-4 flex-row items-start justify-between">
-                                            <View>
-                                                <Text className={`text-[12px] font-extrabold uppercase tracking-[1.4px] ${day.isToday ? 'text-[#F8B84E]' : 'text-white/48'}`}>
-                                                    {day.shortLabel}
-                                                </Text>
+                                        <View className="mb-4 flex-row items-center justify-between">
+                                            <View className="flex-1 pr-4">
+                                                <View className="flex-row items-center gap-2">
+                                                    <Text className={`text-[12px] font-extrabold uppercase tracking-[1.4px] ${day.isToday ? 'text-[#F8B84E]' : 'text-white/48'}`}>
+                                                        {day.shortLabel}
+                                                    </Text>
+                                                    {day.isToday ? (
+                                                        <View className="rounded-full bg-[#F59E0B] px-2.5 py-1">
+                                                            <Text className="text-[10px] font-black uppercase tracking-[0.8px] text-[#08131c]">Today</Text>
+                                                        </View>
+                                                    ) : null}
+                                                </View>
                                                 <Text className="mt-2 text-[24px] font-black text-white">{day.fullLabel}</Text>
+                                                <Text className="mt-2 text-[13px] leading-5 text-white/52">
+                                                    {Object.values(plan[day.key] || {}).filter(Boolean).length} of {MEAL_SLOTS.length} slots filled
+                                                </Text>
                                             </View>
                                             <View className={`rounded-[18px] px-4 py-3 ${day.isToday ? 'bg-[#F59E0B]' : 'bg-white/7'}`}>
                                                 <Text className={`text-[22px] font-black ${day.isToday ? 'text-[#111111]' : 'text-white'}`}>{day.dayNumber}</Text>
@@ -607,31 +606,33 @@ export default function PlannerScreen() {
                                             </View>
                                         ) : null}
 
-                                        {MEAL_SLOTS.map((slot) => {
-                                            const meal = plan[day.key]?.[slot.key];
+                                        <View className="gap-3">
+                                            {MEAL_SLOTS.map((slot) => {
+                                                const meal = plan[day.key]?.[slot.key];
 
-                                            return meal ? (
-                                                <MealCard
-                                                    key={`${day.key}-${slot.key}`}
-                                                    dayKey={day.key}
-                                                    mealKey={slot.key}
-                                                    meal={meal}
-                                                    slot={slot}
-                                                    pantryIngredients={pantryIngredients}
-                                                    onReplace={() => openPicker(day.key, slot.key, 'recent')}
-                                                    onRemove={() => handleRemoveMeal(day.key, slot.key)}
-                                                    onMove={() => setMoveState({ dayKey: day.key, mealKey: slot.key, meal })}
-                                                    onToggleLeftovers={() => handleToggleLeftovers(day.key, slot.key)}
-                                                    onStatusChange={(status) => handleStatusChange(day.key, slot.key, status)}
-                                                />
-                                            ) : (
-                                                <EmptySlotCard
-                                                    key={`${day.key}-${slot.key}`}
-                                                    slot={slot}
-                                                    onPress={() => openPicker(day.key, slot.key, recentCandidates.length ? 'recent' : 'saved')}
-                                                />
-                                            );
-                                        })}
+                                                return meal ? (
+                                                    <MealCard
+                                                        key={`${day.key}-${slot.key}`}
+                                                        dayKey={day.key}
+                                                        mealKey={slot.key}
+                                                        meal={meal}
+                                                        slot={slot}
+                                                        pantryIngredients={pantryIngredients}
+                                                        onReplace={() => openPicker(day.key, slot.key, 'recent')}
+                                                        onRemove={() => handleRemoveMeal(day.key, slot.key)}
+                                                        onMove={() => setMoveState({ dayKey: day.key, mealKey: slot.key, meal })}
+                                                        onToggleLeftovers={() => handleToggleLeftovers(day.key, slot.key)}
+                                                        onStatusChange={(status) => handleStatusChange(day.key, slot.key, status)}
+                                                    />
+                                                ) : (
+                                                    <EmptySlotCard
+                                                        key={`${day.key}-${slot.key}`}
+                                                        slot={slot}
+                                                        onPress={() => openPicker(day.key, slot.key, recentCandidates.length ? 'recent' : 'saved')}
+                                                    />
+                                                );
+                                            })}
+                                        </View>
                                     </View>
                                 );
                             })}
@@ -700,21 +701,45 @@ export default function PlannerScreen() {
     );
 }
 
-function QuickActionCard({ label, caption, icon, accent, onPress }) {
+function PlannerStat({ label, value, caption }) {
     return (
-        <Pressable className="w-[48%] rounded-[24px] border border-white/8 bg-[#101822] px-4 py-5" onPress={onPress}>
-            <View className="h-12 w-12 items-center justify-center rounded-[18px]" style={{ backgroundColor: `${accent}22` }}>
-                <Ionicons name={icon} size={22} color={accent} />
+        <View className="min-w-[47%] flex-1 rounded-[22px] border border-white/10 bg-white/6 px-4 py-4">
+            <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/48">{label}</Text>
+            <Text className="mt-3 text-[28px] font-black text-white">{value}</Text>
+            <Text className="mt-1 text-[12px] leading-5 text-white/52">{caption}</Text>
+        </View>
+    );
+}
+
+function PrimaryPlannerAction({ label, icon, accent, onPress }) {
+    return (
+        <Pressable className="min-w-[48%] flex-1 rounded-[24px] border border-white/10 bg-[#111c28] px-4 py-4" onPress={onPress}>
+            <View className="flex-row items-center">
+                <View className="mr-3 h-11 w-11 items-center justify-center rounded-[16px]" style={{ backgroundColor: `${accent}22` }}>
+                    <Ionicons name={icon} size={20} color={accent} />
+                </View>
+                <Text className="flex-1 text-[15px] font-black text-white">{label}</Text>
             </View>
-            <Text className="mt-4 text-[17px] font-bold text-white">{label}</Text>
-            <Text className="mt-1 text-[13px] leading-5 text-white/55">{caption}</Text>
+        </Pressable>
+    );
+}
+
+function SecondaryPlannerAction({ label, icon, onPress, destructive = false }) {
+    const tint = destructive ? '#FB7185' : '#D2D9E2';
+
+    return (
+        <Pressable className="rounded-full border border-white/10 bg-white/5 px-4 py-3" onPress={onPress}>
+            <View className="flex-row items-center">
+                <Ionicons name={icon} size={15} color={tint} />
+                <Text className="ml-2 text-[13px] font-bold" style={{ color: tint }}>{label}</Text>
+            </View>
         </Pressable>
     );
 }
 
 function EmptySlotCard({ slot, onPress }) {
     return (
-        <Pressable className="mb-3 rounded-[22px] border border-dashed border-white/10 bg-white/5 px-4 py-4" onPress={onPress}>
+        <Pressable className="rounded-[22px] border border-dashed border-white/10 bg-white/5 px-4 py-4" onPress={onPress}>
             <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
                     <View className="mr-3 h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: `${slot.accent}22` }}>
@@ -722,10 +747,12 @@ function EmptySlotCard({ slot, onPress }) {
                     </View>
                     <View>
                         <Text className="text-[16px] font-bold text-white">{slot.label}</Text>
-                        <Text className="mt-1 text-[13px] text-white/48">Tap to add a recipe</Text>
+                        <Text className="mt-1 text-[13px] text-white/48">Add a recipe for this slot</Text>
                     </View>
                 </View>
-                <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-white/6">
+                    <Ionicons name="add" size={20} color="#FFFFFF" />
+                </View>
             </View>
         </Pressable>
     );
@@ -746,98 +773,102 @@ function MealCard({
     const { diet, pantry } = getMealMeta(meal, pantryIngredients);
 
     return (
-        <View className="mb-3 overflow-hidden rounded-[24px] border border-white/8 bg-[#172232]">
-            <View className="flex-row">
-                {meal.image ? (
-                    <Image source={{ uri: meal.image }} className="h-[132px] w-[108px] bg-[#233146]" resizeMode="cover" />
-                ) : (
-                    <View className="h-[132px] w-[108px] items-center justify-center bg-[#233146]">
-                        <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/55">CookSmart</Text>
-                    </View>
-                )}
-
-                <View className="flex-1 px-4 py-4">
-                    <View className="flex-row items-start justify-between">
-                        <View className="flex-1 pr-3">
-                            <View className="flex-row items-center">
-                                <View className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: slot.accent }} />
-                                <Text className="text-[12px] font-extrabold uppercase tracking-[1.2px] text-white/45">{slot.label}</Text>
-                            </View>
-                            <Text className="mt-2 text-[18px] font-black leading-6 text-white">{meal.name}</Text>
-                        </View>
-
-                        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: `${diet.tone}22` }}>
-                            <Text className="text-[11px] font-bold" style={{ color: diet.tone }}>{diet.label}</Text>
-                        </View>
-                    </View>
-
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                        <View className="rounded-full bg-white/7 px-3 py-2">
-                            <Text className="text-[12px] font-semibold text-white/85">{meal.cookTime}</Text>
-                        </View>
-                        {meal.servings ? (
-                            <View className="rounded-full bg-white/7 px-3 py-2">
-                                <Text className="text-[12px] font-semibold text-white/85">{meal.servings} servings</Text>
-                            </View>
-                        ) : null}
-                        {pantry.score !== null ? (
-                            <View className="rounded-full bg-white/7 px-3 py-2">
-                                <Text className="text-[12px] font-semibold text-white/85">{pantry.score}% pantry match</Text>
-                            </View>
-                        ) : null}
-                    </View>
-
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                        {STATUS_OPTIONS.map((option) => {
-                            const selected = meal.status === option.key;
-                            return (
-                                <Pressable
-                                    key={`${dayKey}-${mealKey}-${option.key}`}
-                                    className="rounded-full border px-3 py-1.5"
-                                    style={{
-                                        borderColor: selected ? option.accent : 'rgba(255,255,255,0.12)',
-                                        backgroundColor: selected ? `${option.accent}22` : 'rgba(255,255,255,0.04)',
-                                    }}
-                                    onPress={() => onStatusChange(option.key)}
-                                >
-                                    <Text className="text-[11px] font-bold" style={{ color: selected ? option.accent : '#FFFFFF' }}>
-                                        {option.label}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-
-                    <View className="mt-3 flex-row items-center justify-between">
-                        <Pressable className={`rounded-full px-3 py-2 ${meal.leftoverNextDay ? 'bg-[#22c55e22]' : 'bg-white/7'}`} onPress={onToggleLeftovers}>
-                            <Text className={`text-[11px] font-bold ${meal.leftoverNextDay ? 'text-[#22C55E]' : 'text-white/75'}`}>
-                                {meal.leftoverNextDay ? 'Use leftovers next day' : 'Mark leftovers'}
-                            </Text>
-                        </Pressable>
-
-                        <View className="flex-row gap-2">
-                            <Pressable className="rounded-full bg-white/7 px-3 py-2" onPress={onMove}>
-                                <Text className="text-[11px] font-bold text-white/80">Move</Text>
-                            </Pressable>
-                            <Pressable className="rounded-full bg-white/7 px-3 py-2" onPress={onReplace}>
-                                <Text className="text-[11px] font-bold text-white/80">Replace</Text>
-                            </Pressable>
-                            <Pressable className="rounded-full bg-[#fb718522] px-3 py-2" onPress={onRemove}>
-                                <Text className="text-[11px] font-bold text-[#FB7185]">Remove</Text>
-                            </Pressable>
-                        </View>
-                    </View>
-
-                    {pantry.missing.length ? (
-                        <Text className="mt-3 text-[12px] leading-5 text-white/48">
-                            Need {pantry.missing.slice(0, 3).join(', ')}{pantry.missing.length > 3 ? ', ...' : ''}
-                        </Text>
-                    ) : pantry.score !== null ? (
-                        <Text className="mt-3 text-[12px] leading-5 text-[#22C55E]">Ready to cook from what you already have.</Text>
+        <View className="overflow-hidden rounded-[24px] border border-white/8 bg-[#172232]">
+            <View className="p-4">
+                <View className="flex-row items-start">
+                    {meal.image ? (
+                        <Image source={{ uri: meal.image }} className="h-[102px] w-[92px] rounded-[18px] bg-[#233146]" resizeMode="cover" />
                     ) : (
-                        <Text className="mt-3 text-[12px] leading-5 text-white/48">Ingredient detail will improve after recipe enrichment.</Text>
+                        <View className="h-[102px] w-[92px] items-center justify-center rounded-[18px] bg-[#233146]">
+                            <Text className="text-[12px] font-bold uppercase tracking-[1px] text-white/55">CookSmart</Text>
+                        </View>
                     )}
+
+                    <View className="ml-4 flex-1">
+                        <View className="flex-row items-start justify-between">
+                            <View className="flex-1 pr-3">
+                                <View className="flex-row flex-wrap items-center gap-2">
+                                    <View className="flex-row items-center rounded-full bg-white/6 px-2.5 py-1.5">
+                                        <View className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: slot.accent }} />
+                                        <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/65">{slot.label}</Text>
+                                    </View>
+                                    <Text className="text-[11px] font-semibold uppercase tracking-[0.8px] text-white/35">
+                                        {meal.sourceLabel || 'Planner'}
+                                    </Text>
+                                </View>
+                                <Text className="mt-3 text-[18px] font-black leading-6 text-white">{meal.name}</Text>
+                            </View>
+
+                            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: `${diet.tone}22` }}>
+                                <Text className="text-[11px] font-bold" style={{ color: diet.tone }}>{diet.label}</Text>
+                            </View>
+                        </View>
+
+                        <View className="mt-3 flex-row flex-wrap gap-2">
+                            <View className="rounded-full bg-white/7 px-3 py-2">
+                                <Text className="text-[12px] font-semibold text-white/85">{meal.cookTime}</Text>
+                            </View>
+                            {meal.servings ? (
+                                <View className="rounded-full bg-white/7 px-3 py-2">
+                                    <Text className="text-[12px] font-semibold text-white/85">{meal.servings} servings</Text>
+                                </View>
+                            ) : null}
+                            {pantry.score !== null ? (
+                                <View className="rounded-full bg-[#F8B84E]/15 px-3 py-2">
+                                    <Text className="text-[12px] font-semibold text-[#F8D08B]">{pantry.score}% pantry match</Text>
+                                </View>
+                            ) : null}
+                        </View>
+                    </View>
                 </View>
+
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                    {STATUS_OPTIONS.map((option) => {
+                        const selected = meal.status === option.key;
+                        return (
+                            <Pressable
+                                key={`${dayKey}-${mealKey}-${option.key}`}
+                                className="rounded-full border px-3 py-1.5"
+                                style={{
+                                    borderColor: selected ? option.accent : 'rgba(255,255,255,0.12)',
+                                    backgroundColor: selected ? `${option.accent}22` : 'rgba(255,255,255,0.04)',
+                                }}
+                                onPress={() => onStatusChange(option.key)}
+                            >
+                                <Text className="text-[11px] font-bold" style={{ color: selected ? option.accent : '#FFFFFF' }}>
+                                    {option.label}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+
+                <View className="mt-3 flex-row flex-wrap gap-2">
+                    <Pressable className={`rounded-full px-3 py-2 ${meal.leftoverNextDay ? 'bg-[#22c55e22]' : 'bg-white/7'}`} onPress={onToggleLeftovers}>
+                        <Text className={`text-[11px] font-bold ${meal.leftoverNextDay ? 'text-[#22C55E]' : 'text-white/75'}`}>
+                            {meal.leftoverNextDay ? 'Using leftovers next day' : 'Mark leftovers'}
+                        </Text>
+                    </Pressable>
+                    <Pressable className="rounded-full bg-white/7 px-3 py-2" onPress={onMove}>
+                        <Text className="text-[11px] font-bold text-white/80">Move</Text>
+                    </Pressable>
+                    <Pressable className="rounded-full bg-white/7 px-3 py-2" onPress={onReplace}>
+                        <Text className="text-[11px] font-bold text-white/80">Replace</Text>
+                    </Pressable>
+                    <Pressable className="rounded-full bg-[#fb718522] px-3 py-2" onPress={onRemove}>
+                        <Text className="text-[11px] font-bold text-[#FB7185]">Remove</Text>
+                    </Pressable>
+                </View>
+
+                {pantry.missing.length ? (
+                    <Text className="mt-3 text-[12px] leading-5 text-white/48">
+                        Need {pantry.missing.slice(0, 3).join(', ')}{pantry.missing.length > 3 ? ', ...' : ''}
+                    </Text>
+                ) : pantry.score !== null ? (
+                    <Text className="mt-3 text-[12px] leading-5 text-[#22C55E]">Ready to cook from what you already have.</Text>
+                ) : (
+                    <Text className="mt-3 text-[12px] leading-5 text-white/48">Ingredient detail will improve after recipe enrichment.</Text>
+                )}
             </View>
         </View>
     );
@@ -862,7 +893,7 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                         </Pressable>
                     </View>
 
-                    <View className="mb-5 mt-5 flex-row gap-2">
+                    <View className="mb-5 mt-5 flex-row flex-wrap gap-2">
                         <PickerTab label="Recent" selected={source === 'recent'} onPress={() => onSourceChange('recent')} />
                         <PickerTab label="Saved" selected={source === 'saved'} onPress={() => onSourceChange('saved')} />
                         <PickerTab label="Pantry" selected={source === 'pantry'} onPress={() => onSourceChange('pantry')} />
@@ -888,15 +919,20 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                                         onPress={() => onSelect(candidate)}
                                     >
                                         {candidate.image ? (
-                                            <Image source={{ uri: candidate.image }} className="h-[108px] w-[92px] bg-[#233146]" resizeMode="cover" />
+                                            <Image source={{ uri: candidate.image }} className="h-[112px] w-[94px] bg-[#233146]" resizeMode="cover" />
                                         ) : (
-                                            <View className="h-[108px] w-[92px] items-center justify-center bg-[#233146]">
+                                            <View className="h-[112px] w-[94px] items-center justify-center bg-[#233146]">
                                                 <Text className="text-[11px] font-bold uppercase tracking-[1px] text-white/50">Recipe</Text>
                                             </View>
                                         )}
                                         <View className="flex-1 px-4 py-4">
                                             <View className="flex-row items-start justify-between">
-                                                <Text className="mr-3 flex-1 text-[17px] font-black leading-6 text-white">{candidate.name}</Text>
+                                                <View className="mr-3 flex-1">
+                                                    <Text className="text-[11px] font-extrabold uppercase tracking-[1px] text-white/35">
+                                                        {candidate.sourceLabel || (source === 'saved' ? 'Saved' : source === 'pantry' ? 'Pantry' : 'Recent')}
+                                                    </Text>
+                                                    <Text className="mt-2 text-[17px] font-black leading-6 text-white">{candidate.name}</Text>
+                                                </View>
                                                 <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: `${diet.tone}22` }}>
                                                     <Text className="text-[11px] font-bold" style={{ color: diet.tone }}>{diet.label}</Text>
                                                 </View>
@@ -1017,13 +1053,16 @@ function ManualAddForm({ onSelect }) {
 
     return (
         <View className="rounded-[28px] border border-white/8 bg-white/5 p-5">
-            <Text className="mb-4 text-xs font-bold uppercase tracking-[1px] text-[#F8B84E]">Details</Text>
+            <Text className="mb-2 text-xs font-bold uppercase tracking-[1px] text-[#F8B84E]">Manual meal</Text>
+            <Text className="mb-4 text-[14px] leading-6 text-white/60">
+                Add a one-off meal with an optional image link if you want the planner to hold custom meals too.
+            </Text>
             
             <TextInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Meal Name (e.g. Scrambled Eggs)"
-                placeholderTextColor="#555555"
+                placeholderTextColor="#6B7280"
                 className="mb-3 rounded-2xl border border-white/5 bg-[#0A0F16] px-4 py-3.5 text-white"
             />
 
@@ -1031,7 +1070,7 @@ function ManualAddForm({ onSelect }) {
                 value={image}
                 onChangeText={setImage}
                 placeholder="Image URL (Optional)"
-                placeholderTextColor="#555555"
+                placeholderTextColor="#6B7280"
                 className="mb-3 rounded-2xl border border-white/5 bg-[#0A0F16] px-4 py-3.5 text-white"
             />
 
@@ -1074,5 +1113,6 @@ const styles = StyleSheet.create({
     orbBottom: { position: 'absolute', bottom: 140, right: -60, width: 190, height: 190, borderRadius: 95, backgroundColor: 'rgba(96, 165, 250, 0.11)' },
     hero: { overflow: 'hidden', borderRadius: 34, padding: 24, backgroundColor: '#101A26', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     heroGlow: { position: 'absolute', top: -40, right: -30, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(248, 184, 78, 0.12)' },
+    heroCounter: { minWidth: 88, alignItems: 'center', borderRadius: 24, paddingHorizontal: 14, paddingVertical: 16, backgroundColor: '#F8B84E' },
     shoppingGlow: { position: 'absolute', top: -55, right: -40, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(96, 165, 250, 0.1)' },
 });
