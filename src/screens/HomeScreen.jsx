@@ -88,6 +88,7 @@ export default function HomeScreen({ navigation }) {
         return name.charAt(0).toUpperCase() + name.slice(1);
     }, [user]);
     const isCompact = width < 460 || height < 780;
+    const useSplitSectionLayout = width >= 720;
 
     const dayPart = useMemo(() => getDayPart(), []);
     const dateLabel = useMemo(() => formatDateLabel(), []);
@@ -332,7 +333,7 @@ export default function HomeScreen({ navigation }) {
 
                         <Animated.View style={{ opacity: introOpacity, transform: [{ translateY: introLift }] }}>
                             <View className="mt-8">
-                                    <View className={`mb-5 ${isCompact ? 'gap-3' : 'flex-row items-end justify-between'}`}>
+                                    <View className={`mb-5 ${useSplitSectionLayout ? 'flex-row items-end justify-between' : 'gap-3'}`}>
                                         <View>
                                             <Text className="text-[26px] font-black text-white">Cooking Modes</Text>
                                             <Text className="mt-1.5 text-[14px] font-medium text-white/50">Pick how strict CookSmart should be before we generate recipes.</Text>
@@ -342,7 +343,7 @@ export default function HomeScreen({ navigation }) {
                                         </View>
                                     </View>
 
-                                    <View className={`gap-4 ${isCompact ? '' : 'flex-row'}`}>
+                                    <View className={`gap-4 ${useSplitSectionLayout ? 'flex-row' : ''}`}>
                                         {RECIPE_MODE_OPTIONS.map((mode) => (
                                             <RecipeModeCard
                                                 key={mode.id}
@@ -366,7 +367,7 @@ export default function HomeScreen({ navigation }) {
                                 </View>
 
                                 <View className="mt-10">
-                                    <View className={`mb-5 ${isCompact ? 'gap-3' : 'flex-row items-end justify-between'}`}>
+                                    <View className={`mb-5 ${useSplitSectionLayout ? 'flex-row items-end justify-between' : 'gap-3'}`}>
                                         <View>
                                             <Text className="text-[26px] font-black text-white">Kitchen Pulse</Text>
                                             <Text className="mt-1.5 text-[14px] font-medium text-white/50">Your active inventory at a glance.</Text>
@@ -376,7 +377,7 @@ export default function HomeScreen({ navigation }) {
                                     </View>
                                 </View>
 
-                                <View className={`gap-4 ${isCompact ? '' : 'flex-row'}`}>
+                                <View className={`gap-4 ${useSplitSectionLayout ? 'flex-row' : ''}`}>
                                     {stats.map((item) => (
                                         <View key={item.id} className="flex-1 rounded-[26px] border border-white/10 bg-[#151515]/80 p-5 shadow-sm">
                                             <View className="h-1.5 w-10 rounded-full" style={{ backgroundColor: item.accent }} />
@@ -390,11 +391,11 @@ export default function HomeScreen({ navigation }) {
                             <View className="mt-10">
                                 <Text className="text-[26px] font-black text-white">Quick Nav</Text>
                                 <Text className="mt-1.5 text-[14px] font-medium text-white/50">The fastest paths to your next dish.</Text>
-                                <View className={`mt-5 gap-4 ${isCompact ? '' : 'flex-row'}`}>
+                                <View className={`mt-5 gap-4 ${useSplitSectionLayout ? 'flex-row' : ''}`}>
                                     <InteractiveCard
                                         className="rounded-[32px] px-6 py-8"
                                         onPress={() => navigation.navigate(quickActions[0].screen, { mode: selectedMode })}
-                                        containerStyle={{ backgroundColor: quickActions[0].bg, borderRadius: 32, flex: isCompact ? 0 : 1 }}
+                                        containerStyle={{ backgroundColor: quickActions[0].bg, borderRadius: 32, flex: useSplitSectionLayout ? 1 : 0 }}
                                     >
                                         <View className="h-16 w-16 items-center justify-center rounded-[22px]" style={{ backgroundColor: quickActions[0].accent }}>
                                             <Feather name={quickActions[0].icon} size={26} color="#111111" />
@@ -403,7 +404,7 @@ export default function HomeScreen({ navigation }) {
                                         <Text className="mt-3 text-[15px] leading-6 text-white/80">{quickActions[0].subtitle}</Text>
                                     </InteractiveCard>
 
-                                    <View className={isCompact ? 'gap-4' : 'w-[44%] gap-4'}>
+                                    <View className={useSplitSectionLayout ? 'w-[44%] gap-4' : 'gap-4'}>
                                         {quickActions.slice(1).map((action) => (
                                             <InteractiveCard
                                                 key={action.id}
