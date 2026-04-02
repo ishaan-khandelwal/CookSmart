@@ -1,5 +1,3 @@
-const appJson = require('./app.json');
-
 const EXPO_EXTRA_KEYS = [
     'EXPO_PUBLIC_ANTHROPIC_KEY',
     'EXPO_PUBLIC_ANTHROPIC_MODEL',
@@ -17,8 +15,8 @@ const EXPO_EXTRA_KEYS = [
     'EDAMAM_APP_KEY',
 ];
 
-module.exports = () => {
-    const baseConfig = appJson.expo || {};
+module.exports = ({ config }) => {
+    const baseConfig = config || {};
     const extra = { ...(baseConfig.extra || {}) };
 
     EXPO_EXTRA_KEYS.forEach((key) => {

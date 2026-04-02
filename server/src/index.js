@@ -4,7 +4,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { connectToDatabase, getDatabaseStatus } from './config/db.js';
+import { connectToDatabase, getDatabaseStatus, isDatabaseConnected } from './config/db.js';
 import Favorite from './models/favorite.js';
 import History from './models/history.js';
 
@@ -23,13 +23,30 @@ app.use(express.json({ limit: BODY_SIZE_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_SIZE_LIMIT }));
 
 app.get('/health', (_req, res) => {
+  const database = getDatabaseStatus();
+
   res.json({
     ok: true,
-    database: getDatabaseStatus(),
+    database,
+    services: {
+      api: 'ready',
+      database,
+    },
   });
 });
 
-app.get('/favorites', async (req, res) => {
+function requireDatabase(_req, res, next) {
+  if (isDatabaseConnected()) {
+    return next();
+  }
+
+  return res.status(503).json({
+    message:
+      'Database is currently unavailable. Check your MongoDB Atlas network access or server/.env configuration and try again.',
+  });
+}
+
+app.get('/favorites', requireDatabase, async (req, res) => {
   try {
     const { userId } = req.query;
 
@@ -44,7 +61,7 @@ app.get('/favorites', async (req, res) => {
   }
 });
 
-app.post('/favorites', async (req, res) => {
+app.post('/favorites', requireDatabase, async (req, res) => {
   try {
     const {
       recipeId = '',
@@ -101,7 +118,7 @@ app.post('/favorites', async (req, res) => {
   }
 });
 
-app.get('/history', async (req, res) => {
+app.get('/history', requireDatabase, async (req, res) => {
   try {
     const { userId } = req.query;
 
@@ -116,7 +133,7 @@ app.get('/history', async (req, res) => {
   }
 });
 
-app.post('/history', async (req, res) => {
+app.post('/history', requireDatabase, async (req, res) => {
   try {
     const {
       userId,
@@ -162,9 +179,13 @@ app.use((error, _req, res, next) => {
 });
 
 async function start() {
-  await connectToDatabase(process.env.MONGODB_URI);
+  const databaseConnected = await connectToDatabase(process.env.MONGODB_URI);
 
-  console.log("DB NAME:", mongoose.connection.name);
+  if (databaseConnected) {
+    console.log('DB NAME:', mongoose.connection.name);
+  } else {
+    console.warn('Starting API without a database connection. DB-backed routes will return 503 until MongoDB is reachable.');
+  }
 
   app.listen(port, () => {
     console.log(`CookSmart API running on http://localhost:${port}`);

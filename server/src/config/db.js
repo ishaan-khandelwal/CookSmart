@@ -12,13 +12,29 @@ export async function connectToDatabase(mongoUri) {
       serverSelectionTimeoutMS: 10000,
     });
 
-    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+    return true;
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
-    process.exit(1);
+    console.error('MongoDB connection failed:', error.message);
+    return false;
   }
 }
 
 export function getDatabaseStatus() {
-  return mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  switch (mongoose.connection.readyState) {
+    case 0:
+      return 'disconnected';
+    case 1:
+      return 'connected';
+    case 2:
+      return 'connecting';
+    case 3:
+      return 'disconnecting';
+    default:
+      return 'unknown';
+  }
+}
+
+export function isDatabaseConnected() {
+  return mongoose.connection.readyState === 1;
 }
