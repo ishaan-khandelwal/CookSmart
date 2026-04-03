@@ -278,7 +278,7 @@ export default function CameraScanScreen({ navigation, route }) {
     return (
         <View style={styles.screen}>
             <StatusBar barStyle="light-content" />
-            <View style={styles.cameraPreviewShell}>
+            <View className="scanner-camera-web" style={styles.cameraPreviewShell}>
                 <View style={[styles.cameraViewport, cameraViewportStyle]}>
                     <CameraView
                         ref={cameraRef}
