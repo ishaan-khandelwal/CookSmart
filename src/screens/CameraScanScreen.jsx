@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
@@ -17,12 +17,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { useRecipeMode } from '../context/RecipeModeContext';
 import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
+import { useRecipeMode } from '../context/RecipeModeContext';
 import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
-const TARGET_CAMERA_RATIO = '4:3';
+const TARGET_CAMERA_RATIO = '9:16';
 
 function inferMimeType(uri, fallback = 'image/jpeg') {
     const normalizedUri = String(uri || '').toLowerCase();
