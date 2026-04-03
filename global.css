@@ -14,6 +14,9 @@ body {
 }
 
 .scanner-camera-web video {
-    object-fit: contain !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    transform-origin: center center !important;
     background: #050A10 !important;
 }
