@@ -29,9 +29,8 @@ const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
 const PINCH_ZOOM_SENSITIVITY = 0.0035;
 const WEB_CAPTURE_RESOLUTIONS = [
-    { width: 3840, height: 2160 },
-    { width: 2560, height: 1440 },
     { width: 1920, height: 1080 },
+    { width: 1280, height: 720 },
 ];
 
 function clampValue(value, min, max) {
@@ -59,47 +58,6 @@ function getTouchDistance(touches = []) {
     const deltaX = firstTouch.pageX - secondTouch.pageX;
     const deltaY = firstTouch.pageY - secondTouch.pageY;
     return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-}
-
-function parsePictureSize(size) {
-    const match = String(size).match(/^(\d+)x(\d+)$/);
-
-    if (!match) {
-        return null;
-    }
-
-    const width = Number(match[1]);
-    const height = Number(match[2]);
-
-    if (!width || !height) {
-        return null;
-    }
-
-    return {
-        size,
-        width,
-        height,
-        ratio: width / height,
-        area: width * height,
-    };
-}
-
-function pickBestPictureSize(sizes) {
-    const preferredRatio = 16 / 9;
-    const parsedSizes = sizes
-        .map(parsePictureSize)
-        .filter(Boolean)
-        .sort((left, right) => {
-            const ratioGap = Math.abs(left.ratio - preferredRatio) - Math.abs(right.ratio - preferredRatio);
-
-            if (Math.abs(ratioGap) > 0.01) {
-                return ratioGap;
-            }
-
-            return right.area - left.area;
-        });
-
-    return parsedSizes[0]?.size || null;
 }
 
 function stopMediaStream(stream) {
@@ -185,37 +143,6 @@ function getAspectRatioConstraint(aspectRatioCapability) {
     }
 
     return null;
-}
-
-async function optimizeWebTrackForQuality(videoTrack) {
-    const capabilities = videoTrack?.getCapabilities?.();
-
-    if (!capabilities) {
-        return;
-    }
-
-    const nextConstraints = {};
-    const maxWidth = getCapabilityValue(capabilities.width);
-    const maxHeight = getCapabilityValue(capabilities.height);
-    const aspectRatio = getAspectRatioConstraint(capabilities.aspectRatio);
-
-    if (maxWidth) {
-        nextConstraints.width = { ideal: Math.round(maxWidth) };
-    }
-
-    if (maxHeight) {
-        nextConstraints.height = { ideal: Math.round(maxHeight) };
-    }
-
-    if (aspectRatio) {
-        nextConstraints.aspectRatio = aspectRatio;
-    }
-
-    if (!Object.keys(nextConstraints).length) {
-        return;
-    }
-
-    await videoTrack.applyConstraints(nextConstraints).catch(() => {});
 }
 
 async function getWebPhotoConfiguration(videoTrack) {
@@ -353,7 +280,6 @@ export default function CameraScanScreen({ navigation, route }) {
     const [permission, requestPermission] = useCameraPermissions();
     const [cameraFacing, setCameraFacing] = useState('back');
     const [zoom, setZoom] = useState(0);
-    const [pictureSize, setPictureSize] = useState(null);
     const [torchEnabled, setTorchEnabled] = useState(false);
     const [webCameraError, setWebCameraError] = useState(null);
     const [webTorchAvailable, setWebTorchAvailable] = useState(false);
@@ -378,7 +304,6 @@ export default function CameraScanScreen({ navigation, route }) {
 
     useEffect(() => {
         setCameraReady(false);
-        setPictureSize(null);
         setTorchEnabled(false);
         setZoom(0);
         pinchZoomRef.current = { startDistance: 0, startZoom: 0 };
@@ -418,8 +343,6 @@ export default function CameraScanScreen({ navigation, route }) {
                 webStreamRef.current = stream;
                 webTrackRef.current = videoTrack;
 
-                await optimizeWebTrackForQuality(videoTrack);
-
                 webZoomCapabilityRef.current =
                     zoomCapability && typeof zoomCapability.max === 'number' ? zoomCapability : null;
                 setWebTrackZoomSupported(Boolean(webZoomCapabilityRef.current));
@@ -430,11 +353,6 @@ export default function CameraScanScreen({ navigation, route }) {
                 const webPhotoConfiguration = await getWebPhotoConfiguration(videoTrack);
                 if (webPhotoConfiguration?.settings) {
                     webPhotoSettingsRef.current = webPhotoConfiguration.settings;
-                }
-
-                const nextPictureSize = webPhotoConfiguration?.label || getWebPictureSizeLabel(videoTrack);
-                if (nextPictureSize) {
-                    setPictureSize(nextPictureSize);
                 }
 
                 if (videoElement) {
@@ -516,7 +434,6 @@ export default function CameraScanScreen({ navigation, route }) {
                     scannedAt: new Date().toISOString(),
                 }),
             );
-            setRecentIngredients(ingredients);
         } catch {
             // Storage is optional for this flow.
         }
@@ -644,7 +561,7 @@ export default function CameraScanScreen({ navigation, route }) {
             outputHeight,
         );
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 1);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
         return {
             uri: dataUrl,
@@ -666,12 +583,12 @@ export default function CameraScanScreen({ navigation, route }) {
 
         try {
             const photo = isWeb
-                ? captureWebPhoto()
+                ? await captureWebPhoto()
                 : await cameraRef.current?.takePictureAsync({
-                    quality: 1,
-                    base64: true,
-                    exif: true,
-                    skipProcessing: false,
+                    quality: 0.7,
+                    base64: false,
+                    exif: false,
+                    skipProcessing: true,
                     shutterSound: false,
                 });
 
@@ -731,24 +648,22 @@ export default function CameraScanScreen({ navigation, route }) {
         navigation.navigate('MainTabs', { screen: 'Home' });
     }, [navigation]);
 
-    const handleCameraReady = useCallback(async () => {
+    const handleCameraReady = useCallback(() => {
         setCameraReady(true);
+    }, []);
 
-        if (isWeb) {
+    const handleToggleTorch = useCallback(() => {
+        if (cameraFacing === 'front') {
             return;
         }
 
-        try {
-            const sizes = await cameraRef.current?.getAvailablePictureSizesAsync?.();
-            const nextPictureSize = pickBestPictureSize(Array.isArray(sizes) ? sizes : []);
-
-            if (nextPictureSize) {
-                setPictureSize(nextPictureSize);
-            }
-        } catch {
-            // Not all devices expose picture sizes cleanly.
+        if (isWeb && !webTorchAvailable) {
+            Alert.alert('Torch unavailable', 'This browser or device does not support camera torch control.');
+            return;
         }
-    }, []);
+
+        setTorchEnabled((current) => !current);
+    }, [cameraFacing, isWeb, webTorchAvailable]);
 
     const handlePreviewResponderGrant = useCallback(
         (event) => {
@@ -891,7 +806,6 @@ export default function CameraScanScreen({ navigation, route }) {
                                 facing={cameraFacing}
                                 onCameraReady={handleCameraReady}
                                 ratio={TARGET_CAMERA_RATIO}
-                                pictureSize={pictureSize || undefined}
                                 mirror={cameraFacing === 'front'}
                                 animateShutter={false}
                                 enableTorch={cameraFacing === 'back' && torchEnabled}
@@ -942,7 +856,7 @@ export default function CameraScanScreen({ navigation, route }) {
                                     styles.sideControl,
                                     (cameraFacing === 'front' || (isWeb && !webTorchAvailable)) && styles.controlDisabled,
                                 ]}
-                                onPress={() => setTorchEnabled((current) => !current)}
+                                onPress={handleToggleTorch}
                                 disabled={cameraFacing === 'front' || (isWeb && !webTorchAvailable)}
                             >
                                 <Ionicons

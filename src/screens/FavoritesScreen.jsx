@@ -17,6 +17,12 @@ import { useAuth } from '../context/AuthContext';
 import { createFavorite, fetchFavorites } from '../services/api';
 import { findRealFavoriteImageFromTitle, generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 
+const FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'veg', label: 'Veg' },
+    { key: 'non-veg', label: 'Non-Veg' },
+];
+
 function canRenderFavoriteImage(uri) {
     const value = String(uri || '').trim();
     return Boolean(value) && !/^data:image\/svg\+xml/i.test(value);
@@ -31,6 +37,14 @@ function shouldUpgradeFavoriteImage(uri) {
     return /^data:image\//i.test(value) || value.includes('placehold.co');
 }
 
+function isVegFavorite(item) {
+    return item?.vegan === true || item?.vegetarian === true;
+}
+
+function isNonVegFavorite(item) {
+    return item?.vegan === false && item?.vegetarian === false;
+}
+
 export default function FavoritesScreen({ navigation }) {
     const { user } = useAuth();
     const [favorites, setFavorites] = useState([]);
@@ -39,6 +53,7 @@ export default function FavoritesScreen({ navigation }) {
     const [refreshing, setRefreshing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isVegetarian, setIsVegetarian] = useState(true);
+    const [activeFilter, setActiveFilter] = useState('all');
 
     const userId = user?.uid;
 
@@ -47,8 +62,28 @@ export default function FavoritesScreen({ navigation }) {
             return 'Sign in to build a synced recipe collection.';
         }
 
+        if (activeFilter === 'veg') {
+            return 'No veg favorites yet. Save one from recipe results or add one below.';
+        }
+
+        if (activeFilter === 'non-veg') {
+            return 'No non-veg favorites yet. Save one from recipe results or add one below.';
+        }
+
         return 'No saved recipes yet. Add one below or save a recipe from the AI results flow.';
-    }, [userId]);
+    }, [activeFilter, userId]);
+
+    const filteredFavorites = useMemo(() => {
+        if (activeFilter === 'veg') {
+            return favorites.filter(isVegFavorite);
+        }
+
+        if (activeFilter === 'non-veg') {
+            return favorites.filter(isNonVegFavorite);
+        }
+
+        return favorites;
+    }, [activeFilter, favorites]);
 
     const refreshFavoriteImages = useCallback(async (items) => {
         if (!userId || !Array.isArray(items) || !items.length) {
@@ -165,7 +200,7 @@ export default function FavoritesScreen({ navigation }) {
     return (
         <SafeAreaView className="flex-1 bg-[#07141d]" edges={['top', 'left', 'right']}>
             <FlatList
-                data={favorites}
+                data={filteredFavorites}
                 keyExtractor={(item) => item._id}
                 showsVerticalScrollIndicator={false}
                 refreshControl={(
@@ -187,7 +222,7 @@ export default function FavoritesScreen({ navigation }) {
                                 </Text>
                             </View>
                             <View className="mt-4 self-start rounded-full border border-white/10 bg-white/5 px-4 py-2.5">
-                                <Text className="text-[12px] font-semibold text-white">{favorites.length} saved</Text>
+                                <Text className="text-[12px] font-semibold text-white">{filteredFavorites.length} saved</Text>
                             </View>
                         </View>
 
@@ -241,6 +276,24 @@ export default function FavoritesScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
 
+                        <View className="mb-5 flex-row gap-2">
+                            {FILTERS.map((filter) => {
+                                const selected = activeFilter === filter.key;
+                                return (
+                                    <TouchableOpacity
+                                        key={filter.key}
+                                        className={`rounded-full border px-4 py-2.5 ${selected ? 'border-[#F6B44F] bg-[#F6B44F]' : 'border-white/10 bg-[#0d1721]'}`}
+                                        onPress={() => setActiveFilter(filter.key)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text className={`text-sm font-bold ${selected ? 'text-[#08131c]' : 'text-white'}`}>
+                                            {filter.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
                         {loading ? (
                             <View className="items-center justify-center py-16">
                                 <ActivityIndicator size="large" color="#F6B44F" />
@@ -254,7 +307,7 @@ export default function FavoritesScreen({ navigation }) {
                     </View>
                 ) : null}
                 renderItem={({ item }) => {
-                    const isVeg = item.vegetarian || item.vegan;
+                    const isVeg = isVegFavorite(item);
                     const hasRenderableImage = canRenderFavoriteImage(item.image);
                     return (
                         <View className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]">

@@ -23,6 +23,8 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
     const dockBottom = Math.max(insets.bottom, DOCK_BOTTOM_GAP);
     const reservedHeight = DOCK_HEIGHT + dockBottom + DOCK_EXTRA_CLEARANCE;
     const activeRoute = state.routes[state.index];
+    const scanRoute = state.routes.find((route) => route.name === 'Scan');
+    const isScanFocused = activeRoute?.name === 'Scan';
 
     if (activeRoute?.name === 'Scan') {
         return null;
@@ -42,7 +44,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
             }}
         >
             <View
-                className="absolute left-0 right-0 overflow-hidden rounded-[32px] border border-white/8"
+                className="absolute left-0 right-0 rounded-[32px] border border-white/8"
                 style={{
                     bottom: dockBottom,
                     height: DOCK_HEIGHT,
@@ -58,11 +60,11 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                 }}
             >
                 <View className="flex-1 flex-row px-2 pt-2.5">
-                    {state.routes.map((route, index) => {
+                    {state.routes.filter((route) => route.name !== 'Scan').map((route) => {
+                        const index = state.routes.findIndex((candidate) => candidate.key === route.key);
                         const { options } = descriptors[route.key];
                         const label = options.tabBarLabel ?? options.title ?? route.name;
                         const isFocused = state.index === index;
-                        const isScan = route.name === 'Scan';
 
                         const onPress = () => {
                             const event = navigation.emit({
@@ -95,60 +97,72 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                                 className="min-w-0 flex-1 items-center justify-center bg-transparent"
                                 activeOpacity={0.9}
                             >
-                                <View className="w-full items-center justify-center px-1" style={isScan ? { transform: [{ translateY: -SCAN_LIFT }] } : undefined}>
-                                    {isScan ? (
-                                        <>
-                                            <View
-                                                className="mb-1 h-[64px] w-[64px] items-center justify-center rounded-full border"
-                                                style={{
-                                                    borderColor: isFocused ? 'rgba(246, 180, 79, 0.45)' : 'rgba(255,255,255,0.1)',
-                                                    backgroundColor: '#071018',
-                                                    shadowColor: '#000000',
-                                                    shadowOpacity: 0.28,
-                                                    shadowRadius: 18,
-                                                    shadowOffset: { width: 0, height: 10 },
-                                                    elevation: 16,
-                                                }}
-                                            >
-                                                <View className="h-[52px] w-[52px] items-center justify-center rounded-full bg-[#F6B44F]">
-                                                    <Feather name="camera" size={22} color="#08131c" />
-                                                </View>
-                                            </View>
-                                            <Text
-                                                numberOfLines={1}
-                                                allowFontScaling={false}
-                                                className={`text-[10px] font-bold ${isFocused ? 'text-[#F6B44F]' : 'text-[#8AA0B5]'}`}
-                                            >
-                                                {label}
-                                            </Text>
-                                        </>
-                                    ) : (
-                                        <View className={`w-full items-center rounded-[18px] px-1 py-1.5 ${isFocused ? 'bg-white/6' : 'bg-transparent'}`}>
-                                            <View className={`h-9 w-9 items-center justify-center rounded-[14px] ${isFocused ? 'bg-[#f6b44f14]' : 'bg-transparent'}`}>
-                                                <Ionicons
-                                                    name={getIconName(route.name, isFocused)}
-                                                    size={19}
-                                                    color={isFocused ? '#F6B44F' : '#8397AA'}
-                                                />
-                                            </View>
-                                            <Text
-                                                numberOfLines={1}
-                                                allowFontScaling={false}
-                                                className={`mt-1 text-[9px] font-bold ${isFocused ? 'text-white' : 'text-[#8397AA]'}`}
-                                            >
-                                                {label}
-                                            </Text>
-                                            <View className="mt-1 h-[3px] justify-end">
-                                                {isFocused ? <View className="h-[3px] w-5 rounded-full bg-[#F6B44F]" /> : null}
-                                            </View>
-                                        </View>
-                                    )}
+                                <View className={`w-full items-center rounded-[18px] px-1 py-1.5 ${isFocused ? 'bg-white/6' : 'bg-transparent'}`}>
+                                    <View className={`h-9 w-9 items-center justify-center rounded-[14px] ${isFocused ? 'bg-[#f6b44f14]' : 'bg-transparent'}`}>
+                                        <Ionicons
+                                            name={getIconName(route.name, isFocused)}
+                                            size={19}
+                                            color={isFocused ? '#F6B44F' : '#8397AA'}
+                                        />
+                                    </View>
+                                    <Text
+                                        numberOfLines={1}
+                                        allowFontScaling={false}
+                                        className={`mt-1 text-[9px] font-bold ${isFocused ? 'text-white' : 'text-[#8397AA]'}`}
+                                    >
+                                        {label}
+                                    </Text>
+                                    <View className="mt-1 h-[3px] justify-end">
+                                        {isFocused ? <View className="h-[3px] w-5 rounded-full bg-[#F6B44F]" /> : null}
+                                    </View>
                                 </View>
                             </TouchableOpacity>
                         );
                     })}
                 </View>
             </View>
+
+            {scanRoute ? (
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityState={isScanFocused ? { selected: true } : {}}
+                    onPress={() => navigation.navigate(scanRoute.name)}
+                    activeOpacity={0.9}
+                    style={{
+                        position: 'absolute',
+                        alignSelf: 'center',
+                        bottom: dockBottom + DOCK_HEIGHT - 12,
+                        zIndex: 5,
+                    }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                    <View className="items-center justify-center" style={{ transform: [{ translateY: -SCAN_LIFT }] }}>
+                        <View
+                            className="mb-1 h-[64px] w-[64px] items-center justify-center rounded-full border"
+                            style={{
+                                borderColor: isScanFocused ? 'rgba(246, 180, 79, 0.45)' : 'rgba(255,255,255,0.1)',
+                                backgroundColor: '#071018',
+                                shadowColor: '#000000',
+                                shadowOpacity: 0.28,
+                                shadowRadius: 18,
+                                shadowOffset: { width: 0, height: 10 },
+                                elevation: 16,
+                            }}
+                        >
+                            <View className="h-[52px] w-[52px] items-center justify-center rounded-full bg-[#F6B44F]">
+                                <Feather name="camera" size={22} color="#08131c" />
+                            </View>
+                        </View>
+                        <Text
+                            numberOfLines={1}
+                            allowFontScaling={false}
+                            className={`text-[10px] font-bold ${isScanFocused ? 'text-[#F6B44F]' : 'text-[#8AA0B5]'}`}
+                        >
+                            {descriptors[scanRoute.key]?.options?.tabBarLabel ?? 'Scan'}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+            ) : null}
         </View>
     );
 }

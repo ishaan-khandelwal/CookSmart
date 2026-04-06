@@ -17,6 +17,14 @@ const FILTERS = [
     { key: 'non-veg', label: 'Non-Veg' },
 ];
 
+function isVegRecipe(recipe) {
+    return recipe?.vegan === true || recipe?.vegetarian === true;
+}
+
+function isNonVegRecipe(recipe) {
+    return recipe?.vegan === false && recipe?.vegetarian === false;
+}
+
 const RECENT_RECIPE_RESULTS_KEY = 'cooksmart:recentRecipeResults';
 
 async function persistRecentRecipeResults(recipes, ingredients, provider, mode) {
@@ -100,11 +108,11 @@ export default function RecipeResultsScreen({ navigation, route }) {
 
     const filteredRecipes = useMemo(() => {
         if (activeFilter === 'veg') {
-            return recipes.filter((recipe) => recipe.vegetarian === true || recipe.vegan === true);
+            return recipes.filter(isVegRecipe);
         }
 
         if (activeFilter === 'non-veg') {
-            return recipes.filter((recipe) => recipe.vegetarian === false && recipe.vegan !== true);
+            return recipes.filter(isNonVegRecipe);
         }
 
         return recipes;
