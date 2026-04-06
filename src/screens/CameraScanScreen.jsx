@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { DEFAULT_RECIPE_MODE, getRecipeModeMeta } from '../constants/recipeModes';
+import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { detectIngredientsFromImage } from '../services/claudeApi';
 
@@ -27,7 +27,6 @@ const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const TARGET_CAMERA_RATIO = '16:9';
 const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
-const ZOOM_STEP = 0.075;
 const PINCH_ZOOM_SENSITIVITY = 0.0035;
 const WEB_CAPTURE_RESOLUTIONS = [
     { width: 3840, height: 2160 },
@@ -49,10 +48,6 @@ function getZoomFactor(zoom, maxZoom) {
     }
 
     return 1 + (zoom / maxZoom) * 1.4;
-}
-
-function getZoomLabel(zoom, maxZoom) {
-    return `${getZoomFactor(zoom, maxZoom).toFixed(1)}x`;
 }
 
 function getTouchDistance(touches = []) {
@@ -344,10 +339,6 @@ function inferMimeType(uri, fallback = 'image/jpeg') {
     return fallback;
 }
 
-function FrameCorner({ style }) {
-    return <View pointerEvents="none" style={[styles.frameCorner, style]} />;
-}
-
 export default function CameraScanScreen({ navigation, route }) {
     const isWeb = Platform.OS === 'web';
     const isFocused = useIsFocused();
@@ -369,24 +360,14 @@ export default function CameraScanScreen({ navigation, route }) {
     const [webTrackZoomSupported, setWebTrackZoomSupported] = useState(false);
     const [webCameraRefreshKey, setWebCameraRefreshKey] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [recentIngredients, setRecentIngredients] = useState([]);
     const [cameraReady, setCameraReady] = useState(false);
     const { width, height } = useWindowDimensions();
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
-    const activeModeMeta = getRecipeModeMeta(activeMode);
     const maxZoom = getMaxZoom(cameraFacing);
-    const zoomLabel = getZoomLabel(zoom, maxZoom);
-    const frameWidth = Math.min(width - 34, 360);
-    const frameHeight = Math.min(Math.max(height * 0.41, 280), 410);
     const fullWidthPreviewHeight = width * (16 / 9);
     const cameraViewportStyle = fullWidthPreviewHeight <= height
         ? { width, height: fullWidthPreviewHeight }
         : { width: height * (9 / 16), height };
-    const zoomPresets = [
-        { label: '1x', value: 0 },
-        { label: '1.5x', value: maxZoom * 0.32 },
-        { label: '2x', value: maxZoom * 0.68 },
-    ];
     const webPreviewScale = isWeb && !webTrackZoomSupported ? getZoomFactor(zoom, maxZoom) : 1;
     const webPreviewTransform = [
         cameraFacing === 'front' ? 'scaleX(-1)' : '',
@@ -394,30 +375,6 @@ export default function CameraScanScreen({ navigation, route }) {
     ]
         .filter(Boolean)
         .join(' ');
-
-    const loadRecentScan = useCallback(async () => {
-        try {
-            const savedScan = await AsyncStorage.getItem(RECENT_SCAN_KEY);
-            if (!savedScan) {
-                setRecentIngredients([]);
-                return;
-            }
-
-            const parsedScan = JSON.parse(savedScan);
-            setRecentIngredients(Array.isArray(parsedScan.ingredients) ? parsedScan.ingredients : []);
-        } catch {
-            setRecentIngredients([]);
-        }
-    }, []);
-
-    useEffect(() => {
-        loadRecentScan();
-    }, [loadRecentScan]);
-
-    useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', loadRecentScan);
-        return unsubscribe;
-    }, [loadRecentScan, navigation]);
 
     useEffect(() => {
         setCameraReady(false);
@@ -793,13 +750,6 @@ export default function CameraScanScreen({ navigation, route }) {
         }
     }, []);
 
-    const handleZoomStep = useCallback(
-        (direction) => {
-            setZoom((currentZoom) => clampValue(currentZoom + direction, 0, maxZoom));
-        },
-        [maxZoom],
-    );
-
     const handlePreviewResponderGrant = useCallback(
         (event) => {
             const distance = getTouchDistance(event.nativeEvent.touches);
@@ -954,124 +904,19 @@ export default function CameraScanScreen({ navigation, route }) {
                 </View>
             </View>
 
-            <View pointerEvents="none" style={styles.cameraOverlay}>
-                <View style={styles.overlayGlowTop} />
-                <View style={styles.overlayGlowBottom} />
-                <View style={styles.overlayShadeTop} />
-                <View style={styles.overlayShadeBottom} />
-            </View>
-
             <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
                 <View style={styles.contentShell}>
-                    <View style={styles.headerRow}>
-                        <Pressable style={styles.headerButton} onPress={handleBack}>
+                    <View style={styles.topBar}>
+                        <Pressable style={styles.iconButton} onPress={handleBack}>
                             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                         </Pressable>
 
-                        <View style={styles.headerMetaStack}>
-                            <View
-                                style={[
-                                    styles.modeBadge,
-                                    {
-                                        borderColor: `${activeModeMeta.accent}55`,
-                                        backgroundColor: `${activeModeMeta.accent}1F`,
-                                    },
-                                ]}
-                            >
-                                <Ionicons name={activeModeMeta.icon} size={14} color={activeModeMeta.accent} />
-                                <Text style={[styles.modeBadgeText, { color: activeModeMeta.accent }]}>
-                                    {activeModeMeta.shortTitle}
-                                </Text>
-                            </View>
-
-                            {recentIngredients.length ? (
-                                <View style={styles.miniBadge}>
-                                    <Ionicons name="time-outline" size={13} color="#FFFFFF" />
-                                    <Text style={styles.miniBadgeText}>
-                                        {recentIngredients.length} recent ingredient{recentIngredients.length === 1 ? '' : 's'}
-                                    </Text>
-                                </View>
-                            ) : null}
-                        </View>
-                    </View>
-
-                    <View style={styles.stage}>
-                        <View style={styles.sideRail}>
-                            <Pressable
-                                style={[
-                                    styles.railButton,
-                                    (cameraFacing === 'front' || (isWeb && !webTorchAvailable)) && styles.controlDisabled,
-                                ]}
-                                onPress={() => setTorchEnabled((current) => !current)}
-                                disabled={cameraFacing === 'front' || (isWeb && !webTorchAvailable)}
-                            >
-                                <Ionicons
-                                    name={
-                                        cameraFacing === 'front' || (isWeb && !webTorchAvailable)
-                                            ? 'flash-off-outline'
-                                            : torchEnabled
-                                                ? 'flash'
-                                                : 'flash-outline'
-                                    }
-                                    size={20}
-                                    color="#FFFFFF"
-                                />
-                            </Pressable>
-
-                            <View style={styles.zoomRail}>
-                                <Pressable style={styles.zoomIconButton} onPress={() => handleZoomStep(ZOOM_STEP)}>
-                                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                                </Pressable>
-                                <Text style={styles.zoomLabel}>{zoomLabel}</Text>
-                                <Text style={styles.zoomCaption}>Pinch</Text>
-                                <Pressable style={styles.zoomIconButton} onPress={() => handleZoomStep(-ZOOM_STEP)}>
-                                    <Ionicons name="remove" size={20} color="#FFFFFF" />
-                                </Pressable>
-                                {zoom > 0.01 ? (
-                                    <Pressable style={styles.zoomReset} onPress={() => setZoom(0)}>
-                                        <Ionicons name="refresh" size={18} color="#FFFFFF" />
-                                    </Pressable>
-                                ) : null}
-                            </View>
-                        </View>
-
-                        <View style={[styles.scanFrame, { width: frameWidth, height: frameHeight }]}>
-                            <FrameCorner style={styles.frameCornerTopLeft} />
-                            <FrameCorner style={styles.frameCornerTopRight} />
-                            <FrameCorner style={styles.frameCornerBottomLeft} />
-                            <FrameCorner style={styles.frameCornerBottomRight} />
-                            <View style={styles.frameGuideHorizontal} />
-                            <View style={styles.frameGuideVertical} />
-                            <View style={styles.frameFocusWindow} />
-                        </View>
-
-                        <View style={styles.focusHint}>
-                            <Ionicons name="scan-outline" size={16} color="#F6B44F" />
-                            <Text style={styles.focusHintText}>
-                                Center ingredients, then pinch to zoom for tighter framing.
-                            </Text>
-                        </View>
+                        <Pressable style={styles.iconButton} onPress={handlePickFromGallery}>
+                            <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+                        </Pressable>
                     </View>
 
                     <View style={styles.bottomStack}>
-                        <View style={styles.zoomPresetRow}>
-                            {zoomPresets.map((preset) => {
-                                const isActive = Math.abs(zoom - preset.value) < 0.05;
-
-                                return (
-                                    <Pressable
-                                        key={preset.label}
-                                        style={[styles.zoomPresetChip, isActive && styles.zoomPresetChipActive]}
-                                        onPress={() => setZoom(preset.value)}
-                                    >
-                                        <Text style={[styles.zoomPresetText, isActive && styles.zoomPresetTextActive]}>
-                                            {preset.label}
-                                        </Text>
-                                    </Pressable>
-                                );
-                            })}
-                        </View>
-
                         <View style={styles.controlDock}>
                             <Pressable
                                 style={styles.sideControl}
@@ -1092,20 +937,29 @@ export default function CameraScanScreen({ navigation, route }) {
                                 </View>
                             </Pressable>
 
-                            <Pressable style={styles.sideControl} onPress={handlePickFromGallery}>
-                                <Ionicons name="images-outline" size={24} color="#FFFFFF" />
+                            <Pressable
+                                style={[
+                                    styles.sideControl,
+                                    (cameraFacing === 'front' || (isWeb && !webTorchAvailable)) && styles.controlDisabled,
+                                ]}
+                                onPress={() => setTorchEnabled((current) => !current)}
+                                disabled={cameraFacing === 'front' || (isWeb && !webTorchAvailable)}
+                            >
+                                <Ionicons
+                                    name={
+                                        cameraFacing === 'front' || (isWeb && !webTorchAvailable)
+                                            ? 'flash-off-outline'
+                                            : torchEnabled
+                                                ? 'flash'
+                                                : 'flash-outline'
+                                    }
+                                    size={22}
+                                    color="#FFFFFF"
+                                />
                             </Pressable>
                         </View>
 
-                        <Text style={styles.bottomHelperText}>
-                            {isWeb
-                                ? pictureSize
-                                    ? `Web capture is using up to ${pictureSize} for clearer scans.`
-                                    : 'Web capture is using the browser camera at full available detail.'
-                                : pictureSize
-                                    ? `High detail capture tuned to ${pictureSize}.`
-                                    : 'High detail capture is enabled.'}
-                        </Text>
+                        <Text style={styles.bottomHelperText}>Pinch to zoom. Tap the shutter to scan ingredients.</Text>
                     </View>
                 </View>
             </SafeAreaView>
@@ -1177,12 +1031,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'space-between',
     },
-    headerRow: {
+    topBar: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
     },
-    headerButton: {
+    iconButton: {
         width: 50,
         height: 50,
         borderRadius: 25,
