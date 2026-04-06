@@ -40,6 +40,9 @@ function MainTabs() {
                 headerShown: false,
                 sceneStyle: { backgroundColor: '#050A10' },
                 tabBarHideOnKeyboard: true,
+                lazy: true,
+                freezeOnBlur: true,
+                detachInactiveScreens: true,
             }}
             tabBar={(props) => <BottomTabBar {...props} />}
         >
@@ -56,7 +59,10 @@ function MainTabs() {
             <Tab.Screen
                 name="Scan"
                 component={CameraScanScreen}
-                options={{ tabBarLabel: 'Scan' }}
+                options={{
+                    tabBarLabel: 'Scan',
+                    unmountOnBlur: true,
+                }}
             />
             <Tab.Screen
                 name="Planner"

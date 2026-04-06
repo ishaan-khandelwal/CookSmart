@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsFocused } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
@@ -349,6 +350,7 @@ function FrameCorner({ style }) {
 
 export default function CameraScanScreen({ navigation, route }) {
     const isWeb = Platform.OS === 'web';
+    const isFocused = useIsFocused();
     const { selectedMode } = useRecipeMode();
     const cameraRef = useRef(null);
     const pinchZoomRef = useRef({ startDistance: 0, startZoom: 0 });
@@ -426,7 +428,7 @@ export default function CameraScanScreen({ navigation, route }) {
     }, [cameraFacing]);
 
     useEffect(() => {
-        if (!isWeb) {
+        if (!isWeb || !isFocused) {
             return undefined;
         }
 
@@ -517,10 +519,10 @@ export default function CameraScanScreen({ navigation, route }) {
             webZoomCapabilityRef.current = null;
             webPhotoSettingsRef.current = null;
         };
-    }, [cameraFacing, isWeb, webCameraRefreshKey]);
+    }, [cameraFacing, isFocused, isWeb, webCameraRefreshKey]);
 
     useEffect(() => {
-        if (!isWeb || !webTrackRef.current) {
+        if (!isWeb || !isFocused || !webTrackRef.current) {
             return;
         }
 
@@ -545,7 +547,7 @@ export default function CameraScanScreen({ navigation, route }) {
         }
 
         videoTrack.applyConstraints({ advanced: [advanced] }).catch(() => {});
-    }, [cameraFacing, isWeb, maxZoom, torchEnabled, webTorchAvailable, zoom]);
+    }, [cameraFacing, isFocused, isWeb, maxZoom, torchEnabled, webTorchAvailable, zoom]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -932,18 +934,22 @@ export default function CameraScanScreen({ navigation, route }) {
                             }}
                         />
                     ) : (
-                        <CameraView
-                            ref={cameraRef}
-                            style={StyleSheet.absoluteFillObject}
-                            facing={cameraFacing}
-                            onCameraReady={handleCameraReady}
-                            ratio={TARGET_CAMERA_RATIO}
-                            pictureSize={pictureSize || undefined}
-                            mirror={cameraFacing === 'front'}
-                            animateShutter={false}
-                            enableTorch={cameraFacing === 'back' && torchEnabled}
-                            zoom={zoom}
-                        />
+                        isFocused ? (
+                            <CameraView
+                                ref={cameraRef}
+                                style={StyleSheet.absoluteFillObject}
+                                facing={cameraFacing}
+                                onCameraReady={handleCameraReady}
+                                ratio={TARGET_CAMERA_RATIO}
+                                pictureSize={pictureSize || undefined}
+                                mirror={cameraFacing === 'front'}
+                                animateShutter={false}
+                                enableTorch={cameraFacing === 'back' && torchEnabled}
+                                zoom={zoom}
+                            />
+                        ) : (
+                            <View style={StyleSheet.absoluteFillObject} />
+                        )
                     )}
                 </View>
             </View>
