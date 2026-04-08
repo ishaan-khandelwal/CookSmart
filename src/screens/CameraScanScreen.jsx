@@ -28,12 +28,14 @@ import { uploadWebcamImage } from '../services/cameraUploadApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const TARGET_CAMERA_RATIO = '16:9';
+const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
 const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
 const PINCH_ZOOM_SENSITIVITY = 0.0035;
 const WEB_CAPTURE_RESOLUTIONS = [
-    { width: 1920, height: 1080 },
-    { width: 1280, height: 720 },
+    { width: 1080, height: 1920 },
+    { width: 720, height: 1280 },
+    { width: 1440, height: 2560 },
 ];
 
 function clampValue(value, min, max) {
@@ -224,7 +226,7 @@ function buildWebConstraints(facing, resolution) {
             facingMode: { ideal: facingMode },
             width: { ideal: resolution.width },
             height: { ideal: resolution.height },
-            aspectRatio: { ideal: 16 / 9 },
+            aspectRatio: { ideal: WEB_CAMERA_ASPECT_RATIO },
         },
     };
 }
