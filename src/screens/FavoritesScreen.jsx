@@ -16,6 +16,7 @@ import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
 import { createFavorite, fetchFavorites } from '../services/api';
 import { findRealFavoriteImageFromTitle, generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
+import { getRecipeDietLabel, isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
 
 const FILTERS = [
     { key: 'all', label: 'All' },
@@ -35,14 +36,6 @@ function shouldUpgradeFavoriteImage(uri) {
     }
 
     return /^data:image\//i.test(value) || value.includes('placehold.co');
-}
-
-function isVegFavorite(item) {
-    return item?.vegan === true || item?.vegetarian === true;
-}
-
-function isNonVegFavorite(item) {
-    return item?.vegan === false && item?.vegetarian === false;
 }
 
 export default function FavoritesScreen({ navigation }) {
@@ -75,11 +68,11 @@ export default function FavoritesScreen({ navigation }) {
 
     const filteredFavorites = useMemo(() => {
         if (activeFilter === 'veg') {
-            return favorites.filter(isVegFavorite);
+            return favorites.filter(isVegRecipe);
         }
 
         if (activeFilter === 'non-veg') {
-            return favorites.filter(isNonVegFavorite);
+            return favorites.filter(isNonVegRecipe);
         }
 
         return favorites;
@@ -307,7 +300,8 @@ export default function FavoritesScreen({ navigation }) {
                     </View>
                 ) : null}
                 renderItem={({ item }) => {
-                    const isVeg = isVegFavorite(item);
+                    const isVeg = isVegRecipe(item);
+                    const dietLabel = getRecipeDietLabel(item);
                     const hasRenderableImage = canRenderFavoriteImage(item.image);
                     return (
                         <View className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]">
@@ -332,7 +326,7 @@ export default function FavoritesScreen({ navigation }) {
                                     </View>
                                     <View className={`rounded-full px-3 py-1.5 ${isVeg ? 'bg-[#00c89620]' : 'bg-[#ff6b6b20]'}`}>
                                         <Text className={`text-[11px] font-black uppercase tracking-[0.8px] ${isVeg ? 'text-[#89E3CC]' : 'text-[#FF9A9A]'}`}>
-                                            {isVeg ? 'Veg' : 'Non-Veg'}
+                                            {dietLabel}
                                         </Text>
                                     </View>
                                 </View>

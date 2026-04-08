@@ -10,20 +10,13 @@ import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { createHistory } from '../services/api';
 import { fetchRecipesByIngredients } from '../services/spoonacularApi';
+import { isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
 
 const FILTERS = [
     { key: 'all', label: 'All' },
     { key: 'veg', label: 'Veg' },
     { key: 'non-veg', label: 'Non-Veg' },
 ];
-
-function isVegRecipe(recipe) {
-    return recipe?.vegan === true || recipe?.vegetarian === true;
-}
-
-function isNonVegRecipe(recipe) {
-    return recipe?.vegan === false && recipe?.vegetarian === false;
-}
 
 const RECENT_RECIPE_RESULTS_KEY = 'cooksmart:recentRecipeResults';
 

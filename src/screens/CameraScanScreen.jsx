@@ -19,9 +19,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
+import WebcamCaptureStatusBanner from '../components/WebcamCaptureStatusBanner';
 import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
+import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { detectIngredientsFromImage } from '../services/claudeApi';
+import { uploadWebcamImage } from '../services/cameraUploadApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const TARGET_CAMERA_RATIO = '16:9';
@@ -269,6 +272,7 @@ function inferMimeType(uri, fallback = 'image/jpeg') {
 export default function CameraScanScreen({ navigation, route }) {
     const isWeb = Platform.OS === 'web';
     const isFocused = useIsFocused();
+    const { user } = useAuth();
     const { selectedMode } = useRecipeMode();
     const cameraRef = useRef(null);
     const pinchZoomRef = useRef({ startDistance: 0, startZoom: 0 });
@@ -287,6 +291,9 @@ export default function CameraScanScreen({ navigation, route }) {
     const [webCameraRefreshKey, setWebCameraRefreshKey] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
     const [cameraReady, setCameraReady] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Preparing camera...');
+    const [uploadError, setUploadError] = useState('');
+    const [uploadedFile, setUploadedFile] = useState(null);
     const { width, height } = useWindowDimensions();
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
     const maxZoom = getMaxZoom(cameraFacing);
@@ -456,8 +463,23 @@ export default function CameraScanScreen({ navigation, route }) {
     const processImageAsset = useCallback(
         async ({ uri, base64, mimeType }) => {
             setIsProcessing(true);
+            setUploadError('');
+            setLoadingMessage('Uploading image...');
 
             try {
+                try {
+                    const uploadResult = await uploadWebcamImage({
+                        uri,
+                        mimeType: mimeType || inferMimeType(uri),
+                        userId: user?.uid,
+                        filePrefix: 'cooksmart-scan',
+                    });
+                    setUploadedFile(uploadResult?.file || null);
+                } catch (uploadFailure) {
+                    setUploadError(uploadFailure?.message || 'Could not upload the captured image.');
+                }
+
+                setLoadingMessage('Detecting ingredients...');
                 const base64Image =
                     base64 ||
                     (await FileSystem.readAsStringAsync(uri, {
@@ -489,9 +511,10 @@ export default function CameraScanScreen({ navigation, route }) {
                 await navigateToResults([], uri, { scannerError });
             } finally {
                 setIsProcessing(false);
+                setLoadingMessage('Preparing camera...');
             }
         },
-        [navigateToResults],
+        [navigateToResults, user?.uid],
     );
 
     const captureWebPhoto = useCallback(async () => {
@@ -830,6 +853,14 @@ export default function CameraScanScreen({ navigation, route }) {
                         </Pressable>
                     </View>
 
+                    <WebcamCaptureStatusBanner
+                        loading={isProcessing}
+                        loadingMessage={loadingMessage}
+                        errorMessage={uploadError}
+                        uploadedFile={uploadedFile}
+                        onDismissError={() => setUploadError('')}
+                    />
+
                     <View style={styles.bottomStack}>
                         <View style={styles.controlDock}>
                             <Pressable
@@ -878,7 +909,7 @@ export default function CameraScanScreen({ navigation, route }) {
                 </View>
             </SafeAreaView>
 
-            <LoadingOverlay visible={isProcessing} message="Identifying ingredients..." />
+            <LoadingOverlay visible={isProcessing} message={loadingMessage} />
         </View>
     );
 }

@@ -9,6 +9,7 @@ import { useRecipeMode } from '../context/RecipeModeContext';
 import { createFavorite, createHistory } from '../services/api';
 import { generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 import { fetchRecipeDetails } from '../services/spoonacularApi';
+import { getRecipeDietFlags, getRecipeDietLabel, getRecipeDietTone } from '../utils/recipeDiet';
 
 const DETAIL_SECTIONS = [
     { key: 'overview', label: 'Overview' },
@@ -83,8 +84,8 @@ export default function RecipeDetailScreen({ navigation, route }) {
         [recipe, selectedIngredients],
     );
 
-    const dietLabel = recipe?.vegan ? 'Vegan' : recipe?.vegetarian ? 'Veg' : 'Non-Veg';
-    const dietTone = recipe?.vegan || recipe?.vegetarian ? '#22C55E' : '#FF6B6B';
+    const dietLabel = getRecipeDietLabel(recipe);
+    const dietTone = getRecipeDietTone(recipe);
     const instructionSteps = recipe?.instructionSteps?.length ? recipe.instructionSteps : [];
     const isCookFreedom = activeMode === RECIPE_MODE_IDS.COOK_FREEDOM;
 
@@ -155,13 +156,14 @@ export default function RecipeDetailScreen({ navigation, route }) {
         try {
             setSavingFavorite(true);
             const fallbackImage = recipe?.image ? '' : await generateFavoriteImageFromTitle(recipe.name, process.env.EXPO_PUBLIC_GEMINI_KEY);
+            const dietFlags = getRecipeDietFlags(recipe);
             await createFavorite({
                 recipeId: recipe.providerId || recipe.id || '',
                 provider: recipe.provider || 'manual',
                 title: recipe.name,
                 image: recipe.image || fallbackImage,
-                vegetarian: recipe.vegetarian ?? false,
-                vegan: recipe.vegan ?? false,
+                vegetarian: dietFlags.vegetarian,
+                vegan: dietFlags.vegan,
                 source: 'recipe-detail',
                 userId: user.uid,
             });

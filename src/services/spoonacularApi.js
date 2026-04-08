@@ -738,6 +738,7 @@ async function searchSpoonacularRecipes(ingredients) {
         number: '12',
         ranking: '2',
         ignorePantry: 'true',
+        addRecipeInformation: 'true',
     });
     return {
         provider: 'spoonacular',

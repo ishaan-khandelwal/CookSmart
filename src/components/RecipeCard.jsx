@@ -1,5 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { RECIPE_MODE_IDS } from '../constants/recipeModes';
+import { getRecipeDietLabel, getRecipeDietTone } from '../utils/recipeDiet';
 
 const difficultyStripe = {
     Easy: '#00C896',
@@ -9,8 +10,8 @@ const difficultyStripe = {
 
 export default function RecipeCard({ recipe, onPress, mode = RECIPE_MODE_IDS.PANTRY_CHEF }) {
     const stripeColor = difficultyStripe[recipe.difficulty] ?? '#00C896';
-    const dietLabel = recipe.vegan ? 'Vegan' : recipe.vegetarian ? 'Veg' : 'Non-Veg';
-    const dietColor = recipe.vegan || recipe.vegetarian ? '#22C55E' : '#FF6B6B';
+    const dietLabel = getRecipeDietLabel(recipe);
+    const dietColor = getRecipeDietTone(recipe);
     const isCookFreedom = mode === RECIPE_MODE_IDS.COOK_FREEDOM;
     const providerLabel = isCookFreedom
         ? recipe.provider === 'gemini' ? 'Flexible pick' : recipe.provider === 'edamam' ? 'Recipe to explore' : 'CookFreedom pick'

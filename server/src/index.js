@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { connectToDatabase, getDatabaseStatus, isDatabaseConnected } from './config/db.js';
 import Favorite from './models/favorite.js';
 import History from './models/history.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,8 @@ const BODY_SIZE_LIMIT = process.env.BODY_SIZE_LIMIT || '20mb';
 app.use(cors());
 app.use(express.json({ limit: BODY_SIZE_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_SIZE_LIMIT }));
+app.use('/uploads', uploadRoutes);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/health', (_req, res) => {
   const database = getDatabaseStatus();
@@ -169,6 +172,18 @@ app.post('/history', requireDatabase, async (req, res) => {
 });
 
 app.use((error, _req, res, next) => {
+  if (error?.name === 'MulterError') {
+    if (error?.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        message: `Uploaded image is too large. Keep it under ${process.env.MAX_UPLOAD_FILE_MB || 8}MB.`,
+      });
+    }
+
+    return res.status(400).json({
+      message: 'Only jpg, png, and webp image uploads are supported.',
+    });
+  }
+
   if (error?.type === 'entity.too.large') {
     return res.status(413).json({
       message: 'Uploaded recipe image is too large. Please try again with a smaller image.',
