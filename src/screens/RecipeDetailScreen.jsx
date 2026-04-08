@@ -176,13 +176,20 @@ export default function RecipeDetailScreen({ navigation, route }) {
     };
 
     const handleOrderIngredients = () => {
-        const missingList = ingredientBuckets.missing.slice(0, 6).join(', ');
-        Alert.alert(
-            'Order Ingredients',
-            missingList
-                ? `CookSmart would open an ordering flow for: ${missingList}.`
-                : 'This recipe is already covered by what you have, so there is nothing extra to order.',
-        );
+        if (!ingredientBuckets.missing.length && !ingredientBuckets.pantryStaples.length) {
+            Alert.alert(
+                'Nothing to order',
+                'This recipe is already covered by what you have, so there is nothing extra to order.',
+            );
+            return;
+        }
+
+        navigation.navigate('OrderIngredients', {
+            recipeName: recipe?.name || 'CookFreedom Recipe',
+            missingIngredients: ingredientBuckets.missing,
+            pantryStaples: ingredientBuckets.pantryStaples,
+            mode: activeMode,
+        });
     };
 
     return (

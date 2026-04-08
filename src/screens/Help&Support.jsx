@@ -1,4 +1,5 @@
 import { ArrowLeft, MessageCircleQuestion, Send, Sparkles } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -14,32 +15,48 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS } from '../constants/recipeModes';
+import { useRecipeMode } from '../context/RecipeModeContext';
 import { getHelpSupportReply } from '../services/helpSupportApi';
 
+const RECENT_SCAN_KEY = 'cooksmart:lastScan';
+
 const SUGGESTED_PROMPTS = [
+    'What can I make from egg, onion, and tomato?',
+    'Use my latest scanned ingredients',
     'Why is my ingredient scan blurry?',
     'I am not getting recipe results.',
-    'How do I fix login problems?',
-    'Where are my saved recipes?',
 ];
 
 const INITIAL_MESSAGE = {
     id: 'welcome',
     role: 'assistant',
-    text: 'Hi, I am your CookSmart support assistant. Ask me about scanning, recipes, account issues, favorites, or planner problems.',
+    text: 'Hi, I am your CookSmart assistant. Ask what you can cook from your ingredients, or get help with scanning, recipes, account issues, favorites, and planner problems.',
 };
+
+function normalizeIngredients(items) {
+    return Array.from(
+        new Set(
+            (items || [])
+                .map((item) => String(item || '').trim().toLowerCase())
+                .filter(Boolean),
+        ),
+    );
+}
 
 export default function HelpSupportScreen({ navigation }) {
     const { user } = useAuth();
+    const { selectedMode } = useRecipeMode();
     const layoutScrollRef = useRef(null);
     const insets = useSafeAreaInsets();
     const [draft, setDraft] = useState('');
     const [sending, setSending] = useState(false);
     const [messages, setMessages] = useState([INITIAL_MESSAGE]);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [availableIngredients, setAvailableIngredients] = useState([]);
 
     const supportStatus = useMemo(
-        () => (process.env.EXPO_PUBLIC_GEMINI_KEY ? 'AI support online' : 'Smart fallback support'),
+        () => (process.env.EXPO_PUBLIC_GEMINI_KEY ? 'AI cooking assistant online' : 'Smart cooking fallback'),
         [],
     );
 
@@ -62,6 +79,27 @@ export default function HelpSupportScreen({ navigation }) {
             hideSubscription.remove();
         };
     }, [scrollToBottom]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        AsyncStorage.getItem(RECENT_SCAN_KEY)
+            .then((savedScan) => {
+                if (!isMounted || !savedScan) return;
+
+                const parsedScan = JSON.parse(savedScan);
+                setAvailableIngredients(normalizeIngredients(parsedScan?.ingredients));
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setAvailableIngredients([]);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const handleBack = useCallback(() => {
         if (navigation.canGoBack()) {
@@ -98,6 +136,8 @@ export default function HelpSupportScreen({ navigation }) {
                         text: message.text,
                     })),
                     userName: user?.displayName || '',
+                    availableIngredients,
+                    recipeMode: selectedMode === RECIPE_MODE_IDS.COOK_FREEDOM ? RECIPE_MODE_IDS.COOK_FREEDOM : DEFAULT_RECIPE_MODE,
                 });
 
                 setMessages((current) => [
@@ -113,7 +153,7 @@ export default function HelpSupportScreen({ navigation }) {
                 scrollToBottom();
             }
         },
-        [messages, scrollToBottom, sending, user?.displayName],
+        [availableIngredients, messages, scrollToBottom, selectedMode, sending, user?.displayName],
     );
 
     return (
@@ -140,7 +180,7 @@ export default function HelpSupportScreen({ navigation }) {
                         >
                             <ArrowLeft color="#FFFFFF" size={20} />
                         </Pressable>
-                        <Text className="text-xl font-bold text-white">Help & Support</Text>
+                        <Text className="text-xl font-bold text-white">CookSmart Assistant</Text>
                         <View className="h-11 w-11" />
                     </View>
 
@@ -154,11 +194,11 @@ export default function HelpSupportScreen({ navigation }) {
                                     Live Help
                                 </Text>
                                 <Text className="mt-2 text-[28px] font-black leading-9 text-white">
-                                    Chat with CookSmart support
+                                    Chat with your cooking assistant
                                 </Text>
                                 <Text className="mt-2 text-sm leading-6 text-[#95A8B9]">
-                                    Ask about blurred scans, recipe search issues, login trouble, saved recipes, or
-                                    planner problems.
+                                    Ask what you can make from your ingredients, or get help with blurred scans,
+                                    recipe search issues, login trouble, saved recipes, or planner problems.
                                 </Text>
                             </View>
                             <View className="h-14 w-14 items-center justify-center rounded-[22px] bg-[#f6b44f14]">
@@ -171,7 +211,9 @@ export default function HelpSupportScreen({ navigation }) {
                                 <Sparkles color="#00C896" size={16} />
                                 <Text className="ml-2 text-[12px] font-bold text-white">{supportStatus}</Text>
                             </View>
-                            <Text className="text-[12px] text-[#6D8296]">{user?.displayName || 'Guest mode'}</Text>
+                            <Text className="text-[12px] text-[#6D8296]">
+                                {availableIngredients.length ? `${availableIngredients.length} ingredients ready` : (user?.displayName || 'Guest mode')}
+                            </Text>
                         </View>
                     </View>
 
@@ -233,7 +275,7 @@ export default function HelpSupportScreen({ navigation }) {
                             <TextInput
                                 value={draft}
                                 onChangeText={setDraft}
-                                placeholder="Ask a question about CookSmart..."
+                                placeholder="Ask what you can cook or get app help..."
                                 placeholderTextColor="#6D8296"
                                 className="max-h-48 min-h-[88px] flex-1 px-3 py-3 text-[15px] text-white"
                                 multiline
@@ -252,7 +294,7 @@ export default function HelpSupportScreen({ navigation }) {
                             </Pressable>
                         </View>
                         <Text className="px-3 pb-1 pt-1 text-[11px] leading-5 text-[#6D8296]">
-                            Try asking one issue at a time for the fastest help.
+                            Try: "What can I make from egg, onion, and tomato?"
                         </Text>
                     </View>
                 </ScrollView>

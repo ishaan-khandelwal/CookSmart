@@ -52,6 +52,14 @@ function getZoomFactor(zoom, maxZoom) {
     return 1 + (zoom / maxZoom) * 1.4;
 }
 
+function formatZoomLabel(zoom, maxZoom) {
+    if (!maxZoom) {
+        return '1.0x';
+    }
+
+    return `${getZoomFactor(zoom, maxZoom).toFixed(1)}x`;
+}
+
 function getTouchDistance(touches = []) {
     if (touches.length < 2) {
         return 0;
@@ -297,6 +305,7 @@ export default function CameraScanScreen({ navigation, route }) {
     const { width, height } = useWindowDimensions();
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
     const maxZoom = getMaxZoom(cameraFacing);
+    const zoomStep = Math.max(0.04, maxZoom / 6);
     const fullWidthPreviewHeight = width * (16 / 9);
     const cameraViewportStyle = fullWidthPreviewHeight <= height
         ? { width, height: fullWidthPreviewHeight }
@@ -308,6 +317,7 @@ export default function CameraScanScreen({ navigation, route }) {
     ]
         .filter(Boolean)
         .join(' ');
+    const zoomLabel = formatZoomLabel(zoom, maxZoom);
 
     useEffect(() => {
         setCameraReady(false);
@@ -734,6 +744,17 @@ export default function CameraScanScreen({ navigation, route }) {
         };
     }, [zoom]);
 
+    const handleZoomStep = useCallback(
+        (direction) => {
+            setZoom((current) => clampValue(current + direction * zoomStep, 0, maxZoom));
+        },
+        [maxZoom, zoomStep],
+    );
+
+    const handleZoomReset = useCallback(() => {
+        setZoom(0);
+    }, []);
+
     if (!isWeb && !permission) {
         return (
             <View className="flex-1 items-center justify-center bg-background px-6">
@@ -794,12 +815,12 @@ export default function CameraScanScreen({ navigation, route }) {
                 <View
                     className="scanner-camera-web"
                     style={[styles.cameraViewport, cameraViewportStyle]}
-                    onStartShouldSetResponder={(event) => event.nativeEvent.touches.length > 1}
-                    onMoveShouldSetResponder={(event) => event.nativeEvent.touches.length > 1}
-                    onResponderGrant={handlePreviewResponderGrant}
-                    onResponderMove={handlePreviewResponderMove}
-                    onResponderRelease={handlePreviewResponderEnd}
-                    onResponderTerminate={handlePreviewResponderEnd}
+                    onStartShouldSetResponder={!isWeb ? (event) => event.nativeEvent.touches.length > 1 : undefined}
+                    onMoveShouldSetResponder={!isWeb ? (event) => event.nativeEvent.touches.length > 1 : undefined}
+                    onResponderGrant={!isWeb ? handlePreviewResponderGrant : undefined}
+                    onResponderMove={!isWeb ? handlePreviewResponderMove : undefined}
+                    onResponderRelease={!isWeb ? handlePreviewResponderEnd : undefined}
+                    onResponderTerminate={!isWeb ? handlePreviewResponderEnd : undefined}
                 >
                     {isWeb ? (
                         <video
@@ -862,6 +883,25 @@ export default function CameraScanScreen({ navigation, route }) {
                     />
 
                     <View style={styles.bottomStack}>
+                        {!isWeb ? (
+                            <View style={styles.zoomPresetRow}>
+                                <Pressable style={styles.zoomPresetChip} onPress={() => handleZoomStep(-1)}>
+                                    <Ionicons name="remove" size={16} color="#FFFFFF" />
+                                </Pressable>
+                                <Pressable
+                                    style={[styles.zoomPresetChip, zoom <= 0.001 && styles.zoomPresetChipActive]}
+                                    onPress={handleZoomReset}
+                                >
+                                    <Text style={[styles.zoomPresetText, zoom <= 0.001 && styles.zoomPresetTextActive]}>
+                                        {zoomLabel}
+                                    </Text>
+                                </Pressable>
+                                <Pressable style={styles.zoomPresetChip} onPress={() => handleZoomStep(1)}>
+                                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                                </Pressable>
+                            </View>
+                        ) : null}
+
                         <View style={styles.controlDock}>
                             <Pressable
                                 style={styles.sideControl}
@@ -904,7 +944,11 @@ export default function CameraScanScreen({ navigation, route }) {
                             </Pressable>
                         </View>
 
-                        <Text style={styles.bottomHelperText}>Pinch to zoom. Tap the shutter to scan ingredients.</Text>
+                        <Text style={styles.bottomHelperText}>
+                            {isWeb
+                                ? 'Tap the shutter to scan ingredients.'
+                                : 'Pinch or use the zoom controls, then tap the shutter to scan ingredients.'}
+                        </Text>
                     </View>
                 </View>
             </SafeAreaView>

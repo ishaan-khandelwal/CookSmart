@@ -10,6 +10,7 @@ import HelpSupportScreen from '../screens/Help&Support';
 import HomeScreen from '../screens/HomeScreen';
 import IngredientsResultScreen from '../screens/IngredientsResultScreen';
 import LoginScreen from '../screens/LoginScreen';
+import OrderIngredientsScreen from '../screens/OrderIngredientsScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
@@ -100,6 +101,11 @@ function AppScreens() {
                     <Stack.Screen
                         name="RecipeDetail"
                         component={RecipeDetailScreen}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="OrderIngredients"
+                        component={OrderIngredientsScreen}
                         options={{ headerShown: false }}
                     />
                     <Stack.Screen

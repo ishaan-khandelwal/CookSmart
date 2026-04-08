@@ -6,11 +6,16 @@ html,
 body,
 #root {
     background: #050A10;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 
 body {
-    overflow-x: hidden;
-    overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    touch-action: manipulation;
 }
 
 .scanner-camera-web video {
