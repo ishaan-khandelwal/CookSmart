@@ -838,7 +838,7 @@ export default function CameraScanScreen({ navigation, route }) {
                                 left: 0,
                                 width: '100%',
                                 height: '100%',
-                                objectFit: 'cover',
+                                objectFit: 'contain',
                                 background: '#050A10',
                                 transform: webPreviewTransform || undefined,
                                 transformOrigin: 'center center',
