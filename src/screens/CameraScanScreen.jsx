@@ -27,7 +27,7 @@ import { uploadWebcamImage } from '../services/cameraUploadApi';
 import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
-const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
+// const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
 const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
 const PINCH_ZOOM_SENSITIVITY = 0.0035;
@@ -225,7 +225,6 @@ function buildWebConstraints(facing, resolution) {
             facingMode: { ideal: facingMode },
             width: { ideal: resolution.width },
             height: { ideal: resolution.height },
-            aspectRatio: { ideal: WEB_CAMERA_ASPECT_RATIO },
         },
     };
 }
