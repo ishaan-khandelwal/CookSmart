@@ -306,10 +306,10 @@ export default function CameraScanScreen({ navigation, route }) {
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
     const maxZoom = getMaxZoom(cameraFacing);
     const zoomStep = Math.max(0.04, maxZoom / 6);
-    const fullWidthPreviewHeight = width * (16 / 9);
-    const cameraViewportStyle = fullWidthPreviewHeight <= height
-        ? { width, height: fullWidthPreviewHeight }
-        : { width: height * (9 / 16), height };
+    const cameraViewportStyle = {
+        width: '100%',
+        height: '100%',
+    };
     const webPreviewScale = 1;
     const webPreviewTransform = [
         cameraFacing === 'front' ? 'scaleX(-1)' : '',
@@ -561,11 +561,7 @@ export default function CameraScanScreen({ navigation, route }) {
         const canvas = document.createElement('canvas');
         const outputWidth = videoElement.videoWidth;
         const outputHeight = videoElement.videoHeight;
-        const cropZoom = webTrackZoomSupported ? 1 : getZoomFactor(zoom, maxZoom);
-        const sourceWidth = outputWidth / cropZoom;
-        const sourceHeight = outputHeight / cropZoom;
-        const sourceX = (outputWidth - sourceWidth) / 2;
-        const sourceY = (outputHeight - sourceHeight) / 2;
+        const cropZoom = 1;
         const context = canvas.getContext('2d', { alpha: false });
 
         if (!context) {
@@ -584,14 +580,10 @@ export default function CameraScanScreen({ navigation, route }) {
 
         context.drawImage(
             videoElement,
-            sourceX,
-            sourceY,
-            sourceWidth,
-            sourceHeight,
             0,
             0,
             outputWidth,
-            outputHeight,
+            outputHeight
         );
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
@@ -836,7 +828,7 @@ export default function CameraScanScreen({ navigation, route }) {
                                 left: 0,
                                 width: '100%',
                                 height: '100%',
-                                objectFit: 'contain',
+                                objectFit: 'cover',
                                 background: '#050A10',
                                 transform: webPreviewTransform || undefined,
                                 transformOrigin: 'center center',
