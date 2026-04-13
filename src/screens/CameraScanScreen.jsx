@@ -23,8 +23,8 @@ import WebcamCaptureStatusBanner from '../components/WebcamCaptureStatusBanner';
 import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
 import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
-import { detectIngredientsFromImage } from '../services/claudeApi';
 import { uploadWebcamImage } from '../services/cameraUploadApi';
+import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
@@ -311,7 +311,7 @@ export default function CameraScanScreen({ navigation, route }) {
     const cameraViewportStyle = fullWidthPreviewHeight <= height
         ? { width, height: fullWidthPreviewHeight }
         : { width: height * (9 / 16), height };
-    const webPreviewScale = isWeb && !webTrackZoomSupported ? getZoomFactor(zoom, maxZoom) : 1;
+    const webPreviewScale = 1;
     const webPreviewTransform = [
         cameraFacing === 'front' ? 'scaleX(-1)' : '',
         webPreviewScale > 1.001 ? `scale(${webPreviewScale})` : '',
@@ -381,7 +381,7 @@ export default function CameraScanScreen({ navigation, route }) {
                         }
                     };
 
-                    await videoElement.play().catch(() => {});
+                    await videoElement.play().catch(() => { });
 
                     if (videoElement.readyState >= 1 && !cancelled) {
                         setCameraReady(true);
@@ -439,7 +439,7 @@ export default function CameraScanScreen({ navigation, route }) {
             return;
         }
 
-        videoTrack.applyConstraints({ advanced: [advanced] }).catch(() => {});
+        videoTrack.applyConstraints({ advanced: [advanced] }).catch(() => { });
     }, [cameraFacing, isFocused, isWeb, maxZoom, torchEnabled, webTorchAvailable, zoom]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
