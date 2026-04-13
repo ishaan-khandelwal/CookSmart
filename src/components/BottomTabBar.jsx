@@ -2,7 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SCAN_LIFT = 14;
+const SCAN_LIFT = 6;
 const DOCK_HEIGHT = 96;
 const DOCK_SIDE_PADDING = 16;
 const DOCK_BOTTOM_GAP = 10;
@@ -131,7 +131,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                     style={{
                         position: 'absolute',
                         alignSelf: 'center',
-                        bottom: dockBottom + DOCK_HEIGHT - 12,
+                        bottom: dockBottom + DOCK_HEIGHT - 24,
                         zIndex: 5,
                     }}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}

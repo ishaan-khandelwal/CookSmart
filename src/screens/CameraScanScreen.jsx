@@ -27,7 +27,6 @@ import { detectIngredientsFromImage } from '../services/claudeApi';
 import { uploadWebcamImage } from '../services/cameraUploadApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
-const TARGET_CAMERA_RATIO = '16:9';
 const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
 const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
@@ -851,7 +850,6 @@ export default function CameraScanScreen({ navigation, route }) {
                                 style={StyleSheet.absoluteFillObject}
                                 facing={cameraFacing}
                                 onCameraReady={handleCameraReady}
-                                ratio={TARGET_CAMERA_RATIO}
                                 mirror={cameraFacing === 'front'}
                                 animateShutter={false}
                                 enableTorch={cameraFacing === 'back' && torchEnabled}

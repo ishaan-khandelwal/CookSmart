@@ -196,6 +196,7 @@ export default function FavoritesScreen({ navigation }) {
                 data={filteredFavorites}
                 keyExtractor={(item) => item._id}
                 showsVerticalScrollIndicator={false}
+                style={styles.list}
                 refreshControl={(
                     <RefreshControl
                         refreshing={refreshing}
@@ -203,7 +204,7 @@ export default function FavoritesScreen({ navigation }) {
                         tintColor="#F6B44F"
                     />
                 )}
-                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24 }}
+                contentContainerStyle={styles.listContent}
                 ListHeaderComponent={(
                     <View>
                         <View className="mb-5 mt-2">
@@ -340,6 +341,15 @@ export default function FavoritesScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+    list: {
+        flex: 1,
+        backgroundColor: '#07141d',
+    },
+    listContent: {
+        flexGrow: 1,
+        paddingHorizontal: 20,
+        paddingBottom: BOTTOM_TAB_BAR_RESERVED_SPACE + 24,
+    },
     favoriteImage: {
         width: '100%',
         height: 180,
