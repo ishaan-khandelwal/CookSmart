@@ -334,6 +334,16 @@ function getLocalCookFreedomRecipes(ingredients) {
     ];
 }
 
+function getRelevantLocalCookFreedomRecipes(ingredients) {
+    const localRecipes = getLocalCookFreedomRecipes(ingredients);
+
+    if (!Array.isArray(ingredients) || !ingredients.length) {
+        return localRecipes;
+    }
+
+    return localRecipes.filter((recipe) => Number(recipe?.matchingCount || 0) > 0);
+}
+
 function mergeRecipeSources(primaryRecipes, secondaryRecipes = []) {
     const seen = new Set();
 
@@ -735,7 +745,7 @@ async function searchEdamamRecipes(ingredients) {
 async function searchSpoonacularRecipes(ingredients) {
     const { data, quota } = await spoonacularFetch('/recipes/findByIngredients', {
         ingredients: ingredients.join(','),
-        number: '12',
+        number: '24',
         ranking: '2',
         ignorePantry: 'true',
         addRecipeInformation: 'true',
@@ -848,19 +858,18 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
     const normalized = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
     if (!normalized.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) return { recipes: [], quota: null, provider: null };
     const localPantryRecipes = getLocalPantryRecipes(normalized);
-    const localCookFreedomRecipes = getLocalCookFreedomRecipes(normalized);
+    const localCookFreedomRecipes = getRelevantLocalCookFreedomRecipes(normalized);
 
     if (mode === RECIPE_MODE_IDS.COOK_FREEDOM) {
         try {
             const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
             if (geminiKey) {
                 const result = prepareCookFreedomRecipes(await searchGeminiRecipes(normalized, mode), normalized);
-                const mergedRecipes = mergeRecipeSources(result.recipes, localCookFreedomRecipes);
-                if (mergedRecipes.length) {
+                if (result.recipes.length) {
                     return {
                         ...result,
-                        provider: mergedRecipes[0]?.provider || result.provider,
-                        recipes: await attachRecipeImages(mergedRecipes),
+                        provider: result.recipes[0]?.provider || result.provider,
+                        recipes: await attachRecipeImages(result.recipes),
                     };
                 }
             }
@@ -870,12 +879,11 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
             if (isRateLimited) {
                 try {
                     const result = prepareCookFreedomRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
-                    const mergedRecipes = mergeRecipeSources(result.recipes, localCookFreedomRecipes);
-                    if (mergedRecipes.length) {
+                    if (result.recipes.length) {
                         return {
                             ...result,
-                            provider: mergedRecipes[0]?.provider || result.provider,
-                            recipes: await attachRecipeImages(mergedRecipes),
+                            provider: result.recipes[0]?.provider || result.provider,
+                            recipes: await attachRecipeImages(result.recipes),
                         };
                     }
                 } catch (openRouterError) {
@@ -887,12 +895,11 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
         if (normalized.length) {
             try {
                 const spoonacularResult = prepareCookFreedomRecipes(await searchSpoonacularRecipes(normalized), normalized);
-                const mergedRecipes = mergeRecipeSources(spoonacularResult.recipes, localCookFreedomRecipes);
-                if (mergedRecipes.length) {
+                if (spoonacularResult.recipes.length) {
                     return {
                         ...spoonacularResult,
-                        provider: mergedRecipes[0]?.provider || spoonacularResult.provider,
-                        recipes: await attachRecipeImages(mergedRecipes),
+                        provider: spoonacularResult.recipes[0]?.provider || spoonacularResult.provider,
+                        recipes: await attachRecipeImages(spoonacularResult.recipes),
                     };
                 }
             } catch (error) {
@@ -901,12 +908,11 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
 
             try {
                 const edamamResult = prepareCookFreedomRecipes(await searchEdamamRecipes(normalized), normalized);
-                const mergedRecipes = mergeRecipeSources(edamamResult.recipes, localCookFreedomRecipes);
-                if (mergedRecipes.length) {
+                if (edamamResult.recipes.length) {
                     return {
                         ...edamamResult,
-                        provider: mergedRecipes[0]?.provider || edamamResult.provider,
-                        recipes: await attachRecipeImages(mergedRecipes),
+                        provider: edamamResult.recipes[0]?.provider || edamamResult.provider,
+                        recipes: await attachRecipeImages(edamamResult.recipes),
                     };
                 }
             } catch (error) {
