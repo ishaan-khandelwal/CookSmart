@@ -5,7 +5,6 @@ import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Webcam from 'react-webcam';
 import {
     Alert,
     Linking,
@@ -17,6 +16,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Webcam from 'react-webcam';
 import LoadingOverlay from '../components/LoadingOverlay';
 import WebcamCaptureStatusBanner from '../components/WebcamCaptureStatusBanner';
 import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
@@ -26,24 +26,6 @@ import { uploadWebcamImage } from '../services/cameraUploadApi';
 import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
-// const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
-const BACK_CAMERA_MAX_ZOOM = 0.58;
-const FRONT_CAMERA_MAX_ZOOM = 0.3;
-function clampValue(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-}
-
-function getMaxZoom(facing) {
-    return facing === 'front' ? FRONT_CAMERA_MAX_ZOOM : BACK_CAMERA_MAX_ZOOM;
-}
-
-function getZoomFactor(zoom, maxZoom) {
-    if (!maxZoom) {
-        return 1;
-    }
-
-    return 1 + (zoom / maxZoom) * 1.4;
-}
 
 function extractBase64FromDataUrl(dataUrl) {
     return String(dataUrl || '').split(',')[1] || '';
@@ -91,14 +73,11 @@ export default function CameraScanScreen({ navigation, route }) {
     const webcamRef = useRef(null);
     const webStreamRef = useRef(null);
     const webTrackRef = useRef(null);
-    const webZoomCapabilityRef = useRef(null);
     const [nativeCameraPermission, setNativeCameraPermission] = useState(isWeb ? true : null);
     const [cameraFacing, setCameraFacing] = useState('back');
-    const [zoom, setZoom] = useState(0);
     const [torchEnabled, setTorchEnabled] = useState(false);
     const [webCameraError, setWebCameraError] = useState(null);
     const [webTorchAvailable, setWebTorchAvailable] = useState(false);
-    const [webTrackZoomSupported, setWebTrackZoomSupported] = useState(false);
     const [webCameraRefreshKey, setWebCameraRefreshKey] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
     const [cameraReady, setCameraReady] = useState(false);
@@ -106,18 +85,10 @@ export default function CameraScanScreen({ navigation, route }) {
     const [uploadError, setUploadError] = useState('');
     const [uploadedFile, setUploadedFile] = useState(null);
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
-    const maxZoom = getMaxZoom(cameraFacing);
     const cameraViewportStyle = {
         width: '100%',
         height: '100%',
     };
-    const webPreviewScale = 1;
-    const webPreviewTransform = [
-        cameraFacing === 'front' ? 'scaleX(-1)' : '',
-        webPreviewScale > 1.001 ? `scale(${webPreviewScale})` : '',
-    ]
-        .filter(Boolean)
-        .join(' ');
     const webVideoConstraints = {
         facingMode: cameraFacing === 'back' ? 'environment' : 'user',
         width: { ideal: 1080 },
@@ -127,7 +98,6 @@ export default function CameraScanScreen({ navigation, route }) {
     useEffect(() => {
         setCameraReady(false);
         setTorchEnabled(false);
-        setZoom(0);
     }, [cameraFacing]);
 
     useEffect(() => {
@@ -160,7 +130,6 @@ export default function CameraScanScreen({ navigation, route }) {
             webStreamRef.current?.getTracks?.().forEach((track) => track.stop());
             webStreamRef.current = null;
             webTrackRef.current = null;
-            webZoomCapabilityRef.current = null;
             return;
         };
 
@@ -168,37 +137,16 @@ export default function CameraScanScreen({ navigation, route }) {
             webStreamRef.current?.getTracks?.().forEach((track) => track.stop());
             webStreamRef.current = null;
             webTrackRef.current = null;
-            webZoomCapabilityRef.current = null;
         };
     }, [isFocused, isWeb]);
 
     useEffect(() => {
-        if (!isWeb || !isFocused || !webTrackRef.current) {
+        if (!isWeb || !isFocused || !webTrackRef.current || !webTorchAvailable || cameraFacing !== 'back') {
             return;
         }
 
-        const videoTrack = webTrackRef.current;
-        const advanced = {};
-        const zoomCapability = webZoomCapabilityRef.current;
-
-        if (zoomCapability) {
-            advanced.zoom = clampValue(
-                getZoomFactor(zoom, maxZoom),
-                zoomCapability.min ?? 1,
-                zoomCapability.max ?? getZoomFactor(zoom, maxZoom),
-            );
-        }
-
-        if (cameraFacing === 'back' && webTorchAvailable) {
-            advanced.torch = torchEnabled;
-        }
-
-        if (!Object.keys(advanced).length) {
-            return;
-        }
-
-        videoTrack.applyConstraints({ advanced: [advanced] }).catch(() => { });
-    }, [cameraFacing, isFocused, isWeb, maxZoom, torchEnabled, webTorchAvailable, zoom]);
+        webTrackRef.current.applyConstraints({ advanced: [{ torch: torchEnabled }] }).catch(() => { });
+    }, [cameraFacing, isFocused, isWeb, torchEnabled, webTorchAvailable]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -302,16 +250,12 @@ export default function CameraScanScreen({ navigation, route }) {
 
     const handleWebUserMedia = useCallback((stream) => {
         const videoTrack = stream?.getVideoTracks?.()[0] || null;
-        const zoomCapability = videoTrack?.getCapabilities?.().zoom;
         const torchCapability = videoTrack?.getCapabilities?.().torch;
 
         setWebCameraError(null);
         setCameraReady(true);
         webStreamRef.current = stream || null;
         webTrackRef.current = videoTrack;
-        webZoomCapabilityRef.current =
-            zoomCapability && typeof zoomCapability.max === 'number' ? zoomCapability : null;
-        setWebTrackZoomSupported(Boolean(webZoomCapabilityRef.current));
         setWebTorchAvailable(
             Array.isArray(torchCapability) ? torchCapability.includes(true) : torchCapability === true,
         );
@@ -320,10 +264,8 @@ export default function CameraScanScreen({ navigation, route }) {
     const handleWebUserMediaError = useCallback((error) => {
         setCameraReady(false);
         setWebTorchAvailable(false);
-        setWebTrackZoomSupported(false);
         webStreamRef.current = null;
         webTrackRef.current = null;
-        webZoomCapabilityRef.current = null;
         setWebCameraError(getWebCameraErrorMessage(error));
     }, []);
 
@@ -542,21 +484,19 @@ export default function CameraScanScreen({ navigation, route }) {
                                 height: '100%',
                                 objectFit: 'cover',
                                 background: '#050A10',
-                                transform: webPreviewTransform || undefined,
-                                transformOrigin: 'center center',
                             }}
                         />
                     ) : (
-                        <View style={styles.nativeCameraStage}>
-                            <View style={styles.nativeCameraStageGlow} />
-                            <View style={styles.nativeCameraStageCard}>
-                                <Ionicons name="camera-outline" size={54} color="#F6B44F" />
-                                <Text style={styles.nativeCameraStageTitle}>Use your phone camera</Text>
-                                <Text style={styles.nativeCameraStageText}>
-                                    CookSmart now opens the system camera so framing feels natural and less zoomed in.
-                                </Text>
-                                <Pressable
-                                    style={[styles.nativeCameraLaunchButton, isProcessing && styles.shutterButtonDisabled]}
+                            <View style={styles.nativeCameraStage}>
+                                <View style={styles.nativeCameraStageGlow} />
+                                <View style={styles.nativeCameraStageCard}>
+                                    <Ionicons name="camera-outline" size={54} color="#F6B44F" />
+                                    <Text style={styles.nativeCameraStageTitle}>Use your phone camera</Text>
+                                    <Text style={styles.nativeCameraStageText}>
+                                        CookSmart now opens the system camera so framing feels natural and simple.
+                                    </Text>
+                                    <Pressable
+                                        style={[styles.nativeCameraLaunchButton, isProcessing && styles.shutterButtonDisabled]}
                                     onPress={handleCapture}
                                     disabled={isProcessing}
                                 >
@@ -589,14 +529,6 @@ export default function CameraScanScreen({ navigation, route }) {
                     />
 
                     <View style={styles.bottomStack}>
-                        {isWeb ? null : (
-                            <View style={styles.zoomPresetRow}>
-                                <View style={[styles.zoomPresetChip, styles.zoomPresetChipActive]}>
-                                    <Text style={[styles.zoomPresetText, styles.zoomPresetTextActive]}>System Camera</Text>
-                                </View>
-                            </View>
-                        )}
-
                         <View style={styles.controlDock}>
                             <Pressable
                                 style={styles.sideControl}
@@ -845,45 +777,6 @@ const styles = StyleSheet.create({
     controlDisabled: {
         opacity: 0.45,
     },
-    zoomRail: {
-        width: 58,
-        alignItems: 'center',
-        borderRadius: 28,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(7,16,24,0.88)',
-        paddingVertical: 12,
-    },
-    zoomIconButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    zoomLabel: {
-        marginTop: 2,
-        fontSize: 14,
-        fontWeight: '900',
-        color: '#FFFFFF',
-    },
-    zoomCaption: {
-        marginTop: 4,
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 0.8,
-        textTransform: 'uppercase',
-        color: 'rgba(255,255,255,0.56)',
-    },
-    zoomReset: {
-        width: 36,
-        height: 36,
-        marginTop: 10,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
     scanFrame: {
         borderRadius: 34,
         borderWidth: 1.5,
@@ -973,32 +866,6 @@ const styles = StyleSheet.create({
     },
     bottomStack: {
         paddingTop: 8,
-    },
-    zoomPresetRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 10,
-        marginBottom: 12,
-    },
-    zoomPresetChip: {
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(7,16,24,0.76)',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-    },
-    zoomPresetChipActive: {
-        borderColor: 'rgba(246,180,79,0.4)',
-        backgroundColor: 'rgba(246,180,79,0.18)',
-    },
-    zoomPresetText: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: 'rgba(255,255,255,0.7)',
-    },
-    zoomPresetTextActive: {
-        color: '#F6B44F',
     },
     controlDock: {
         flexDirection: 'row',
