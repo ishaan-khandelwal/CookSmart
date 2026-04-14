@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,7 +13,6 @@ import {
     StatusBar,
     StyleSheet,
     Text,
-    useWindowDimensions,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,7 +28,6 @@ const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 // const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
 const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
-const PINCH_ZOOM_SENSITIVITY = 0.0035;
 const WEB_CAPTURE_RESOLUTIONS = [
     { width: 1080, height: 1920 },
     { width: 720, height: 1280 },
@@ -51,25 +48,6 @@ function getZoomFactor(zoom, maxZoom) {
     }
 
     return 1 + (zoom / maxZoom) * 1.4;
-}
-
-function formatZoomLabel(zoom, maxZoom) {
-    if (!maxZoom) {
-        return '1.0x';
-    }
-
-    return `${getZoomFactor(zoom, maxZoom).toFixed(1)}x`;
-}
-
-function getTouchDistance(touches = []) {
-    if (touches.length < 2) {
-        return 0;
-    }
-
-    const [firstTouch, secondTouch] = touches;
-    const deltaX = firstTouch.pageX - secondTouch.pageX;
-    const deltaY = firstTouch.pageY - secondTouch.pageY;
-    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 }
 
 function stopMediaStream(stream) {
@@ -282,14 +260,12 @@ export default function CameraScanScreen({ navigation, route }) {
     const isFocused = useIsFocused();
     const { user } = useAuth();
     const { selectedMode } = useRecipeMode();
-    const cameraRef = useRef(null);
-    const pinchZoomRef = useRef({ startDistance: 0, startZoom: 0 });
     const webVideoRef = useRef(null);
     const webStreamRef = useRef(null);
     const webTrackRef = useRef(null);
     const webZoomCapabilityRef = useRef(null);
     const webPhotoSettingsRef = useRef(null);
-    const [permission, requestPermission] = useCameraPermissions();
+    const [nativeCameraPermission, setNativeCameraPermission] = useState(isWeb ? true : null);
     const [cameraFacing, setCameraFacing] = useState('back');
     const [zoom, setZoom] = useState(0);
     const [torchEnabled, setTorchEnabled] = useState(false);
@@ -302,10 +278,8 @@ export default function CameraScanScreen({ navigation, route }) {
     const [loadingMessage, setLoadingMessage] = useState('Preparing camera...');
     const [uploadError, setUploadError] = useState('');
     const [uploadedFile, setUploadedFile] = useState(null);
-    const { width, height } = useWindowDimensions();
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
     const maxZoom = getMaxZoom(cameraFacing);
-    const zoomStep = Math.max(0.04, maxZoom / 6);
     const cameraViewportStyle = {
         width: '100%',
         height: '100%',
@@ -317,14 +291,36 @@ export default function CameraScanScreen({ navigation, route }) {
     ]
         .filter(Boolean)
         .join(' ');
-    const zoomLabel = formatZoomLabel(zoom, maxZoom);
 
     useEffect(() => {
         setCameraReady(false);
         setTorchEnabled(false);
         setZoom(0);
-        pinchZoomRef.current = { startDistance: 0, startZoom: 0 };
     }, [cameraFacing]);
+
+    useEffect(() => {
+        if (isWeb) {
+            return;
+        }
+
+        let cancelled = false;
+
+        ImagePicker.getCameraPermissionsAsync()
+            .then((result) => {
+                if (!cancelled) {
+                    setNativeCameraPermission(Boolean(result.granted));
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setNativeCameraPermission(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isWeb]);
 
     useEffect(() => {
         if (!isWeb || !isFocused) {
@@ -595,8 +591,20 @@ export default function CameraScanScreen({ navigation, route }) {
         };
     }, [cameraFacing, maxZoom, webTrackZoomSupported, zoom]);
 
+    const requestNativeCameraPermission = useCallback(async () => {
+        try {
+            const result = await ImagePicker.requestCameraPermissionsAsync();
+            const granted = Boolean(result.granted);
+            setNativeCameraPermission(granted);
+            return granted;
+        } catch {
+            setNativeCameraPermission(false);
+            return false;
+        }
+    }, []);
+
     const handleCapture = useCallback(async () => {
-        if (isProcessing || !cameraReady) {
+        if (isProcessing || (isWeb && !cameraReady)) {
             return;
         }
 
@@ -607,27 +615,54 @@ export default function CameraScanScreen({ navigation, route }) {
         }
 
         try {
+            if (!isWeb && nativeCameraPermission !== true) {
+                const granted = await requestNativeCameraPermission();
+                if (!granted) {
+                    Alert.alert(
+                        'Camera permission needed',
+                        'Allow camera access to scan ingredients with your phone camera.',
+                    );
+                    return;
+                }
+            }
+
             const photo = isWeb
                 ? await captureWebPhoto()
-                : await cameraRef.current?.takePictureAsync({
-                    quality: 0.7,
+                : await ImagePicker.launchCameraAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: false,
+                    cameraType: cameraFacing,
                     base64: false,
                     exif: false,
-                    skipProcessing: true,
-                    shutterSound: false,
+                    quality: 0.85,
                 });
 
-            if (photo?.uri) {
+            if (!isWeb && photo?.canceled) {
+                return;
+            }
+
+            const asset = isWeb ? photo : photo?.assets?.[0];
+
+            if (asset?.uri) {
                 await processImageAsset({
-                    uri: photo.uri,
-                    base64: photo.base64,
-                    mimeType: 'image/jpeg',
+                    uri: asset.uri,
+                    base64: asset.base64,
+                    mimeType: asset.mimeType || 'image/jpeg',
                 });
             }
         } catch {
             Alert.alert('Camera error', 'Could not capture the photo. Please try again.');
         }
-    }, [cameraReady, captureWebPhoto, isProcessing, isWeb, processImageAsset]);
+    }, [
+        cameraFacing,
+        cameraReady,
+        captureWebPhoto,
+        isProcessing,
+        isWeb,
+        nativeCameraPermission,
+        processImageAsset,
+        requestNativeCameraPermission,
+    ]);
 
     const handlePickFromGallery = useCallback(async () => {
         if (isProcessing) {
@@ -673,16 +708,12 @@ export default function CameraScanScreen({ navigation, route }) {
         navigation.navigate('MainTabs', { screen: 'Home' });
     }, [navigation]);
 
-    const handleCameraReady = useCallback(() => {
-        setCameraReady(true);
-    }, []);
-
     const handleToggleTorch = useCallback(() => {
-        if (cameraFacing === 'front') {
+        if (!isWeb || cameraFacing === 'front') {
             return;
         }
 
-        if (isWeb && !webTorchAvailable) {
+        if (!webTorchAvailable) {
             Alert.alert('Torch unavailable', 'This browser or device does not support camera torch control.');
             return;
         }
@@ -690,64 +721,7 @@ export default function CameraScanScreen({ navigation, route }) {
         setTorchEnabled((current) => !current);
     }, [cameraFacing, isWeb, webTorchAvailable]);
 
-    const handlePreviewResponderGrant = useCallback(
-        (event) => {
-            const distance = getTouchDistance(event.nativeEvent.touches);
-
-            if (!distance) {
-                return;
-            }
-
-            pinchZoomRef.current = {
-                startDistance: distance,
-                startZoom: zoom,
-            };
-        },
-        [zoom],
-    );
-
-    const handlePreviewResponderMove = useCallback(
-        (event) => {
-            const distance = getTouchDistance(event.nativeEvent.touches);
-
-            if (!distance) {
-                return;
-            }
-
-            if (!pinchZoomRef.current.startDistance) {
-                pinchZoomRef.current = {
-                    startDistance: distance,
-                    startZoom: zoom,
-                };
-                return;
-            }
-
-            const zoomDelta = (distance - pinchZoomRef.current.startDistance) * PINCH_ZOOM_SENSITIVITY;
-            const nextZoom = clampValue(pinchZoomRef.current.startZoom + zoomDelta, 0, maxZoom);
-            setZoom(nextZoom);
-        },
-        [maxZoom, zoom],
-    );
-
-    const handlePreviewResponderEnd = useCallback(() => {
-        pinchZoomRef.current = {
-            startDistance: 0,
-            startZoom: zoom,
-        };
-    }, [zoom]);
-
-    const handleZoomStep = useCallback(
-        (direction) => {
-            setZoom((current) => clampValue(current + direction * zoomStep, 0, maxZoom));
-        },
-        [maxZoom, zoomStep],
-    );
-
-    const handleZoomReset = useCallback(() => {
-        setZoom(0);
-    }, []);
-
-    if (!isWeb && !permission) {
+    if (!isWeb && nativeCameraPermission === null) {
         return (
             <View className="flex-1 items-center justify-center bg-background px-6">
                 <Text className="text-[22px] font-bold text-textPrimary">Preparing camera...</Text>
@@ -755,7 +729,7 @@ export default function CameraScanScreen({ navigation, route }) {
         );
     }
 
-    if (!isWeb && !permission.granted) {
+    if (!isWeb && nativeCameraPermission === false) {
         return (
             <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
                 <View className="w-full items-center rounded-3xl border border-white/10 bg-card p-6">
@@ -766,7 +740,10 @@ export default function CameraScanScreen({ navigation, route }) {
                     <Text className="mb-[22px] mt-2.5 text-center text-[15px] leading-[22px] text-textSecondary">
                         Allow camera permission to snap your produce, pantry items, or leftovers.
                     </Text>
-                    <Pressable className="w-full items-center rounded-2xl bg-primary py-3.5" onPress={requestPermission}>
+                    <Pressable
+                        className="w-full items-center rounded-2xl bg-primary py-3.5"
+                        onPress={requestNativeCameraPermission}
+                    >
                         <Text className="text-[15px] font-bold text-background">Allow Camera</Text>
                     </Pressable>
                     <Pressable className="mt-3 py-2.5" onPress={() => Linking.openSettings()}>
@@ -807,12 +784,6 @@ export default function CameraScanScreen({ navigation, route }) {
                 <View
                     className="scanner-camera-web"
                     style={[styles.cameraViewport, cameraViewportStyle]}
-                    onStartShouldSetResponder={!isWeb ? (event) => event.nativeEvent.touches.length > 1 : undefined}
-                    onMoveShouldSetResponder={!isWeb ? (event) => event.nativeEvent.touches.length > 1 : undefined}
-                    onResponderGrant={!isWeb ? handlePreviewResponderGrant : undefined}
-                    onResponderMove={!isWeb ? handlePreviewResponderMove : undefined}
-                    onResponderRelease={!isWeb ? handlePreviewResponderEnd : undefined}
-                    onResponderTerminate={!isWeb ? handlePreviewResponderEnd : undefined}
                 >
                     {isWeb ? (
                         <video
@@ -835,20 +806,23 @@ export default function CameraScanScreen({ navigation, route }) {
                             }}
                         />
                     ) : (
-                        isFocused ? (
-                            <CameraView
-                                ref={cameraRef}
-                                style={StyleSheet.absoluteFillObject}
-                                facing={cameraFacing}
-                                onCameraReady={handleCameraReady}
-                                mirror={cameraFacing === 'front'}
-                                animateShutter={false}
-                                enableTorch={cameraFacing === 'back' && torchEnabled}
-                                zoom={zoom}
-                            />
-                        ) : (
-                            <View style={StyleSheet.absoluteFillObject} />
-                        )
+                        <View style={styles.nativeCameraStage}>
+                            <View style={styles.nativeCameraStageGlow} />
+                            <View style={styles.nativeCameraStageCard}>
+                                <Ionicons name="camera-outline" size={54} color="#F6B44F" />
+                                <Text style={styles.nativeCameraStageTitle}>Use your phone camera</Text>
+                                <Text style={styles.nativeCameraStageText}>
+                                    CookSmart now opens the system camera so framing feels natural and less zoomed in.
+                                </Text>
+                                <Pressable
+                                    style={[styles.nativeCameraLaunchButton, isProcessing && styles.shutterButtonDisabled]}
+                                    onPress={handleCapture}
+                                    disabled={isProcessing}
+                                >
+                                    <Text style={styles.nativeCameraLaunchButtonText}>Open Camera</Text>
+                                </Pressable>
+                            </View>
+                        </View>
                     )}
                 </View>
             </View>
@@ -874,24 +848,13 @@ export default function CameraScanScreen({ navigation, route }) {
                     />
 
                     <View style={styles.bottomStack}>
-                        {!isWeb ? (
+                        {isWeb ? null : (
                             <View style={styles.zoomPresetRow}>
-                                <Pressable style={styles.zoomPresetChip} onPress={() => handleZoomStep(-1)}>
-                                    <Ionicons name="remove" size={16} color="#FFFFFF" />
-                                </Pressable>
-                                <Pressable
-                                    style={[styles.zoomPresetChip, zoom <= 0.001 && styles.zoomPresetChipActive]}
-                                    onPress={handleZoomReset}
-                                >
-                                    <Text style={[styles.zoomPresetText, zoom <= 0.001 && styles.zoomPresetTextActive]}>
-                                        {zoomLabel}
-                                    </Text>
-                                </Pressable>
-                                <Pressable style={styles.zoomPresetChip} onPress={() => handleZoomStep(1)}>
-                                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                                </Pressable>
+                                <View style={[styles.zoomPresetChip, styles.zoomPresetChipActive]}>
+                                    <Text style={[styles.zoomPresetText, styles.zoomPresetTextActive]}>System Camera</Text>
+                                </View>
                             </View>
-                        ) : null}
+                        )}
 
                         <View style={styles.controlDock}>
                             <Pressable
@@ -902,9 +865,9 @@ export default function CameraScanScreen({ navigation, route }) {
                             </Pressable>
 
                             <Pressable
-                                style={[styles.shutterButton, (isProcessing || !cameraReady) && styles.shutterButtonDisabled]}
+                                style={[styles.shutterButton, (isProcessing || (isWeb && !cameraReady)) && styles.shutterButtonDisabled]}
                                 onPress={handleCapture}
-                                disabled={isProcessing || !cameraReady}
+                                disabled={isProcessing || (isWeb && !cameraReady)}
                             >
                                 <View style={styles.shutterOuterRing}>
                                     <View style={styles.shutterInnerRing}>
@@ -916,14 +879,14 @@ export default function CameraScanScreen({ navigation, route }) {
                             <Pressable
                                 style={[
                                     styles.sideControl,
-                                    (cameraFacing === 'front' || (isWeb && !webTorchAvailable)) && styles.controlDisabled,
+                                    (!isWeb || cameraFacing === 'front' || !webTorchAvailable) && styles.controlDisabled,
                                 ]}
                                 onPress={handleToggleTorch}
-                                disabled={cameraFacing === 'front' || (isWeb && !webTorchAvailable)}
+                                disabled={!isWeb || cameraFacing === 'front' || !webTorchAvailable}
                             >
                                 <Ionicons
                                     name={
-                                        cameraFacing === 'front' || (isWeb && !webTorchAvailable)
+                                        !isWeb || cameraFacing === 'front' || !webTorchAvailable
                                             ? 'flash-off-outline'
                                             : torchEnabled
                                                 ? 'flash'
@@ -938,7 +901,7 @@ export default function CameraScanScreen({ navigation, route }) {
                         <Text style={styles.bottomHelperText}>
                             {isWeb
                                 ? 'Tap the shutter to scan ingredients.'
-                                : 'Pinch or use the zoom controls, then tap the shutter to scan ingredients.'}
+                                : 'Tap the shutter or Open Camera to scan with your phone camera.'}
                         </Text>
                     </View>
                 </View>
@@ -961,8 +924,63 @@ const styles = StyleSheet.create({
         backgroundColor: '#050A10',
     },
     cameraViewport: {
+        flex: 1,
+        width: '100%',
         overflow: 'hidden',
         backgroundColor: '#050A10',
+    },
+    nativeCameraStage: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+    },
+    nativeCameraStageGlow: {
+        position: 'absolute',
+        width: 260,
+        height: 260,
+        borderRadius: 130,
+        backgroundColor: 'rgba(246, 180, 79, 0.14)',
+    },
+    nativeCameraStageCard: {
+        width: '100%',
+        maxWidth: 360,
+        alignItems: 'center',
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: 'rgba(7,16,24,0.78)',
+        paddingHorizontal: 24,
+        paddingVertical: 28,
+    },
+    nativeCameraStageTitle: {
+        marginTop: 16,
+        textAlign: 'center',
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#FFFFFF',
+    },
+    nativeCameraStageText: {
+        marginTop: 10,
+        textAlign: 'center',
+        fontSize: 15,
+        lineHeight: 22,
+        color: 'rgba(255,255,255,0.72)',
+    },
+    nativeCameraLaunchButton: {
+        marginTop: 22,
+        minWidth: 170,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 18,
+        backgroundColor: '#F6B44F',
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+    },
+    nativeCameraLaunchButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: '#08131C',
     },
     cameraOverlay: {
         ...StyleSheet.absoluteFillObject,
