@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Webcam from 'react-webcam';
 import {
     Alert,
     Linking,
@@ -28,12 +29,6 @@ const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 // const WEB_CAMERA_ASPECT_RATIO = 9 / 16;
 const BACK_CAMERA_MAX_ZOOM = 0.58;
 const FRONT_CAMERA_MAX_ZOOM = 0.3;
-const WEB_CAPTURE_RESOLUTIONS = [
-    { width: 1080, height: 1920 },
-    { width: 720, height: 1280 },
-    { width: 1440, height: 2560 },
-];
-
 function clampValue(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -50,123 +45,8 @@ function getZoomFactor(zoom, maxZoom) {
     return 1 + (zoom / maxZoom) * 1.4;
 }
 
-function stopMediaStream(stream) {
-    stream?.getTracks?.().forEach((track) => {
-        track.stop();
-    });
-}
-
-function getWebPictureSizeLabel(videoTrack) {
-    const settings = videoTrack?.getSettings?.();
-
-    if (!settings?.width || !settings?.height) {
-        return null;
-    }
-
-    return `${settings.width}x${settings.height}`;
-}
-
 function extractBase64FromDataUrl(dataUrl) {
     return String(dataUrl || '').split(',')[1] || '';
-}
-
-function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-        if (typeof FileReader === 'undefined') {
-            reject(new Error('FileReader unavailable'));
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error || new Error('Failed to read blob'));
-        reader.readAsDataURL(blob);
-    });
-}
-
-function getWindowImageCapture() {
-    if (typeof window === 'undefined' || typeof window.ImageCapture !== 'function') {
-        return null;
-    }
-
-    return window.ImageCapture;
-}
-
-function getCapabilityValue(capability, preferredKey = 'max') {
-    if (typeof capability === 'number' && Number.isFinite(capability)) {
-        return capability;
-    }
-
-    if (!capability || typeof capability !== 'object') {
-        return null;
-    }
-
-    if (Number.isFinite(capability[preferredKey])) {
-        return capability[preferredKey];
-    }
-
-    if (Number.isFinite(capability.max)) {
-        return capability.max;
-    }
-
-    if (Number.isFinite(capability.min)) {
-        return capability.min;
-    }
-
-    return null;
-}
-
-function getAspectRatioConstraint(aspectRatioCapability) {
-    if (typeof aspectRatioCapability === 'number' && Number.isFinite(aspectRatioCapability)) {
-        return Math.abs(aspectRatioCapability - (16 / 9)) < 0.2 ? { ideal: 16 / 9 } : null;
-    }
-
-    if (!aspectRatioCapability || typeof aspectRatioCapability !== 'object') {
-        return null;
-    }
-
-    const min = Number.isFinite(aspectRatioCapability.min) ? aspectRatioCapability.min : null;
-    const max = Number.isFinite(aspectRatioCapability.max) ? aspectRatioCapability.max : null;
-
-    if (min !== null && max !== null && min <= 16 / 9 && max >= 16 / 9) {
-        return { ideal: 16 / 9 };
-    }
-
-    return null;
-}
-
-async function getWebPhotoConfiguration(videoTrack) {
-    const ImageCaptureConstructor = getWindowImageCapture();
-
-    if (!videoTrack || !ImageCaptureConstructor) {
-        return null;
-    }
-
-    try {
-        const imageCapture = new ImageCaptureConstructor(videoTrack);
-        const photoCapabilities = await imageCapture.getPhotoCapabilities?.();
-
-        if (!photoCapabilities) {
-            return null;
-        }
-
-        const imageWidth = getCapabilityValue(photoCapabilities.imageWidth);
-        const imageHeight = getCapabilityValue(photoCapabilities.imageHeight);
-
-        if (!imageWidth || !imageHeight) {
-            return null;
-        }
-
-        return {
-            settings: {
-                imageWidth: Math.round(imageWidth),
-                imageHeight: Math.round(imageHeight),
-            },
-            label: `${Math.round(imageWidth)}x${Math.round(imageHeight)}`,
-        };
-    } catch {
-        return null;
-    }
 }
 
 function getWebCameraErrorMessage(error) {
@@ -183,58 +63,6 @@ function getWebCameraErrorMessage(error) {
     }
 
     return 'Could not start the browser camera. Try refreshing the page or switching browsers.';
-}
-
-function buildWebConstraints(facing, resolution) {
-    const facingMode = facing === 'back' ? 'environment' : 'user';
-
-    if (!resolution) {
-        return {
-            audio: false,
-            video: {
-                facingMode: { ideal: facingMode },
-            },
-        };
-    }
-
-    return {
-        audio: false,
-        video: {
-            facingMode: { ideal: facingMode },
-            width: { ideal: resolution.width },
-            height: { ideal: resolution.height },
-        },
-    };
-}
-
-async function requestWebCameraStream(facing) {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        throw new Error('BROWSER_CAMERA_UNAVAILABLE');
-    }
-
-    const attempts = [
-        ...WEB_CAPTURE_RESOLUTIONS.map((resolution) => buildWebConstraints(facing, resolution)),
-        buildWebConstraints(facing, null),
-        {
-            audio: false,
-            video: {
-                facingMode: facing === 'back' ? { ideal: 'environment' } : { ideal: 'user' },
-            },
-        },
-        { audio: false, video: true },
-    ];
-
-    let lastError = null;
-
-    for (const constraints of attempts) {
-        try {
-            return await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (error) {
-            lastError = error;
-        }
-    }
-
-    throw lastError || new Error('Unable to open the browser camera');
 }
 
 function inferMimeType(uri, fallback = 'image/jpeg') {
@@ -260,11 +88,10 @@ export default function CameraScanScreen({ navigation, route }) {
     const isFocused = useIsFocused();
     const { user } = useAuth();
     const { selectedMode } = useRecipeMode();
-    const webVideoRef = useRef(null);
+    const webcamRef = useRef(null);
     const webStreamRef = useRef(null);
     const webTrackRef = useRef(null);
     const webZoomCapabilityRef = useRef(null);
-    const webPhotoSettingsRef = useRef(null);
     const [nativeCameraPermission, setNativeCameraPermission] = useState(isWeb ? true : null);
     const [cameraFacing, setCameraFacing] = useState('back');
     const [zoom, setZoom] = useState(0);
@@ -291,6 +118,11 @@ export default function CameraScanScreen({ navigation, route }) {
     ]
         .filter(Boolean)
         .join(' ');
+    const webVideoConstraints = {
+        facingMode: cameraFacing === 'back' ? 'environment' : 'user',
+        width: { ideal: 1080 },
+        height: { ideal: 1920 },
+    };
 
     useEffect(() => {
         setCameraReady(false);
@@ -324,90 +156,21 @@ export default function CameraScanScreen({ navigation, route }) {
 
     useEffect(() => {
         if (!isWeb || !isFocused) {
-            return undefined;
-        }
-
-        let cancelled = false;
-
-        const startWebCamera = async () => {
-            setWebCameraError(null);
-            setWebTorchAvailable(false);
-            setWebTrackZoomSupported(false);
-            webZoomCapabilityRef.current = null;
-            webPhotoSettingsRef.current = null;
-            webTrackRef.current = null;
-
-            stopMediaStream(webStreamRef.current);
+            setCameraReady(false);
+            webStreamRef.current?.getTracks?.().forEach((track) => track.stop());
             webStreamRef.current = null;
-
-            try {
-                const stream = await requestWebCameraStream(cameraFacing);
-
-                if (cancelled) {
-                    stopMediaStream(stream);
-                    return;
-                }
-
-                const videoTrack = stream.getVideoTracks?.()[0] || null;
-                const videoElement = webVideoRef.current;
-                const zoomCapability = videoTrack?.getCapabilities?.().zoom;
-                const torchCapability = videoTrack?.getCapabilities?.().torch;
-
-                webStreamRef.current = stream;
-                webTrackRef.current = videoTrack;
-
-                webZoomCapabilityRef.current =
-                    zoomCapability && typeof zoomCapability.max === 'number' ? zoomCapability : null;
-                setWebTrackZoomSupported(Boolean(webZoomCapabilityRef.current));
-                setWebTorchAvailable(
-                    Array.isArray(torchCapability) ? torchCapability.includes(true) : torchCapability === true,
-                );
-
-                const webPhotoConfiguration = await getWebPhotoConfiguration(videoTrack);
-                if (webPhotoConfiguration?.settings) {
-                    webPhotoSettingsRef.current = webPhotoConfiguration.settings;
-                }
-
-                if (videoElement) {
-                    videoElement.srcObject = stream;
-                    videoElement.onloadedmetadata = () => {
-                        if (!cancelled) {
-                            setCameraReady(true);
-                        }
-                    };
-
-                    await videoElement.play().catch(() => { });
-
-                    if (videoElement.readyState >= 1 && !cancelled) {
-                        setCameraReady(true);
-                    }
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    setWebCameraError(getWebCameraErrorMessage(error));
-                }
-            }
+            webTrackRef.current = null;
+            webZoomCapabilityRef.current = null;
+            return;
         };
-
-        startWebCamera();
 
         return () => {
-            cancelled = true;
-
-            const videoElement = webVideoRef.current;
-            if (videoElement) {
-                videoElement.pause?.();
-                videoElement.srcObject = null;
-                videoElement.onloadedmetadata = null;
-            }
-
-            stopMediaStream(webStreamRef.current);
+            webStreamRef.current?.getTracks?.().forEach((track) => track.stop());
             webStreamRef.current = null;
             webTrackRef.current = null;
             webZoomCapabilityRef.current = null;
-            webPhotoSettingsRef.current = null;
         };
-    }, [cameraFacing, isFocused, isWeb, webCameraRefreshKey]);
+    }, [isFocused, isWeb]);
 
     useEffect(() => {
         if (!isWeb || !isFocused || !webTrackRef.current) {
@@ -524,72 +287,45 @@ export default function CameraScanScreen({ navigation, route }) {
     );
 
     const captureWebPhoto = useCallback(async () => {
-        const videoElement = webVideoRef.current;
-        const videoTrack = webTrackRef.current;
+        const dataUrl = webcamRef.current?.getScreenshot?.();
 
-        if (videoTrack) {
-            const ImageCaptureConstructor = getWindowImageCapture();
-
-            if (ImageCaptureConstructor) {
-                try {
-                    const imageCapture = new ImageCaptureConstructor(videoTrack);
-                    const blob = await imageCapture.takePhoto(webPhotoSettingsRef.current || undefined);
-
-                    if (blob?.size) {
-                        const dataUrl = await blobToDataUrl(blob);
-
-                        return {
-                            uri: dataUrl,
-                            base64: extractBase64FromDataUrl(dataUrl),
-                            mimeType: blob.type || 'image/jpeg',
-                        };
-                    }
-                } catch {
-                    // Fall back to the preview frame capture below.
-                }
-            }
-        }
-
-        if (!videoElement?.videoWidth || !videoElement?.videoHeight || typeof document === 'undefined') {
-            throw new Error('Camera not ready');
-        }
-
-        const canvas = document.createElement('canvas');
-        const outputWidth = videoElement.videoWidth;
-        const outputHeight = videoElement.videoHeight;
-        const cropZoom = 1;
-        const context = canvas.getContext('2d', { alpha: false });
-
-        if (!context) {
+        if (!dataUrl) {
             throw new Error('Camera capture unavailable');
         }
-
-        canvas.width = outputWidth;
-        canvas.height = outputHeight;
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = 'high';
-
-        if (cameraFacing === 'front') {
-            context.translate(outputWidth, 0);
-            context.scale(-1, 1);
-        }
-
-        context.drawImage(
-            videoElement,
-            0,
-            0,
-            outputWidth,
-            outputHeight
-        );
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
         return {
             uri: dataUrl,
             base64: extractBase64FromDataUrl(dataUrl),
             mimeType: 'image/jpeg',
         };
-    }, [cameraFacing, maxZoom, webTrackZoomSupported, zoom]);
+    }, []);
+
+    const handleWebUserMedia = useCallback((stream) => {
+        const videoTrack = stream?.getVideoTracks?.()[0] || null;
+        const zoomCapability = videoTrack?.getCapabilities?.().zoom;
+        const torchCapability = videoTrack?.getCapabilities?.().torch;
+
+        setWebCameraError(null);
+        setCameraReady(true);
+        webStreamRef.current = stream || null;
+        webTrackRef.current = videoTrack;
+        webZoomCapabilityRef.current =
+            zoomCapability && typeof zoomCapability.max === 'number' ? zoomCapability : null;
+        setWebTrackZoomSupported(Boolean(webZoomCapabilityRef.current));
+        setWebTorchAvailable(
+            Array.isArray(torchCapability) ? torchCapability.includes(true) : torchCapability === true,
+        );
+    }, []);
+
+    const handleWebUserMediaError = useCallback((error) => {
+        setCameraReady(false);
+        setWebTorchAvailable(false);
+        setWebTrackZoomSupported(false);
+        webStreamRef.current = null;
+        webTrackRef.current = null;
+        webZoomCapabilityRef.current = null;
+        setWebCameraError(getWebCameraErrorMessage(error));
+    }, []);
 
     const requestNativeCameraPermission = useCallback(async () => {
         try {
@@ -786,11 +522,16 @@ export default function CameraScanScreen({ navigation, route }) {
                     style={[styles.cameraViewport, cameraViewportStyle]}
                 >
                     {isWeb ? (
-                        <video
-                            ref={webVideoRef}
-                            autoPlay
-                            muted
-                            playsInline
+                        <Webcam
+                            ref={webcamRef}
+                            key={`${cameraFacing}-${webCameraRefreshKey}`}
+                            audio={false}
+                            mirrored={cameraFacing === 'front'}
+                            screenshotFormat="image/jpeg"
+                            screenshotQuality={0.92}
+                            videoConstraints={webVideoConstraints}
+                            onUserMedia={handleWebUserMedia}
+                            onUserMediaError={handleWebUserMediaError}
                             style={{
                                 position: 'absolute',
                                 top: 0,
