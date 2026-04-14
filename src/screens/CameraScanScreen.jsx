@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Linking,
@@ -16,7 +15,6 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Webcam from 'react-webcam';
 import LoadingOverlay from '../components/LoadingOverlay';
 import WebcamCaptureStatusBanner from '../components/WebcamCaptureStatusBanner';
 import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
@@ -26,26 +24,6 @@ import { uploadWebcamImage } from '../services/cameraUploadApi';
 import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
-
-function extractBase64FromDataUrl(dataUrl) {
-    return String(dataUrl || '').split(',')[1] || '';
-}
-
-function getWebCameraErrorMessage(error) {
-    if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
-        return 'Allow camera access in your browser to scan ingredients.';
-    }
-
-    if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
-        return 'No camera was found on this device.';
-    }
-
-    if (error?.message === 'BROWSER_CAMERA_UNAVAILABLE') {
-        return 'This browser does not expose a camera stream for the site.';
-    }
-
-    return 'Could not start the browser camera. Try refreshing the page or switching browsers.';
-}
 
 function inferMimeType(uri, fallback = 'image/jpeg') {
     const normalizedUri = String(uri || '').toLowerCase();
@@ -67,38 +45,15 @@ function inferMimeType(uri, fallback = 'image/jpeg') {
 
 export default function CameraScanScreen({ navigation, route }) {
     const isWeb = Platform.OS === 'web';
-    const isFocused = useIsFocused();
     const { user } = useAuth();
     const { selectedMode } = useRecipeMode();
-    const webcamRef = useRef(null);
-    const webStreamRef = useRef(null);
-    const webTrackRef = useRef(null);
-    const [nativeCameraPermission, setNativeCameraPermission] = useState(isWeb ? true : null);
+    const [nativeCameraPermission, setNativeCameraPermission] = useState(isWeb ? false : null);
     const [cameraFacing, setCameraFacing] = useState('back');
-    const [torchEnabled, setTorchEnabled] = useState(false);
-    const [webCameraError, setWebCameraError] = useState(null);
-    const [webTorchAvailable, setWebTorchAvailable] = useState(false);
-    const [webCameraRefreshKey, setWebCameraRefreshKey] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [cameraReady, setCameraReady] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('Preparing camera...');
     const [uploadError, setUploadError] = useState('');
     const [uploadedFile, setUploadedFile] = useState(null);
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
-    const cameraViewportStyle = {
-        width: '100%',
-        height: '100%',
-    };
-    const webVideoConstraints = {
-        facingMode: cameraFacing === 'back' ? 'environment' : 'user',
-        width: { ideal: 1080 },
-        height: { ideal: 1920 },
-    };
-
-    useEffect(() => {
-        setCameraReady(false);
-        setTorchEnabled(false);
-    }, [cameraFacing]);
 
     useEffect(() => {
         if (isWeb) {
@@ -123,30 +78,6 @@ export default function CameraScanScreen({ navigation, route }) {
             cancelled = true;
         };
     }, [isWeb]);
-
-    useEffect(() => {
-        if (!isWeb || !isFocused) {
-            setCameraReady(false);
-            webStreamRef.current?.getTracks?.().forEach((track) => track.stop());
-            webStreamRef.current = null;
-            webTrackRef.current = null;
-            return;
-        };
-
-        return () => {
-            webStreamRef.current?.getTracks?.().forEach((track) => track.stop());
-            webStreamRef.current = null;
-            webTrackRef.current = null;
-        };
-    }, [isFocused, isWeb]);
-
-    useEffect(() => {
-        if (!isWeb || !isFocused || !webTrackRef.current || !webTorchAvailable || cameraFacing !== 'back') {
-            return;
-        }
-
-        webTrackRef.current.applyConstraints({ advanced: [{ torch: torchEnabled }] }).catch(() => { });
-    }, [cameraFacing, isFocused, isWeb, torchEnabled, webTorchAvailable]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -234,41 +165,6 @@ export default function CameraScanScreen({ navigation, route }) {
         [navigateToResults, user?.uid],
     );
 
-    const captureWebPhoto = useCallback(async () => {
-        const dataUrl = webcamRef.current?.getScreenshot?.();
-
-        if (!dataUrl) {
-            throw new Error('Camera capture unavailable');
-        }
-
-        return {
-            uri: dataUrl,
-            base64: extractBase64FromDataUrl(dataUrl),
-            mimeType: 'image/jpeg',
-        };
-    }, []);
-
-    const handleWebUserMedia = useCallback((stream) => {
-        const videoTrack = stream?.getVideoTracks?.()[0] || null;
-        const torchCapability = videoTrack?.getCapabilities?.().torch;
-
-        setWebCameraError(null);
-        setCameraReady(true);
-        webStreamRef.current = stream || null;
-        webTrackRef.current = videoTrack;
-        setWebTorchAvailable(
-            Array.isArray(torchCapability) ? torchCapability.includes(true) : torchCapability === true,
-        );
-    }, []);
-
-    const handleWebUserMediaError = useCallback((error) => {
-        setCameraReady(false);
-        setWebTorchAvailable(false);
-        webStreamRef.current = null;
-        webTrackRef.current = null;
-        setWebCameraError(getWebCameraErrorMessage(error));
-    }, []);
-
     const requestNativeCameraPermission = useCallback(async () => {
         try {
             const result = await ImagePicker.requestCameraPermissionsAsync();
@@ -282,7 +178,7 @@ export default function CameraScanScreen({ navigation, route }) {
     }, []);
 
     const handleCapture = useCallback(async () => {
-        if (isProcessing || (isWeb && !cameraReady)) {
+        if (isProcessing || isWeb) {
             return;
         }
 
@@ -304,22 +200,20 @@ export default function CameraScanScreen({ navigation, route }) {
                 }
             }
 
-            const photo = isWeb
-                ? await captureWebPhoto()
-                : await ImagePicker.launchCameraAsync({
-                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                    allowsEditing: false,
-                    cameraType: cameraFacing,
-                    base64: false,
-                    exif: false,
-                    quality: 0.85,
-                });
+            const photo = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: false,
+                cameraType: cameraFacing,
+                base64: false,
+                exif: false,
+                quality: 0.85,
+            });
 
-            if (!isWeb && photo?.canceled) {
+            if (photo?.canceled) {
                 return;
             }
 
-            const asset = isWeb ? photo : photo?.assets?.[0];
+            const asset = photo?.assets?.[0];
 
             if (asset?.uri) {
                 await processImageAsset({
@@ -333,8 +227,6 @@ export default function CameraScanScreen({ navigation, route }) {
         }
     }, [
         cameraFacing,
-        cameraReady,
-        captureWebPhoto,
         isProcessing,
         isWeb,
         nativeCameraPermission,
@@ -386,19 +278,6 @@ export default function CameraScanScreen({ navigation, route }) {
         navigation.navigate('MainTabs', { screen: 'Home' });
     }, [navigation]);
 
-    const handleToggleTorch = useCallback(() => {
-        if (!isWeb || cameraFacing === 'front') {
-            return;
-        }
-
-        if (!webTorchAvailable) {
-            Alert.alert('Torch unavailable', 'This browser or device does not support camera torch control.');
-            return;
-        }
-
-        setTorchEnabled((current) => !current);
-    }, [cameraFacing, isWeb, webTorchAvailable]);
-
     if (!isWeb && nativeCameraPermission === null) {
         return (
             <View className="flex-1 items-center justify-center bg-background px-6">
@@ -432,22 +311,19 @@ export default function CameraScanScreen({ navigation, route }) {
         );
     }
 
-    if (isWeb && webCameraError && !cameraReady) {
+    if (isWeb) {
         return (
             <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
                 <View className="w-full items-center rounded-3xl border border-white/10 bg-card p-6">
                     <Ionicons name="camera-outline" size={42} color="#00C896" />
                     <Text className="mt-4 text-center text-[22px] font-bold leading-[30px] text-textPrimary">
-                        Browser camera needs one quick fix.
+                        Camera scanning is for Expo mobile.
                     </Text>
                     <Text className="mb-[22px] mt-2.5 text-center text-[15px] leading-[22px] text-textSecondary">
-                        {webCameraError}
+                        Open CookSmart in the Expo app on your phone to use the camera scanner. Web keeps gallery upload only.
                     </Text>
-                    <Pressable
-                        className="w-full items-center rounded-2xl bg-primary py-3.5"
-                        onPress={() => setWebCameraRefreshKey((current) => current + 1)}
-                    >
-                        <Text className="text-[15px] font-bold text-background">Try Camera Again</Text>
+                    <Pressable className="w-full items-center rounded-2xl bg-primary py-3.5" onPress={handlePickFromGallery}>
+                        <Text className="text-[15px] font-bold text-background">Pick From Gallery</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -459,52 +335,24 @@ export default function CameraScanScreen({ navigation, route }) {
             <StatusBar barStyle="light-content" />
 
             <View style={styles.cameraPreviewShell}>
-                <View
-                    className="scanner-camera-web"
-                    style={[styles.cameraViewport, cameraViewportStyle]}
-                >
-                    {isWeb ? (
-                        <Webcam
-                            ref={webcamRef}
-                            key={`${cameraFacing}-${webCameraRefreshKey}`}
-                            audio={false}
-                            mirrored={cameraFacing === 'front'}
-                            screenshotFormat="image/jpeg"
-                            screenshotQuality={0.92}
-                            videoConstraints={webVideoConstraints}
-                            onUserMedia={handleWebUserMedia}
-                            onUserMediaError={handleWebUserMediaError}
-                            style={{
-                                position: 'absolute',
-                                top: 0,
-                                right: 0,
-                                bottom: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                background: '#050A10',
-                            }}
-                        />
-                    ) : (
-                        <View style={styles.nativeCameraStage}>
-                            <View style={styles.nativeCameraStageGlow} />
-                            <View style={styles.nativeCameraStageCard}>
-                                <Ionicons name="camera-outline" size={54} color="#F6B44F" />
-                                <Text style={styles.nativeCameraStageTitle}>Use your phone camera</Text>
-                                <Text style={styles.nativeCameraStageText}>
-                                    CookSmart now opens the system camera so framing feels natural and simple.
-                                </Text>
-                                <Pressable
-                                    style={[styles.nativeCameraLaunchButton, isProcessing && styles.shutterButtonDisabled]}
-                                    onPress={handleCapture}
-                                    disabled={isProcessing}
-                                >
-                                    <Text style={styles.nativeCameraLaunchButtonText}>Open Camera</Text>
-                                </Pressable>
-                            </View>
+                <View className="scanner-camera-web" style={styles.cameraViewport}>
+                    <View style={styles.nativeCameraStage}>
+                        <View style={styles.nativeCameraStageGlow} />
+                        <View style={styles.nativeCameraStageCard}>
+                            <Ionicons name="camera-outline" size={54} color="#F6B44F" />
+                            <Text style={styles.nativeCameraStageTitle}>Use your phone camera</Text>
+                            <Text style={styles.nativeCameraStageText}>
+                                CookSmart opens the Expo mobile camera flow for scanning ingredients.
+                            </Text>
+                            <Pressable
+                                style={[styles.nativeCameraLaunchButton, isProcessing && styles.shutterButtonDisabled]}
+                                onPress={handleCapture}
+                                disabled={isProcessing}
+                            >
+                                <Text style={styles.nativeCameraLaunchButtonText}>Open Camera</Text>
+                            </Pressable>
                         </View>
-                    )}
+                    </View>
                 </View>
             </View>
 
@@ -538,9 +386,9 @@ export default function CameraScanScreen({ navigation, route }) {
                             </Pressable>
 
                             <Pressable
-                                style={[styles.shutterButton, (isProcessing || (isWeb && !cameraReady)) && styles.shutterButtonDisabled]}
+                                style={[styles.shutterButton, isProcessing && styles.shutterButtonDisabled]}
                                 onPress={handleCapture}
-                                disabled={isProcessing || (isWeb && !cameraReady)}
+                                disabled={isProcessing}
                             >
                                 <View style={styles.shutterOuterRing}>
                                     <View style={styles.shutterInnerRing}>
@@ -550,21 +398,11 @@ export default function CameraScanScreen({ navigation, route }) {
                             </Pressable>
 
                             <Pressable
-                                style={[
-                                    styles.sideControl,
-                                    (!isWeb || cameraFacing === 'front' || !webTorchAvailable) && styles.controlDisabled,
-                                ]}
-                                onPress={handleToggleTorch}
-                                disabled={!isWeb || cameraFacing === 'front' || !webTorchAvailable}
+                                style={[styles.sideControl, styles.controlDisabled]}
+                                disabled
                             >
                                 <Ionicons
-                                    name={
-                                        !isWeb || cameraFacing === 'front' || !webTorchAvailable
-                                            ? 'flash-off-outline'
-                                            : torchEnabled
-                                                ? 'flash'
-                                                : 'flash-outline'
-                                    }
+                                    name="flash-off-outline"
                                     size={22}
                                     color="#FFFFFF"
                                 />
@@ -572,9 +410,7 @@ export default function CameraScanScreen({ navigation, route }) {
                         </View>
 
                         <Text style={styles.bottomHelperText}>
-                            {isWeb
-                                ? 'Tap the shutter to scan ingredients.'
-                                : 'Tap the shutter or Open Camera to scan with your phone camera.'}
+                            Tap the shutter or Open Camera to scan with your phone camera in Expo.
                         </Text>
                     </View>
                 </View>
