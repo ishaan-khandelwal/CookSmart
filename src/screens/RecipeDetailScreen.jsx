@@ -9,6 +9,7 @@ import { useRecipeMode } from '../context/RecipeModeContext';
 import { createFavorite, createHistory } from '../services/api';
 import { generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 import { fetchRecipeDetails } from '../services/spoonacularApi';
+import { getExpoEnv } from '../utils/expoConfig';
 import { getRecipeDietFlags, getRecipeDietLabel, getRecipeDietTone } from '../utils/recipeDiet';
 
 const DETAIL_SECTIONS = [
@@ -155,7 +156,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
 
         try {
             setSavingFavorite(true);
-            const fallbackImage = recipe?.image ? '' : await generateFavoriteImageFromTitle(recipe.name, process.env.EXPO_PUBLIC_GEMINI_KEY);
+            const fallbackImage = recipe?.image ? '' : await generateFavoriteImageFromTitle(recipe.name, getExpoEnv('EXPO_PUBLIC_GEMINI_KEY'));
             const dietFlags = getRecipeDietFlags(recipe);
             await createFavorite({
                 recipeId: recipe.providerId || recipe.id || '',

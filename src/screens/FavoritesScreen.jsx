@@ -16,6 +16,7 @@ import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
 import { createFavorite, fetchFavorites } from '../services/api';
 import { findRealFavoriteImageFromTitle, generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
+import { getExpoEnv } from '../utils/expoConfig';
 import { getRecipeDietLabel, isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
 
 const FILTERS = [
@@ -168,7 +169,7 @@ export default function FavoritesScreen({ navigation }) {
 
         try {
             setSaving(true);
-            const generatedImage = await generateFavoriteImageFromTitle(title, process.env.EXPO_PUBLIC_GEMINI_KEY);
+            const generatedImage = await generateFavoriteImageFromTitle(title, getExpoEnv('EXPO_PUBLIC_GEMINI_KEY'));
 
             const createdFavorite = await createFavorite({
                 title,

@@ -8,6 +8,12 @@ import { connectToDatabase, getDatabaseStatus, isDatabaseConnected } from './con
 import Favorite from './models/favorite.js';
 import History from './models/history.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import {
+  createLocalHistory,
+  getLocalFavorites,
+  getLocalHistory,
+  upsertLocalFavorite,
+} from './utils/localStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,18 +44,7 @@ app.get('/health', (_req, res) => {
   });
 });
 
-function requireDatabase(_req, res, next) {
-  if (isDatabaseConnected()) {
-    return next();
-  }
-
-  return res.status(503).json({
-    message:
-      'Database is currently unavailable. Check your MongoDB Atlas network access or server/.env configuration and try again.',
-  });
-}
-
-app.get('/favorites', requireDatabase, async (req, res) => {
+app.get('/favorites', async (req, res) => {
   try {
     const { userId } = req.query;
 
@@ -57,14 +52,17 @@ app.get('/favorites', requireDatabase, async (req, res) => {
       return res.status(400).json({ message: 'userId is required' });
     }
 
-    const favorites = await Favorite.find({ userId }).sort({ createdAt: -1 });
+    const favorites = isDatabaseConnected()
+      ? await Favorite.find({ userId }).sort({ createdAt: -1 })
+      : await getLocalFavorites(String(userId).trim());
+
     return res.json(favorites);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load favorites' });
   }
 });
 
-app.post('/favorites', requireDatabase, async (req, res) => {
+app.post('/favorites', async (req, res) => {
   try {
     const {
       recipeId = '',
@@ -86,34 +84,49 @@ app.post('/favorites', requireDatabase, async (req, res) => {
     const normalizedProvider = String(provider).trim() || 'manual';
     const normalizedSource = String(source).trim() || 'manual';
     const normalizedImage = String(image || '').trim();
-    const existingFavorite = await Favorite.findOne({
-      userId,
-      title: normalizedTitle,
-    });
+    let favorite;
 
-    const favorite = await Favorite.findOneAndUpdate(
-      {
+    if (isDatabaseConnected()) {
+      const existingFavorite = await Favorite.findOne({
         userId,
         title: normalizedTitle,
-      },
-      {
-        $set: {
-          recipeId: normalizedRecipeId || existingFavorite?.recipeId || '',
-          provider: normalizedProvider || existingFavorite?.provider || 'manual',
-          title: normalizedTitle,
-          image: normalizedImage || existingFavorite?.image || '',
-          source: normalizedSource || existingFavorite?.source || 'manual',
-          vegetarian: Boolean(vegetarian),
-          vegan: Boolean(vegan),
+      });
+
+      favorite = await Favorite.findOneAndUpdate(
+        {
           userId,
+          title: normalizedTitle,
         },
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      }
-    );
+        {
+          $set: {
+            recipeId: normalizedRecipeId || existingFavorite?.recipeId || '',
+            provider: normalizedProvider || existingFavorite?.provider || 'manual',
+            title: normalizedTitle,
+            image: normalizedImage || existingFavorite?.image || '',
+            source: normalizedSource || existingFavorite?.source || 'manual',
+            vegetarian: Boolean(vegetarian),
+            vegan: Boolean(vegan),
+            userId,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true,
+        }
+      );
+    } else {
+      favorite = await upsertLocalFavorite({
+        recipeId: normalizedRecipeId,
+        provider: normalizedProvider,
+        title: normalizedTitle,
+        image: normalizedImage,
+        source: normalizedSource,
+        vegetarian,
+        vegan,
+        userId,
+      });
+    }
 
     return res.status(201).json(favorite);
   } catch (error) {
@@ -121,7 +134,7 @@ app.post('/favorites', requireDatabase, async (req, res) => {
   }
 });
 
-app.get('/history', requireDatabase, async (req, res) => {
+app.get('/history', async (req, res) => {
   try {
     const { userId } = req.query;
 
@@ -129,14 +142,17 @@ app.get('/history', requireDatabase, async (req, res) => {
       return res.status(400).json({ message: 'userId is required' });
     }
 
-    const history = await History.find({ userId }).sort({ createdAt: -1 }).limit(20);
+    const history = isDatabaseConnected()
+      ? await History.find({ userId }).sort({ createdAt: -1 }).limit(20)
+      : await getLocalHistory(String(userId).trim());
+
     return res.json(history);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load history' });
   }
 });
 
-app.post('/history', requireDatabase, async (req, res) => {
+app.post('/history', async (req, res) => {
   try {
     const {
       userId,
@@ -151,19 +167,30 @@ app.post('/history', requireDatabase, async (req, res) => {
       return res.status(400).json({ message: 'userId and title are required' });
     }
 
-    const historyItem = await History.create({
+    const historyPayload = {
       userId,
       title,
       type,
       source,
-      ingredients: Array.isArray(ingredients)
-        ? ingredients.map((item) => String(item).trim()).filter(Boolean)
-        : [],
-      resultCount:
-        typeof resultCount === 'number' && Number.isFinite(resultCount)
-          ? resultCount
-          : null,
-    });
+      ingredients,
+      resultCount,
+    };
+
+    const historyItem = isDatabaseConnected()
+      ? await History.create({
+        userId,
+        title,
+        type,
+        source,
+        ingredients: Array.isArray(ingredients)
+          ? ingredients.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+        resultCount:
+          typeof resultCount === 'number' && Number.isFinite(resultCount)
+            ? resultCount
+            : null,
+      })
+      : await createLocalHistory(historyPayload);
 
     return res.status(201).json(historyItem);
   } catch (error) {

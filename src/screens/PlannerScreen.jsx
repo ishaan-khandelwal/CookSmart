@@ -23,6 +23,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 import { fetchFavorites } from '../services/api';
 import { fetchRecipeDetails } from '../services/spoonacularApi';
+import { hasExpoEnv } from '../utils/expoConfig';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const RECENT_RECIPE_RESULTS_KEY = 'cooksmart:recentRecipeResults';
@@ -278,7 +279,7 @@ export default function PlannerScreen() {
                     setRecentCandidates(Array.isArray(parsedRecentRecipes) ? parsedRecentRecipes : []);
                     setHydrated(true);
 
-                    if (user?.uid && process.env.EXPO_PUBLIC_API_URL) {
+                    if (user?.uid && hasExpoEnv('EXPO_PUBLIC_API_URL')) {
                         try {
                             const favorites = await fetchFavorites(user.uid);
                             if (isMounted) {

@@ -9,6 +9,7 @@ import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, getRecipeModeMeta } from '../cons
 import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { createHistory } from '../services/api';
+import { findRealFavoriteImageFromTitle } from '../services/favoriteImageApi';
 import { fetchRecipesByIngredients } from '../services/spoonacularApi';
 import { isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
 
@@ -52,6 +53,51 @@ export default function RecipeResultsScreen({ navigation, route }) {
     useEffect(() => {
         let isMounted = true;
 
+        const enrichRecipeImages = async (baseRecipes, provider) => {
+            const recipesNeedingImages = (Array.isArray(baseRecipes) ? baseRecipes : [])
+                .filter((recipe) => !String(recipe?.image || '').trim() && recipe?.name)
+                .slice(0, 6);
+
+            if (!recipesNeedingImages.length) {
+                return;
+            }
+
+            const imageResults = await Promise.allSettled(
+                recipesNeedingImages.map(async (recipe) => ({
+                    id: recipe.id,
+                    image: await findRealFavoriteImageFromTitle(recipe.name),
+                })),
+            );
+
+            if (!isMounted) {
+                return;
+            }
+
+            const resolvedImages = new Map(
+                imageResults
+                    .filter((result) => result.status === 'fulfilled' && result.value?.image)
+                    .map((result) => [result.value.id, result.value.image]),
+            );
+
+            if (!resolvedImages.size) {
+                return;
+            }
+
+            setRecipes((currentRecipes) => currentRecipes.map((recipe) => (
+                resolvedImages.has(recipe.id)
+                    ? { ...recipe, image: resolvedImages.get(recipe.id) }
+                    : recipe
+            )));
+
+            const enrichedRecipes = baseRecipes.map((recipe) => (
+                resolvedImages.has(recipe.id)
+                    ? { ...recipe, image: resolvedImages.get(recipe.id) }
+                    : recipe
+            ));
+
+            persistRecentRecipeResults(enrichedRecipes, ingredients, provider, activeMode).catch(() => {});
+        };
+
         const loadRecipes = async () => {
             setLoading(true);
             setErrorMessage('');
@@ -67,6 +113,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 setQuota(result?.quota ?? null);
                 setProviderNotice(result?.notice || '');
                 persistRecentRecipeResults(nextRecipes, ingredients, result?.provider, activeMode).catch(() => {});
+                enrichRecipeImages(nextRecipes, result?.provider).catch(() => {});
 
                 if (user?.uid) {
                     const historyLabel = ingredients.length

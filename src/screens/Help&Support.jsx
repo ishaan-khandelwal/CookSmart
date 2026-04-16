@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS } from '../constants/recipeModes';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { getHelpSupportReply } from '../services/helpSupportApi';
+import { hasExpoEnv } from '../utils/expoConfig';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 
@@ -56,7 +57,7 @@ export default function HelpSupportScreen({ navigation }) {
     const [availableIngredients, setAvailableIngredients] = useState([]);
 
     const supportStatus = useMemo(
-        () => (process.env.EXPO_PUBLIC_GEMINI_KEY ? 'AI cooking assistant online' : 'Smart cooking fallback'),
+        () => (hasExpoEnv('EXPO_PUBLIC_GEMINI_KEY') ? 'AI cooking assistant online' : 'Smart cooking fallback'),
         [],
     );
 

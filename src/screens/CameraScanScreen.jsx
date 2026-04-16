@@ -112,31 +112,29 @@ export default function CameraScanScreen({ navigation, route }) {
         async ({ uri, base64, mimeType }) => {
             setIsProcessing(true);
             setUploadError('');
-            setLoadingMessage('Uploading image...');
+            setLoadingMessage('Preparing image...');
 
             try {
-                try {
-                    const uploadResult = await uploadWebcamImage({
-                        uri,
-                        mimeType: mimeType || inferMimeType(uri),
-                        userId: user?.uid,
-                        filePrefix: 'cooksmart-scan',
-                    });
-                    setUploadedFile(uploadResult?.file || null);
-                } catch (uploadFailure) {
-                    setUploadError(uploadFailure?.message || 'Could not upload the captured image.');
-                }
-
-                setLoadingMessage('Detecting ingredients...');
+                const normalizedMimeType = mimeType || inferMimeType(uri);
                 const base64Image =
                     base64 ||
                     (await FileSystem.readAsStringAsync(uri, {
                         encoding: FileSystem.EncodingType.Base64,
                     }));
 
+                setLoadingMessage('Scanning ingredients...');
                 const ingredients = await detectIngredientsFromImage(base64Image, {
-                    mimeType: mimeType || inferMimeType(uri),
+                    mimeType: normalizedMimeType,
                 });
+
+                uploadWebcamImage({
+                    uri,
+                    mimeType: normalizedMimeType,
+                    userId: user?.uid,
+                    filePrefix: 'cooksmart-scan',
+                })
+                    .catch(() => {});
+
                 await navigateToResults(ingredients, uri);
             } catch (error) {
                 let scannerError = 'Scanner unavailable. Add the ingredients manually below.';

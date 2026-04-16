@@ -10,6 +10,7 @@ import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, RECIPE_MODE_OPTIONS, getRecipeMod
 import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { fetchFavorites, fetchHistory } from '../services/api';
+import { hasExpoEnv } from '../utils/expoConfig';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 
@@ -92,7 +93,7 @@ export default function HomeScreen({ navigation }) {
 
     const dayPart = useMemo(() => getDayPart(), []);
     const dateLabel = useMemo(() => formatDateLabel(), []);
-    const syncLabel = user?.uid && process.env.EXPO_PUBLIC_API_URL ? 'Cloud Kitchen Active' : 'Offline Local Mode';
+    const syncLabel = user?.uid && hasExpoEnv('EXPO_PUBLIC_API_URL') ? 'Cloud Kitchen Active' : 'Offline Local Mode';
     const activeMode = useMemo(() => getRecipeModeMeta(selectedMode || DEFAULT_RECIPE_MODE), [selectedMode]);
 
     const pantryReadiness = useMemo(() => {
@@ -126,7 +127,7 @@ export default function HomeScreen({ navigation }) {
             setRecentScan({ ingredients: [], photoUri: null, scannedAt: null });
         }
 
-        if (!user?.uid || !process.env.EXPO_PUBLIC_API_URL) {
+        if (!user?.uid || !hasExpoEnv('EXPO_PUBLIC_API_URL')) {
             setFavoritesCount(0);
             setHistoryCount(0);
             return;

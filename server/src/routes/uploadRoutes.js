@@ -2,6 +2,7 @@ import express from 'express';
 import Capture from '../models/capture.js';
 import { webcamUploadMiddleware } from '../middleware/uploadMiddleware.js';
 import { isDatabaseConnected } from '../config/db.js';
+import { createLocalCapture } from '../utils/localStore.js';
 
 const router = express.Router();
 
@@ -44,6 +45,17 @@ router.post('/webcam', (req, res, next) => {
       } catch {
         warning = 'Image uploaded, but MongoDB metadata could not be stored.';
       }
+    } else {
+      captureRecord = await createLocalCapture({
+        userId: String(req.body?.userId || '').trim(),
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        relativePath,
+        source: 'webcam',
+      });
+      warning = 'Image uploaded using local fallback storage because MongoDB is unavailable.';
     }
 
     return res.status(201).json({

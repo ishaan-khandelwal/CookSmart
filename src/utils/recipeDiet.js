@@ -25,6 +25,40 @@ const NON_VEG_KEYWORDS = [
     'eggs',
 ];
 
+const VEG_KEYWORDS = [
+    'paneer',
+    'tofu',
+    'chickpea',
+    'chickpeas',
+    'lentil',
+    'lentils',
+    'dal',
+    'rajma',
+    'beans',
+    'black beans',
+    'kidney beans',
+    'peas',
+    'mushroom',
+    'mushrooms',
+    'broccoli',
+    'cauliflower',
+    'spinach',
+    'potato',
+    'potatoes',
+    'tomato',
+    'tomatoes',
+    'onion',
+    'onions',
+    'capsicum',
+    'bell pepper',
+    'eggplant',
+    'aubergine',
+    'zucchini',
+    'rice',
+    'pasta',
+    'noodles',
+];
+
 function normalizeText(value) {
     return String(value || '').toLowerCase();
 }
@@ -50,13 +84,18 @@ export function getRecipeDietType(recipe) {
         return 'veg';
     }
 
-    if (recipe?.vegetarian === false) {
+    const searchableText = collectRecipeSearchText(recipe);
+
+    if (hasAnyKeyword(searchableText, NON_VEG_KEYWORDS)) {
         return 'non-veg';
     }
 
-    const searchableText = collectRecipeSearchText(recipe);
-    if (hasAnyKeyword(searchableText, NON_VEG_KEYWORDS)) {
+    if (recipe?.vegetarian === false && !hasAnyKeyword(searchableText, VEG_KEYWORDS)) {
         return 'non-veg';
+    }
+
+    if (hasAnyKeyword(searchableText, VEG_KEYWORDS)) {
+        return 'veg';
     }
 
     return 'unknown';
@@ -75,13 +114,19 @@ export function isVegRecipe(recipe) {
 }
 
 export function isNonVegRecipe(recipe) {
-    return getRecipeDietType(recipe) !== 'veg';
+    return getRecipeDietType(recipe) === 'non-veg';
 }
 
 export function getRecipeDietLabel(recipe) {
-    return isVegRecipe(recipe) ? 'Veg' : 'Non-Veg';
+    const dietType = getRecipeDietType(recipe);
+    if (dietType === 'veg') return 'Veg';
+    if (dietType === 'non-veg') return 'Non-Veg';
+    return 'Unclear';
 }
 
 export function getRecipeDietTone(recipe) {
-    return isVegRecipe(recipe) ? '#22C55E' : '#FF6B6B';
+    const dietType = getRecipeDietType(recipe);
+    if (dietType === 'veg') return '#22C55E';
+    if (dietType === 'non-veg') return '#FF6B6B';
+    return '#94A3B8';
 }

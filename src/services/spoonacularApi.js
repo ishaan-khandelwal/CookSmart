@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS } from '../constants/recipeModes';
-import { findRealFavoriteImageFromTitle } from './favoriteImageApi';
 import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 
 const SPOONACULAR_BASE_URL = 'https://api.spoonacular.com';
@@ -526,8 +525,8 @@ function normalizeAiRecipe(recipe, selectedIngredients, fallbackId) {
         cookTime: readyInMinutes ? `${readyInMinutes} min` : String(recipe?.cookTime || 'Quick meal'),
         readyInMinutes,
         difficulty: String(recipe?.difficulty || (readyInMinutes > 45 ? 'Hard' : readyInMinutes > 25 ? 'Medium' : 'Easy')),
-        vegetarian: Boolean(recipe?.vegetarian),
-        vegan: Boolean(recipe?.vegan),
+        vegetarian: typeof recipe?.vegetarian === 'boolean' ? recipe.vegetarian : null,
+        vegan: typeof recipe?.vegan === 'boolean' ? recipe.vegan : null,
         matchingCount: Number.isFinite(Number(recipe?.matchingCount)) ? Number(recipe.matchingCount) : ingredientMatch.have.length,
         missingCount: Number.isFinite(Number(recipe?.missingCount)) ? Number(recipe.missingCount) : ingredientMatch.missing.length,
         ingredients: ingredientList,
@@ -551,27 +550,9 @@ async function attachRecipeImages(recipes) {
         return [];
     }
 
-    return Promise.all(recipes.map(async (recipe) => {
-        if (String(recipe?.image || '').trim()) {
-            return recipe;
-        }
-
-        try {
-            const realImage = await findRealFavoriteImageFromTitle(recipe?.name);
-            if (realImage) {
-                return {
-                    ...recipe,
-                    image: realImage,
-                };
-            }
-        } catch {
-            // Fall through to a deterministic placeholder if image lookup fails.
-        }
-
-        return {
-            ...recipe,
-            image: createRecipeImageFallback(recipe?.name),
-        };
+    return recipes.map((recipe) => ({
+        ...recipe,
+        image: String(recipe?.image || '').trim(),
     }));
 }
 
@@ -704,8 +685,8 @@ function mapEdamamRecipe(recipe, selectedIngredients) {
         matchingCount: ingredientMatch.have.length,
         missingCount: ingredientMatch.missing.length,
         summary,
-        vegetarian: healthLabels.includes('Vegetarian'),
-        vegan: healthLabels.includes('Vegan'),
+        vegetarian: healthLabels.includes('Vegetarian') ? true : (healthLabels.includes('Vegan') ? true : null),
+        vegan: healthLabels.includes('Vegan') ? true : null,
         ingredients,
         usedIngredients: ingredientMatch.have,
         pantryStaples: ingredientMatch.pantryStaples,

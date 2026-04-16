@@ -43,6 +43,13 @@
         {
           "cameraPermission": "Allow CookSmart to use your camera to scan ingredients."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow CookSmart to access your photos so you can scan ingredients from your gallery.",
+          "cameraPermission": "Allow CookSmart to use your camera to scan ingredients."
+        }
       ]
     ]
   }
