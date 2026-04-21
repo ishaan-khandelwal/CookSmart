@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
             setUser(firebaseUser);
             setLoading(false);
         });
-        return unsubscribe; // cleanup on unmount
+        return unsubscribe;
     }, []);
 
     return (
@@ -23,6 +23,5 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-// Convenience hook
 export const useAuth = () => useContext(AuthContext);
 
