@@ -1,8 +1,0 @@
-
-> cooksmart-server@1.0.0 dev
-> node src/index.js
-
-Attempting MongoDB connection...
-MongoDB connected: ac-iuzdoqk-shard-00-00.wdv6vdw.mongodb.net
-DB NAME: cooksmart
-CookSmart API running on http://localhost:5000
