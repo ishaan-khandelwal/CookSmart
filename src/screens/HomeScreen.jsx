@@ -188,7 +188,7 @@ export default function HomeScreen({ navigation }) {
     const introLift = intro.interpolate({ inputRange: [0, 1], outputRange: [32, 0] });
 
     const openRecentScan = useCallback(() => {
-        if (!recentScan.ingredients.length) {
+        if (recentScan.ingredients.length) {
             if (selectedMode === RECIPE_MODE_IDS.COOK_FREEDOM) {
                 const rootNavigation = navigation.getParent() ?? navigation;
                 rootNavigation.navigate('IngredientsResult', {
@@ -334,45 +334,45 @@ export default function HomeScreen({ navigation }) {
 
                         <Animated.View style={{ opacity: introOpacity, transform: [{ translateY: introLift }] }}>
                             <View className="mt-8">
-                                    <View className={`mb-5 ${useSplitSectionLayout ? 'flex-row items-end justify-between' : 'gap-3'}`}>
-                                        <View>
-                                            <Text className="text-[26px] font-black text-white">Cooking Modes</Text>
-                                            <Text className="mt-1.5 text-[14px] font-medium text-white/50">Pick how strict CookSmart should be before we generate recipes.</Text>
-                                        </View>
-                                        <View className="self-start rounded-full border border-white/10 bg-white/5 px-4 py-2">
-                                            <Text className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: activeMode.accent }}>{activeMode.shortTitle} Active</Text>
-                                        </View>
+                                <View className={`mb-5 ${useSplitSectionLayout ? 'flex-row items-end justify-between' : 'gap-3'}`}>
+                                    <View>
+                                        <Text className="text-[26px] font-black text-white">Cooking Modes</Text>
+                                        <Text className="mt-1.5 text-[14px] font-medium text-white/50">Pick how strict CookSmart should be before we generate recipes.</Text>
                                     </View>
-
-                                    <View className={`gap-4 ${useSplitSectionLayout ? 'flex-row' : ''}`}>
-                                        {RECIPE_MODE_OPTIONS.map((mode) => (
-                                            <RecipeModeCard
-                                                key={mode.id}
-                                                mode={mode}
-                                                selected={selectedMode === mode.id}
-                                                onPress={() => setSelectedMode(mode.id)}
-                                            />
-                                        ))}
-                                    </View>
-
-                                    <View style={[styles.modeSummary, { borderColor: activeMode.border, backgroundColor: `${activeMode.accent}12` }]}>
-                                        <View className="flex-1 pr-4">
-                                            <Text className="text-[11px] font-extrabold uppercase tracking-[1.5px]" style={{ color: activeMode.accent }}>Selected Workflow</Text>
-                                            <Text className="mt-2 text-[18px] font-black text-white">{activeMode.shortTitle}</Text>
-                                            <Text className="mt-2 text-[14px] leading-6 text-white/70">{activeMode.ctaDescription}</Text>
-                                        </View>
-                                        <Pressable style={[styles.modeActionButton, { backgroundColor: activeMode.accent }]} onPress={handlePrimaryModeAction}>
-                                            <Text style={styles.modeActionText}>Continue</Text>
-                                        </Pressable>
+                                    <View className="self-start rounded-full border border-white/10 bg-white/5 px-4 py-2">
+                                        <Text className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: activeMode.accent }}>{activeMode.shortTitle} Active</Text>
                                     </View>
                                 </View>
 
-                                <View className="mt-10">
-                                    <View className={`mb-5 ${useSplitSectionLayout ? 'flex-row items-end justify-between' : 'gap-3'}`}>
-                                        <View>
-                                            <Text className="text-[26px] font-black text-white">Kitchen Pulse</Text>
-                                            <Text className="mt-1.5 text-[14px] font-medium text-white/50">Your active inventory at a glance.</Text>
-                                        </View>
+                                <View className={`gap-4 ${useSplitSectionLayout ? 'flex-row' : ''}`}>
+                                    {RECIPE_MODE_OPTIONS.map((mode) => (
+                                        <RecipeModeCard
+                                            key={mode.id}
+                                            mode={mode}
+                                            selected={selectedMode === mode.id}
+                                            onPress={() => setSelectedMode(mode.id)}
+                                        />
+                                    ))}
+                                </View>
+
+                                <View style={[styles.modeSummary, { borderColor: activeMode.border, backgroundColor: `${activeMode.accent}12` }]}>
+                                    <View className="flex-1 pr-4">
+                                        <Text className="text-[11px] font-extrabold uppercase tracking-[1.5px]" style={{ color: activeMode.accent }}>Selected Workflow</Text>
+                                        <Text className="mt-2 text-[18px] font-black text-white">{activeMode.shortTitle}</Text>
+                                        <Text className="mt-2 text-[14px] leading-6 text-white/70">{activeMode.ctaDescription}</Text>
+                                    </View>
+                                    <Pressable style={[styles.modeActionButton, { backgroundColor: activeMode.accent }]} onPress={handlePrimaryModeAction}>
+                                        <Text style={styles.modeActionText}>Continue</Text>
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            <View className="mt-10">
+                                <View className={`mb-5 ${useSplitSectionLayout ? 'flex-row items-end justify-between' : 'gap-3'}`}>
+                                    <View>
+                                        <Text className="text-[26px] font-black text-white">Kitchen Pulse</Text>
+                                        <Text className="mt-1.5 text-[14px] font-medium text-white/50">Your active inventory at a glance.</Text>
+                                    </View>
                                     <View className="self-start rounded-full border border-white/10 bg-white/5 px-4 py-2">
                                         <Text className="text-[11px] font-bold uppercase tracking-[1px] text-white/80">{formatLastScanLabel(recentScan.scannedAt)}</Text>
                                     </View>

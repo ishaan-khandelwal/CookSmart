@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, Clipboard, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DELIVERY_PARTNERS = [
@@ -53,15 +53,21 @@ function normalizeCartItems(missingIngredients, pantryStaples) {
 
 export default function OrderIngredientsScreen({ navigation, route }) {
     const recipeName = route.params?.recipeName || 'CookFreedom Recipe';
-    const cartItems = useMemo(
-        () => normalizeCartItems(route.params?.missingIngredients, route.params?.pantryStaples),
-        [route.params?.missingIngredients, route.params?.pantryStaples],
-    );
-    const defaultSelectedItems = useMemo(
-        () => cartItems.filter((item) => item.type === 'missing').map((item) => item.name),
-        [cartItems],
-    );
-    const [selectedItems, setSelectedItems] = useState(defaultSelectedItems);
+    const [manualItems, setManualItems] = useState([]);
+    const [draftItem, setDraftItem] = useState('');
+    const [selectedPartner, setSelectedPartner] = useState(DELIVERY_PARTNERS[0]);
+    const inputRef = useRef(null);
+
+    const cartItems = useMemo(() => {
+        const recipeItems = normalizeCartItems(route.params?.missingIngredients, route.params?.pantryStaples);
+        const manuals = manualItems.map(name => ({ name, type: 'manual' }));
+        return [...recipeItems, ...manuals];
+    }, [route.params?.missingIngredients, route.params?.pantryStaples, manualItems]);
+
+    const [selectedItems, setSelectedItems] = useState(() => {
+        const recipeItems = normalizeCartItems(route.params?.missingIngredients, route.params?.pantryStaples);
+        return recipeItems.filter(item => item.type === 'missing').map(item => item.name);
+    });
 
     const selectedCount = selectedItems.length;
     const selectedQuery = selectedItems.join(', ');
@@ -80,6 +86,48 @@ export default function OrderIngredientsScreen({ navigation, route }) {
 
     const selectAllItems = () => {
         setSelectedItems(cartItems.map((item) => item.name));
+    };
+
+    const addManualItem = () => {
+        const trimmed = draftItem.trim();
+        if (!trimmed) {
+            inputRef.current?.focus();
+            return;
+        }
+
+        if (cartItems.some(item => item.name.toLowerCase() === trimmed.toLowerCase())) {
+            Alert.alert('Already in list', `"${trimmed}" is already in your order list.`);
+            return;
+        }
+
+        setManualItems(current => [...current, trimmed]);
+        setSelectedItems(current => [...current, trimmed]);
+        setDraftItem('');
+        Keyboard.dismiss();
+    };
+
+    const removeManualItem = (name) => {
+        setManualItems(current => current.filter(item => item !== name));
+        setSelectedItems(current => current.filter(item => item !== name));
+    };
+
+    const handleCopyList = () => {
+        if (!selectedItems.length) {
+            Alert.alert('Empty List', 'Select at least one ingredient to copy.');
+            return;
+        }
+        const listText = selectedItems.join('\n');
+        Clipboard.setString(listText);
+        Alert.alert('Copied!', 'Your shopping list has been copied to the clipboard.');
+    };
+
+    const handleSearchItem = async (itemName) => {
+        const url = selectedPartner.buildUrl(itemName);
+        try {
+            await Linking.openURL(url);
+        } catch {
+            Alert.alert('Error', `Could not open ${selectedPartner.name}`);
+        }
     };
 
     const handleOpenPartner = async (partner) => {
@@ -105,7 +153,9 @@ export default function OrderIngredientsScreen({ navigation, route }) {
                         <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                     </Pressable>
                     <Text className="text-lg font-bold text-textPrimary">Order Ingredients</Text>
-                    <View className="h-10 w-10" />
+                    <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-card" onPress={handleCopyList}>
+                        <Ionicons name="copy-outline" size={20} color="#F6B44F" />
+                    </Pressable>
                 </View>
 
                 <View className="overflow-hidden rounded-[28px] border border-white/10 bg-card px-5 py-6">
@@ -140,6 +190,26 @@ export default function OrderIngredientsScreen({ navigation, route }) {
                         </Pressable>
                     </View>
 
+                    <View className="mb-5 flex-row items-center">
+                        <TextInput
+                            ref={inputRef}
+                            value={draftItem}
+                            onChangeText={setDraftItem}
+                            placeholder="Add anything else (e.g. Milk)"
+                            placeholderTextColor="#8892A4"
+                            className="min-h-[48px] flex-1 rounded-xl border border-white/10 bg-[#111927] px-4 text-textPrimary"
+                            autoCorrect={false}
+                            returnKeyType="done"
+                            onSubmitEditing={addManualItem}
+                        />
+                        <Pressable 
+                            className="ml-3 h-[48px] items-center justify-center rounded-xl border border-primary bg-[#f6b44f14] px-5"
+                            onPress={addManualItem}
+                        >
+                            <Text className="text-[14px] font-bold text-primary">Add</Text>
+                        </Pressable>
+                    </View>
+
                     {cartItems.length ? (
                         cartItems.map((item) => {
                             const selected = selectedItems.includes(item.name);
@@ -154,14 +224,30 @@ export default function OrderIngredientsScreen({ navigation, route }) {
                                     <View className="flex-1 pr-3">
                                         <Text className="text-[15px] font-bold text-textPrimary">{item.name}</Text>
                                         <Text className="mt-1 text-xs font-semibold uppercase tracking-[1px] text-textSecondary">
-                                            {item.type === 'missing' ? 'Missing ingredient' : 'Pantry basic'}
+                                            {item.type === 'missing' ? 'Missing ingredient' : item.type === 'manual' ? 'Custom item' : 'Pantry basic'}
                                         </Text>
                                     </View>
-                                    <Ionicons
-                                        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                                        size={22}
-                                        color={selected ? '#F6B44F' : '#7F91A3'}
-                                    />
+                                    <View className="flex-row items-center">
+                                        <Pressable 
+                                            onPress={() => handleSearchItem(item.name)}
+                                            className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-[#f6b44f14] border border-[#f6b44f22]"
+                                        >
+                                            <Ionicons name="search" size={16} color="#F6B44F" />
+                                        </Pressable>
+                                        {item.type === 'manual' && (
+                                            <Pressable 
+                                                onPress={() => removeManualItem(item.name)}
+                                                className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white/5"
+                                            >
+                                                <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
+                                            </Pressable>
+                                        )}
+                                        <Ionicons
+                                            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                                            size={22}
+                                            color={selected ? '#F6B44F' : '#7F91A3'}
+                                        />
+                                    </View>
                                 </Pressable>
                             );
                         })
@@ -179,27 +265,38 @@ export default function OrderIngredientsScreen({ navigation, route }) {
                     </Text>
 
                     <View className="mt-4 gap-3">
-                        {DELIVERY_PARTNERS.map((partner) => (
-                            <Pressable
-                                key={partner.id}
-                                className="rounded-[22px] border p-4"
-                                style={{ borderColor: `${partner.accent}44`, backgroundColor: partner.bg }}
-                                onPress={() => handleOpenPartner(partner)}
-                            >
-                                <View className="flex-row items-center justify-between">
-                                    <View className="flex-row items-center">
-                                        <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: `${partner.accent}22` }}>
-                                            <Ionicons name={partner.icon} size={20} color={partner.accent} />
+                        {DELIVERY_PARTNERS.map((partner) => {
+                            const isSelected = selectedPartner.id === partner.id;
+                            return (
+                                <Pressable
+                                    key={partner.id}
+                                    className={`rounded-[22px] border p-4 ${isSelected ? 'border-primary' : ''}`}
+                                    style={{ 
+                                        borderColor: isSelected ? partner.accent : `${partner.accent}44`, 
+                                        backgroundColor: partner.bg 
+                                    }}
+                                    onPress={() => {
+                                        setSelectedPartner(partner);
+                                        handleOpenPartner(partner);
+                                    }}
+                                >
+                                    <View className="flex-row items-center justify-between">
+                                        <View className="flex-row items-center">
+                                            <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: `${partner.accent}22` }}>
+                                                <Ionicons name={partner.icon} size={20} color={partner.accent} />
+                                            </View>
+                                            <View className="ml-3">
+                                                <Text className="text-base font-bold text-textPrimary">{partner.name}</Text>
+                                                <Text className="mt-1 text-sm text-textSecondary">
+                                                    {isSelected ? 'Active Partner' : 'Switch & Open'}
+                                                </Text>
+                                            </View>
                                         </View>
-                                        <View className="ml-3">
-                                            <Text className="text-base font-bold text-textPrimary">{partner.name}</Text>
-                                            <Text className="mt-1 text-sm text-textSecondary">Open cart with selected ingredients</Text>
-                                        </View>
+                                        <Ionicons name={isSelected ? 'checkmark-circle' : 'arrow-forward'} size={20} color={partner.accent} />
                                     </View>
-                                    <Ionicons name="arrow-forward" size={20} color={partner.accent} />
-                                </View>
-                            </Pressable>
-                        ))}
+                                </Pressable>
+                            );
+                        })}
                     </View>
                 </View>
             </ScrollView>

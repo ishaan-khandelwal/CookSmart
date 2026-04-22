@@ -177,18 +177,10 @@ export default function RecipeDetailScreen({ navigation, route }) {
     };
 
     const handleOrderIngredients = () => {
-        if (!ingredientBuckets.missing.length && !ingredientBuckets.pantryStaples.length) {
-            Alert.alert(
-                'Nothing to order',
-                'This recipe is already covered by what you have, so there is nothing extra to order.',
-            );
-            return;
-        }
-
         navigation.navigate('OrderIngredients', {
             recipeName: recipe?.name || 'CookFreedom Recipe',
-            missingIngredients: ingredientBuckets.missing,
-            pantryStaples: ingredientBuckets.pantryStaples,
+            missingIngredients: ingredientBuckets.missing || [],
+            pantryStaples: ingredientBuckets.pantryStaples || [],
             mode: activeMode,
         });
     };
@@ -262,11 +254,14 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                     {savingFavorite ? 'Saving...' : 'Save Recipe'}
                                 </Text>
                             </Pressable>
-                            {isCookFreedom && ingredientBuckets.missing.length ? (
-                                <Pressable className="items-center rounded-2xl border border-[#f59e0b55] bg-[#f59e0b14] px-4 py-3.5" onPress={handleOrderIngredients}>
-                                    <Text className="text-[15px] font-bold text-[#F8D08B]">Order Ingredients</Text>
-                                </Pressable>
-                            ) : null}
+                            <Pressable 
+                                className="items-center rounded-2xl border border-[#f59e0b55] bg-[#f59e0b14] px-4 py-3.5" 
+                                onPress={handleOrderIngredients}
+                            >
+                                <Text className="text-[15px] font-bold text-[#F8D08B]">
+                                    {ingredientBuckets.missing.length ? 'Order Missing Items' : 'Order Ingredients'}
+                                </Text>
+                            </Pressable>
                             {recipe?.sourceUrl ? (
                                 <Pressable className="items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5" onPress={() => Linking.openURL(recipe.sourceUrl)}>
                                     <Text className="text-[15px] font-bold text-textPrimary">Open Source</Text>
@@ -378,11 +373,11 @@ export default function RecipeDetailScreen({ navigation, route }) {
                                                         ? 'You can keep the full recipe and order these items directly before cooking.'
                                                         : 'This recipe still references a few extra items, so you may want to use the pantry-only matches list instead.'}
                                                 </Text>
-                                                {isCookFreedom ? (
-                                                    <Pressable className="mt-4 items-center rounded-2xl bg-[#F59E0B] px-4 py-3.5" onPress={handleOrderIngredients}>
-                                                        <Text className="text-[15px] font-bold text-[#08131c]">Order Ingredients</Text>
-                                                    </Pressable>
-                                                ) : null}
+                                                <Pressable className="mt-4 items-center rounded-2xl bg-[#F59E0B] px-4 py-3.5" onPress={handleOrderIngredients}>
+                                                    <Text className="text-[15px] font-bold text-[#08131c]">
+                                                        {ingredientBuckets.missing.length ? 'Order Missing Items' : 'Order Ingredients'}
+                                                    </Text>
+                                                </Pressable>
                                             </View>
                                         ) : null}
                                     </View>

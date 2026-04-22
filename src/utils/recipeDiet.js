@@ -57,6 +57,36 @@ const VEG_KEYWORDS = [
     'rice',
     'pasta',
     'noodles',
+    'maggi',
+    'poha',
+    'sabzi',
+    'dal',
+    'roti',
+    'paratha',
+    'naan',
+    'curry',
+    'pulao',
+    'biryani',
+    'dosa',
+    'idli',
+    'sambar',
+    'chutney',
+    'salad',
+    'soup',
+    'bread',
+    'toast',
+    'cereal',
+    'fruit',
+    'apple',
+    'banana',
+    'orange',
+    'mango',
+    'grapes',
+    'milk',
+    'curd',
+    'yogurt',
+    'cheese',
+    'butter',
 ];
 
 function normalizeText(value) {
@@ -86,16 +116,22 @@ export function getRecipeDietType(recipe) {
 
     const searchableText = collectRecipeSearchText(recipe);
 
+    // Check non-veg keywords first
     if (hasAnyKeyword(searchableText, NON_VEG_KEYWORDS)) {
+        // Special case: if it contains "eggplant" but also "egg", it might be a false positive
+        // but generally "egg" is non-veg in many contexts.
+        // We'll keep it simple: if any non-veg keyword is present, it's non-veg.
         return 'non-veg';
     }
 
-    if (recipe?.vegetarian === false && !hasAnyKeyword(searchableText, VEG_KEYWORDS)) {
-        return 'non-veg';
-    }
-
+    // Check veg keywords
     if (hasAnyKeyword(searchableText, VEG_KEYWORDS)) {
         return 'veg';
+    }
+
+    // If API explicitly says it's not vegetarian and we didn't find veg keywords
+    if (recipe?.vegetarian === false) {
+        return 'non-veg';
     }
 
     return 'unknown';

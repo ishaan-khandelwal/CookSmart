@@ -52,10 +52,6 @@ export default function FavoritesScreen({ navigation }) {
     const userId = user?.uid;
 
     const emptyMessage = useMemo(() => {
-        if (!userId) {
-            return 'Sign in to build a synced recipe collection.';
-        }
-
         if (activeFilter === 'veg') {
             return 'No veg favorites yet. Save one from recipe results or add one below.';
         }
