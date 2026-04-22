@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 function getExtraConfigValue(key) {
   return (
@@ -10,12 +11,73 @@ function getExtraConfigValue(key) {
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || getExtraConfigValue('EXPO_PUBLIC_API_URL');
 
-function buildUrl(path, query = {}) {
-  if (!API_URL) {
+function normalizeBaseUrl(value) {
+  const raw = String(value || '').trim().replace(/^['"]|['"]$/g, '');
+  if (!raw) {
+    return '';
+  }
+
+  return raw.replace(/\/$/, '');
+}
+
+function getExpoHost() {
+  const hostValue =
+    Constants.expoConfig?.hostUri ||
+    Constants.expoGoConfig?.debuggerHost ||
+    Constants.manifest2?.extra?.expoClient?.hostUri ||
+    '';
+  const cleanedHost = String(hostValue || '').trim();
+
+  if (!cleanedHost) {
+    return '';
+  }
+
+  return cleanedHost.split(':')[0];
+}
+
+function createExpoHostFallback(baseUrl) {
+  const host = getExpoHost();
+  if (!host || !baseUrl) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(baseUrl);
+    return `${parsed.protocol}//${host}:${parsed.port || (parsed.protocol === 'https:' ? '443' : '80')}`;
+  } catch {
+    return '';
+  }
+}
+
+function getApiBaseCandidates() {
+  const configuredUrl = normalizeBaseUrl(API_URL);
+  const candidates = [];
+  const expoHost = getExpoHost();
+
+  if (configuredUrl) {
+    candidates.push(configuredUrl);
+  }
+  if (!configuredUrl && expoHost) {
+    candidates.push(`http://${expoHost}:5000`);
+  }
+
+  if (configuredUrl && /(localhost|127\.0\.0\.1)/i.test(configuredUrl) && Platform.OS === 'android') {
+    candidates.push(configuredUrl.replace(/localhost|127\.0\.0\.1/i, '10.0.2.2'));
+  }
+
+  const expoHostFallback = normalizeBaseUrl(createExpoHostFallback(configuredUrl));
+  if (expoHostFallback && expoHostFallback !== configuredUrl) {
+    candidates.push(expoHostFallback);
+  }
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function buildUrl(baseUrl, path, query = {}) {
+  if (!baseUrl) {
     throw new Error('EXPO_PUBLIC_API_URL is not configured');
   }
-  
-  const normalizedBaseUrl = API_URL.replace(/\/$/, '');
+
   const searchParams = new URLSearchParams();
 
   Object.entries(query).forEach(([key, value]) => {
@@ -25,7 +87,7 @@ function buildUrl(path, query = {}) {
   });
 
   const queryString = searchParams.toString();
-  return `${normalizedBaseUrl}${path}${queryString ? `?${queryString}` : ''}`;
+  return `${baseUrl}${path}${queryString ? `?${queryString}` : ''}`;
 }
 
 async function parseResponse(response) {
@@ -48,60 +110,47 @@ function formatNetworkError(error, url) {
   return message || 'Request failed';
 }
 
-export async function fetchFavorites(userId) {
-  const url = buildUrl('/favorites', { userId });
-
-  try {
-    const response = await fetch(url);
-    return parseResponse(response);
-  } catch (error) {
-    throw new Error(formatNetworkError(error, url));
+async function requestWithFallback(path, { method = 'GET', query = {}, body } = {}) {
+  const baseCandidates = getApiBaseCandidates();
+  if (!baseCandidates.length) {
+    throw new Error('EXPO_PUBLIC_API_URL is not configured');
   }
+
+  let lastError = null;
+
+  for (const baseUrl of baseCandidates) {
+    const url = buildUrl(baseUrl, path, query);
+    let response;
+
+    try {
+      response = await fetch(url, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (error) {
+      lastError = new Error(formatNetworkError(error, url));
+      continue;
+    }
+
+    return parseResponse(response);
+  }
+
+  throw lastError || new Error('Request failed');
+}
+
+export async function fetchFavorites(userId) {
+  return requestWithFallback('/favorites', { query: { userId } });
 }
 
 export async function createFavorite(payload) {
-  const url = buildUrl('/favorites');
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    return parseResponse(response);
-  } catch (error) {
-    throw new Error(formatNetworkError(error, url));
-  }
+  return requestWithFallback('/favorites', { method: 'POST', body: payload });
 }
 
 export async function fetchHistory(userId) {
-  const url = buildUrl('/history', { userId });
-
-  try {
-    const response = await fetch(url);
-    return parseResponse(response);
-  } catch (error) {
-    throw new Error(formatNetworkError(error, url));
-  }
+  return requestWithFallback('/history', { query: { userId } });
 }
 
 export async function createHistory(payload) {
-  const url = buildUrl('/history');
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    return parseResponse(response);
-  } catch (error) {
-    throw new Error(formatNetworkError(error, url));
-  }
+  return requestWithFallback('/history', { method: 'POST', body: payload });
 }

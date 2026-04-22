@@ -229,8 +229,8 @@ async function start() {
     console.warn('Starting API without a database connection. DB-backed routes will return 503 until MongoDB is reachable.');
   }
 
-  app.listen(port, () => {
-    console.log(`CookSmart API running on http://localhost:${port}`);
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`CookSmart API running on http://0.0.0.0:${port}`);
   });
 }
 

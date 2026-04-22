@@ -333,8 +333,22 @@ export default function CameraScanScreen({ navigation, route }) {
             <StatusBar barStyle="light-content" />
 
             <View style={styles.cameraPreviewShell}>
-                <View className="scanner-camera-web" style={styles.cameraViewport}>
-                    <View style={styles.nativeCameraStage}>
+                <View className="scanner-camera-web" style={styles.cameraViewport} />
+            </View>
+
+            <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+                <View style={styles.contentShell}>
+                    <View style={styles.topBar}>
+                        <Pressable style={styles.iconButton} onPress={handleBack}>
+                            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                        </Pressable>
+
+                        <Pressable style={styles.iconButton} onPress={handlePickFromGallery}>
+                            <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+                        </Pressable>
+                    </View>
+
+                    <View style={styles.stage}>
                         <View style={styles.nativeCameraStageGlow} />
                         <View style={styles.nativeCameraStageCard}>
                             <Ionicons name="camera-outline" size={54} color="#F6B44F" />
@@ -350,20 +364,6 @@ export default function CameraScanScreen({ navigation, route }) {
                                 <Text style={styles.nativeCameraLaunchButtonText}>Open Camera</Text>
                             </Pressable>
                         </View>
-                    </View>
-                </View>
-            </View>
-
-            <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-                <View style={styles.contentShell}>
-                    <View style={styles.topBar}>
-                        <Pressable style={styles.iconButton} onPress={handleBack}>
-                            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-                        </Pressable>
-
-                        <Pressable style={styles.iconButton} onPress={handlePickFromGallery}>
-                            <Ionicons name="images-outline" size={22} color="#FFFFFF" />
-                        </Pressable>
                     </View>
 
                     <WebcamCaptureStatusBanner
