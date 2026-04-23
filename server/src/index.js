@@ -22,7 +22,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 65535;
 const BODY_SIZE_LIMIT = process.env.BODY_SIZE_LIMIT || '20mb';
 
 app.use(cors());
