@@ -116,26 +116,39 @@ export default function CameraScanScreen({ navigation, route }) {
 
             try {
                 const normalizedMimeType = mimeType || inferMimeType(uri);
+                const previewUri =
+                    uri ||
+                    (base64 ? `data:${normalizedMimeType};base64,${base64}` : '');
                 const base64Image =
                     base64 ||
-                    (await FileSystem.readAsStringAsync(uri, {
-                        encoding: FileSystem.EncodingType.Base64,
-                    }));
+                    (uri
+                        ? await FileSystem.readAsStringAsync(uri, {
+                            encoding: FileSystem.EncodingType.Base64,
+                        })
+                        : '');
+
+                if (!base64Image) {
+                    throw Object.assign(new Error('Image data could not be read from picker result.'), {
+                        code: 'INVALID_IMAGE_DATA',
+                    });
+                }
 
                 setLoadingMessage('Scanning ingredients...');
                 const ingredients = await detectIngredientsFromImage(base64Image, {
                     mimeType: normalizedMimeType,
                 });
 
-                uploadWebcamImage({
-                    uri,
-                    mimeType: normalizedMimeType,
-                    userId: user?.uid,
-                    filePrefix: 'cooksmart-scan',
-                })
-                    .catch(() => {});
+                if (uri && !String(uri).startsWith('data:')) {
+                    uploadWebcamImage({
+                        uri,
+                        mimeType: normalizedMimeType,
+                        userId: user?.uid,
+                        filePrefix: 'cooksmart-scan',
+                    })
+                        .catch(() => {});
+                }
 
-                await navigateToResults(ingredients, uri);
+                await navigateToResults(ingredients, previewUri || null);
             } catch (error) {
                 let scannerError = 'Scanner unavailable. Add the ingredients manually below.';
 
@@ -199,7 +212,7 @@ export default function CameraScanScreen({ navigation, route }) {
             }
 
             const photo = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsEditing: false,
                 cameraType: cameraFacing,
                 base64: true,
@@ -213,12 +226,14 @@ export default function CameraScanScreen({ navigation, route }) {
 
             const asset = photo?.assets?.[0];
 
-            if (asset?.uri) {
+            if (asset?.uri || asset?.base64) {
                 await processImageAsset({
                     uri: asset.uri,
                     base64: asset.base64,
                     mimeType: asset.mimeType || 'image/jpeg',
                 });
+            } else {
+                Alert.alert('Camera error', 'No image was returned from the camera. Please try again.');
             }
         } catch {
             Alert.alert('Camera error', 'Could not capture the photo. Please try again.');
@@ -248,19 +263,21 @@ export default function CameraScanScreen({ navigation, route }) {
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 quality: 1,
                 base64: true,
                 allowsEditing: false,
             });
 
-            if (!result.canceled && result.assets?.[0]?.uri) {
+            if (!result.canceled && (result.assets?.[0]?.uri || result.assets?.[0]?.base64)) {
                 const asset = result.assets[0];
                 await processImageAsset({
                     uri: asset.uri,
                     base64: asset.base64,
                     mimeType: asset.mimeType || inferMimeType(asset.uri),
                 });
+            } else if (!result.canceled) {
+                Alert.alert('Gallery error', 'No image was returned from gallery. Please pick another image.');
             }
         } catch {
             Alert.alert('Gallery error', 'Could not open the gallery. Please try again.');
