@@ -202,7 +202,7 @@ export default function CameraScanScreen({ navigation, route }) {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: false,
                 cameraType: cameraFacing,
-                base64: false,
+                base64: true,
                 exif: false,
                 quality: 0.85,
             });

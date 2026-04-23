@@ -7,6 +7,11 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENROUTER_MODEL = 'google/gemini-2.0-flash-001';
+const OPENROUTER_FALLBACK_MODELS = [
+    'anthropic/claude-3.5-sonnet',
+    'meta-llama/llama-3.2-11b-vision-instruct',
+    OPENROUTER_MODEL,
+];
 const INGREDIENT_PROMPT = `You are a food ingredient detector. Look at this image and identify ALL visible food ingredients.
 Reply ONLY with a valid JSON array of ingredient names in lowercase English.
 Example: ["tomato", "garlic", "olive oil", "pasta"]
@@ -86,6 +91,49 @@ function getScannerConfig() {
     };
 }
 
+function getScannerCandidates() {
+    const anthropicKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_ANTHROPIC_KEY'));
+    const openRouterKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENROUTER_KEY')) || anthropicKey;
+    const geminiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GEMINI_KEY'));
+    const candidates = [];
+
+    if (openRouterKey.startsWith('sk-or-v1-')) {
+        candidates.push({
+            provider: 'openrouter',
+            apiKey: openRouterKey,
+            model: getEnvValue('EXPO_PUBLIC_OPENROUTER_MODEL') || OPENROUTER_MODEL,
+        });
+    }
+
+    if (anthropicKey.startsWith('sk-ant-')) {
+        candidates.push({
+            provider: 'anthropic',
+            apiKey: anthropicKey,
+            model: getEnvValue('EXPO_PUBLIC_ANTHROPIC_MODEL') || ANTHROPIC_MODEL,
+        });
+    }
+
+    if (geminiKey.startsWith('AIza')) {
+        candidates.push({
+            provider: 'gemini',
+            apiKey: geminiKey,
+            model: normalizeGeminiModelName(getEnvValue('EXPO_PUBLIC_GEMINI_MODEL')) || GEMINI_MODEL,
+        });
+    }
+
+    return candidates;
+}
+
+function getOpenRouterModelCandidates() {
+    const configuredModel = String(getEnvValue('EXPO_PUBLIC_OPENROUTER_MODEL') || OPENROUTER_MODEL).trim();
+    const configuredFallbacks = String(getEnvValue('EXPO_PUBLIC_OPENROUTER_FALLBACK_MODELS') || '')
+        .split(',')
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+
+    return Array.from(new Set([configuredModel, ...configuredFallbacks, ...OPENROUTER_FALLBACK_MODELS]));
+}
+
 function parseJsonArray(rawText) {
     const trimmedText = rawText.trim();
     const fencedMatch = trimmedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -98,6 +146,20 @@ function parseJsonArray(rawText) {
         }
         return JSON.parse(jsonText);
     } catch {
+        const normalizedText = jsonText
+            .replace(/^\s*ingredients?\s*:\s*/i, '')
+            .replace(/\r/g, '\n')
+            .trim();
+        const tokens = normalizedText
+            .split(/\n|,/)
+            .map((line) => line.replace(/^[\s\-*0-9.)"]+|["]+$/g, '').trim().toLowerCase())
+            .filter(Boolean)
+            .filter((line) => line !== 'json' && line !== 'ingredients');
+
+        if (tokens.length) {
+            return tokens;
+        }
+
         throw new Error('Could not parse ingredient array');
     }
 }
@@ -258,96 +320,132 @@ async function detectWithGemini(base64Image, apiKey, model, mimeType) {
 }
 
 async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
-    let response;
+    const modelCandidates = Array.from(new Set([String(model || '').trim(), ...getOpenRouterModelCandidates()])).filter(Boolean);
+    let lastError = null;
 
-    try {
-        response = await fetch(OPENROUTER_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`,
-                'HTTP-Referer': 'https://cooksmart.local',
-                'X-Title': 'CookSmart',
-            },
-            body: JSON.stringify({
-                model,
-                messages: [
-                    {
-                        role: 'user',
-                        content: [
-                            {
-                                type: 'text',
-                                text: INGREDIENT_PROMPT,
-                            },
-                            {
-                                type: 'image_url',
-                                image_url: {
-                                    url: `data:${mimeType};base64,${base64Image}`,
+    for (const modelCandidate of modelCandidates) {
+        let response;
+
+        try {
+            response = await fetch(OPENROUTER_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://cooksmart.local',
+                    'X-Title': 'CookSmart',
+                },
+                body: JSON.stringify({
+                    model: modelCandidate,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: INGREDIENT_PROMPT,
                                 },
-                            },
-                        ],
-                    },
-                ],
-                temperature: 0.2,
-                max_tokens: 300,
-            }),
-        });
-    } catch (error) {
-        throw Object.assign(new Error(error?.message || 'Network request failed'), {
-            code: 'NETWORK_ERROR',
+                                {
+                                    type: 'image_url',
+                                    image_url: {
+                                        url: `data:${mimeType};base64,${base64Image}`,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                    temperature: 0.2,
+                    max_tokens: 300,
+                }),
+            });
+        } catch (error) {
+            throw Object.assign(new Error(error?.message || 'Network request failed'), {
+                code: 'NETWORK_ERROR',
+                provider: 'openrouter',
+            });
+        }
+
+        if (!response.ok) {
+            const errorText = await extractErrorDetail(response);
+            const error = Object.assign(new Error(errorText || 'OpenRouter request failed'), {
+                code: response.status === 401 || response.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
+                status: response.status,
+                detail: errorText,
+                provider: 'openrouter',
+                model: modelCandidate,
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                throw error;
+            }
+
+            lastError = error;
+            continue;
+        }
+
+        const data = await response.json();
+        const parsedText = parseOpenRouterText(data);
+        if (parsedText) {
+            return parsedText;
+        }
+
+        lastError = Object.assign(new Error('OpenRouter returned empty content'), {
+            code: 'INVALID_RESPONSE',
             provider: 'openrouter',
+            model: modelCandidate,
         });
     }
 
-    if (!response.ok) {
-        const errorText = await extractErrorDetail(response);
-        throw Object.assign(new Error(errorText || 'OpenRouter request failed'), {
-            code: response.status === 401 || response.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
-            status: response.status,
-            detail: errorText,
-            provider: 'openrouter',
-        });
-    }
-
-    const data = await response.json();
-    return parseOpenRouterText(data);
+    throw lastError || Object.assign(new Error('OpenRouter request failed'), {
+        code: 'API_ERROR',
+        provider: 'openrouter',
+    });
 }
 
 export async function detectIngredientsFromImage(base64Image, options = {}) {
     const scannerConfig = getScannerConfig();
+    const scannerCandidates = getScannerCandidates();
     const mimeType = options.mimeType || 'image/jpeg';
 
-    if (!scannerConfig.provider || !scannerConfig.apiKey) {
+    if (!scannerCandidates.length || !scannerConfig.provider || !scannerConfig.apiKey) {
         Alert.alert('Scanner Error', 'No Scanner Key found in .env (Add EXPO_PUBLIC_GEMINI_KEY)');
         throw Object.assign(new Error('Missing scanner API key'), {
             code: 'MISSING_API_KEY',
         });
     }
 
-    let rawText = '';
+    let lastError = null;
 
-    try {
-        if (scannerConfig.provider === 'anthropic') {
-            rawText = await detectWithAnthropic(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
-        } else if (scannerConfig.provider === 'gemini') {
-            rawText = await detectWithGemini(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
-        } else {
-            rawText = await detectWithOpenRouter(base64Image, scannerConfig.apiKey, scannerConfig.model, mimeType);
+    for (const candidate of scannerCandidates) {
+        try {
+            let rawText = '';
+
+            if (candidate.provider === 'anthropic') {
+                rawText = await detectWithAnthropic(base64Image, candidate.apiKey, candidate.model, mimeType);
+            } else if (candidate.provider === 'gemini') {
+                rawText = await detectWithGemini(base64Image, candidate.apiKey, candidate.model, mimeType);
+            } else {
+                rawText = await detectWithOpenRouter(base64Image, candidate.apiKey, candidate.model, mimeType);
+            }
+
+            return normalizeIngredients(parseJsonArray(rawText));
+        } catch (error) {
+            lastError = Object.assign(error || new Error('Scanner request failed'), {
+                provider: candidate.provider,
+            });
         }
-    } catch (error) {
-        Alert.alert('Scanner Error', `${scannerConfig.provider} failed: ${error.message}`);
-        throw error;
     }
 
-    try {
-        return normalizeIngredients(parseJsonArray(rawText));
-    } catch (error) {
+    if (lastError?.code === 'INVALID_RESPONSE') {
         Alert.alert('Scanner Error', 'Could not parse ingredients. AI output was invalid.');
-        throw Object.assign(new Error('Could not detect ingredients. Try again.'), {
-            code: 'INVALID_RESPONSE',
-            provider: scannerConfig.provider,
-        });
+    } else {
+        Alert.alert('Scanner Error', `${lastError?.provider || scannerConfig.provider} failed: ${lastError?.message || 'Unknown error'}`);
     }
+
+    throw lastError || Object.assign(new Error('Could not detect ingredients. Try again.'), {
+        code: 'API_ERROR',
+        provider: scannerConfig.provider,
+    });
 }
 
 const INGREDIENT_ICONS = {
