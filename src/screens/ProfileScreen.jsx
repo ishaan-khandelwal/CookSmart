@@ -130,7 +130,6 @@ export default function ProfileScreen({ navigation }) {
                         <View className="flex-1 pr-4">
                             <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px] text-[#F6B44F]">Kitchen Account</Text>
                             <Text className="mt-2 text-[30px] font-black text-white">{user?.displayName || 'CookSmart User'}</Text>
-                            {/* <Text className="mt-2 text-sm leading-6 text-[#94A7B8]">{user?.email || 'No email provided'}</Text> */}
                         </View>
                         <View className="h-16 w-16 items-center justify-center rounded-full bg-[#F6B44F]">
                             <Utensils color="#08131C" size={28} />

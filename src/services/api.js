@@ -1,5 +1,9 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+
+const LOCAL_FAVORITES_KEY = 'cooksmart:localFavorites';
+const LOCAL_HISTORY_KEY = 'cooksmart:localHistory';
 
 function getExtraConfigValue(key) {
   return (
@@ -139,18 +143,143 @@ async function requestWithFallback(path, { method = 'GET', query = {}, body } = 
   throw lastError || new Error('Request failed');
 }
 
+function createLocalId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function readLocalList(key) {
+  const rawValue = await AsyncStorage.getItem(key);
+  if (!rawValue) {
+    return [];
+  }
+
+  const parsedValue = JSON.parse(rawValue);
+  return Array.isArray(parsedValue) ? parsedValue : [];
+}
+
+async function writeLocalList(key, items) {
+  await AsyncStorage.setItem(key, JSON.stringify(Array.isArray(items) ? items : []));
+}
+
+function sortNewestFirst(items) {
+  return [...items].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+async function fetchLocalFavorites(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  const favorites = await readLocalList(LOCAL_FAVORITES_KEY);
+  return sortNewestFirst(favorites.filter((item) => item.userId === userId));
+}
+
+async function createLocalFavorite(payload = {}) {
+  const userId = String(payload.userId || '').trim();
+  const title = String(payload.title || '').trim();
+
+  if (!userId || !title) {
+    throw new Error('title and userId are required');
+  }
+
+  const favorites = await readLocalList(LOCAL_FAVORITES_KEY);
+  const existingIndex = favorites.findIndex((item) => item.userId === userId && item.title === title);
+  const existingFavorite = existingIndex >= 0 ? favorites[existingIndex] : null;
+  const now = new Date().toISOString();
+  const favorite = {
+    _id: existingFavorite?._id || createLocalId('favorite'),
+    recipeId: String(payload.recipeId || existingFavorite?.recipeId || '').trim(),
+    provider: String(payload.provider || existingFavorite?.provider || 'manual').trim() || 'manual',
+    title,
+    image: String(payload.image || existingFavorite?.image || '').trim(),
+    source: String(payload.source || existingFavorite?.source || 'local').trim() || 'local',
+    vegetarian: Boolean(payload.vegetarian),
+    vegan: Boolean(payload.vegan),
+    userId,
+    createdAt: existingFavorite?.createdAt || now,
+    updatedAt: now,
+    localOnly: true,
+  };
+
+  if (existingIndex >= 0) {
+    favorites[existingIndex] = favorite;
+  } else {
+    favorites.push(favorite);
+  }
+
+  await writeLocalList(LOCAL_FAVORITES_KEY, favorites);
+  return favorite;
+}
+
+async function fetchLocalHistory(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  const history = await readLocalList(LOCAL_HISTORY_KEY);
+  return sortNewestFirst(history.filter((item) => item.userId === userId)).slice(0, 20);
+}
+
+async function createLocalHistory(payload = {}) {
+  const userId = String(payload.userId || '').trim();
+  const title = String(payload.title || '').trim();
+
+  if (!userId || !title) {
+    throw new Error('userId and title are required');
+  }
+
+  const history = await readLocalList(LOCAL_HISTORY_KEY);
+  const now = new Date().toISOString();
+  const historyItem = {
+    _id: createLocalId('history'),
+    userId,
+    title,
+    type: String(payload.type || 'ingredient-search').trim() || 'ingredient-search',
+    source: String(payload.source || 'local').trim() || 'local',
+    ingredients: Array.isArray(payload.ingredients)
+      ? payload.ingredients.map((item) => String(item).trim()).filter(Boolean)
+      : [],
+    resultCount: typeof payload.resultCount === 'number' && Number.isFinite(payload.resultCount)
+      ? payload.resultCount
+      : null,
+    createdAt: now,
+    updatedAt: now,
+    localOnly: true,
+  };
+
+  history.push(historyItem);
+  await writeLocalList(LOCAL_HISTORY_KEY, history.slice(-100));
+  return historyItem;
+}
+
 export async function fetchFavorites(userId) {
-  return requestWithFallback('/favorites', { query: { userId } });
+  try {
+    return await requestWithFallback('/favorites', { query: { userId } });
+  } catch (error) {
+    return fetchLocalFavorites(userId);
+  }
 }
 
 export async function createFavorite(payload) {
-  return requestWithFallback('/favorites', { method: 'POST', body: payload });
+  try {
+    return await requestWithFallback('/favorites', { method: 'POST', body: payload });
+  } catch (error) {
+    return createLocalFavorite(payload);
+  }
 }
 
 export async function fetchHistory(userId) {
-  return requestWithFallback('/history', { query: { userId } });
+  try {
+    return await requestWithFallback('/history', { query: { userId } });
+  } catch (error) {
+    return fetchLocalHistory(userId);
+  }
 }
 
 export async function createHistory(payload) {
-  return requestWithFallback('/history', { method: 'POST', body: payload });
+  try {
+    return await requestWithFallback('/history', { method: 'POST', body: payload });
+  } catch (error) {
+    return createLocalHistory(payload);
+  }
 }

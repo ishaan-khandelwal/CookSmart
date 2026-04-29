@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Clipboard, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -58,16 +58,22 @@ export default function OrderIngredientsScreen({ navigation, route }) {
     const [selectedPartner, setSelectedPartner] = useState(DELIVERY_PARTNERS[0]);
     const inputRef = useRef(null);
 
-    const cartItems = useMemo(() => {
-        const recipeItems = normalizeCartItems(route.params?.missingIngredients, route.params?.pantryStaples);
-        const manuals = manualItems.map(name => ({ name, type: 'manual' }));
-        return [...recipeItems, ...manuals];
-    }, [route.params?.missingIngredients, route.params?.pantryStaples, manualItems]);
+    const recipeCartItems = useMemo(
+        () => normalizeCartItems(route.params?.missingIngredients, route.params?.pantryStaples),
+        [route.params?.missingIngredients, route.params?.pantryStaples],
+    );
 
-    const [selectedItems, setSelectedItems] = useState(() => {
-        const recipeItems = normalizeCartItems(route.params?.missingIngredients, route.params?.pantryStaples);
-        return recipeItems.filter(item => item.type === 'missing').map(item => item.name);
-    });
+    const cartItems = useMemo(() => {
+        const manuals = manualItems.map(name => ({ name, type: 'manual' }));
+        return [...recipeCartItems, ...manuals];
+    }, [recipeCartItems, manualItems]);
+
+    const [selectedItems, setSelectedItems] = useState(() => recipeCartItems.map(item => item.name));
+
+    useEffect(() => {
+        const recipeItemNames = recipeCartItems.map(item => item.name);
+        setSelectedItems((current) => Array.from(new Set([...recipeItemNames, ...current])));
+    }, [recipeCartItems]);
 
     const selectedCount = selectedItems.length;
     const selectedQuery = selectedItems.join(', ');
