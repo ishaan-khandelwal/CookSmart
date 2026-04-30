@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -145,7 +146,7 @@ export default function CameraScanScreen({ navigation, route }) {
                         userId: user?.uid,
                         filePrefix: 'cooksmart-scan',
                     })
-                        .catch(() => {});
+                        .catch(() => { });
                 }
 
                 await navigateToResults(ingredients, previewUri || null);
@@ -214,10 +215,16 @@ export default function CameraScanScreen({ navigation, route }) {
             const photo = await ImagePicker.launchCameraAsync({
                 mediaTypes: ['images'],
                 allowsEditing: false,
-                cameraType: cameraFacing,
+
+
+                cameraType: cameraFacing === 'front' ? 'front' : 'back',
+
                 base64: true,
                 exif: false,
                 quality: 0.85,
+
+                aspect: [4, 3],
+                presentationStyle: 'fullScreen',
             });
 
             if (photo?.canceled) {
