@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Linking,
@@ -55,6 +55,14 @@ export default function CameraScanScreen({ navigation, route }) {
     const [uploadedFile, setUploadedFile] = useState(null);
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
 
+    // Web webcam refs & state
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const streamRef = useRef(null);
+    const [webCamReady, setWebCamReady] = useState(false);
+    const [webCamError, setWebCamError] = useState('');
+    const [webFacingFront, setWebFacingFront] = useState(false);
+
     useEffect(() => {
         if (isWeb) {
             return;
@@ -78,6 +86,69 @@ export default function CameraScanScreen({ navigation, route }) {
             cancelled = true;
         };
     }, [isWeb]);
+
+    // Start webcam stream (web only)
+    const startWebcam = useCallback(async (useFront = false) => {
+        setWebCamError('');
+        setWebCamReady(false);
+        try {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach((t) => t.stop());
+                streamRef.current = null;
+            }
+            const constraints = {
+                video: {
+                    facingMode: useFront ? 'user' : { ideal: 'environment' },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                },
+                audio: false,
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play();
+            }
+            setWebCamReady(true);
+        } catch (err) {
+            setWebCamError(
+                err?.name === 'NotAllowedError'
+                    ? 'Camera permission denied. Please allow camera access in your browser.'
+                    : 'Could not start camera. Make sure no other app is using it.',
+            );
+        }
+    }, []);
+
+    // Stop webcam stream
+    const stopWebcam = useCallback(() => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+        }
+        setWebCamReady(false);
+    }, []);
+
+    // Auto-start webcam on web
+    useEffect(() => {
+        if (!isWeb) return;
+        startWebcam(webFacingFront);
+        return () => stopWebcam();
+    }, [isWeb, webFacingFront, startWebcam, stopWebcam]);
+
+    // Capture frame from webcam
+    const captureWebcam = useCallback(async () => {
+        if (!videoRef.current || !canvasRef.current || isProcessing) return;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const base64 = dataUrl.split(',')[1];
+        await processImageAsset({ uri: dataUrl, base64, mimeType: 'image/jpeg' });
+    }, [isProcessing, processImageAsset]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -214,15 +285,11 @@ export default function CameraScanScreen({ navigation, route }) {
             const photo = await ImagePicker.launchCameraAsync({
                 mediaTypes: ['images'],
                 allowsEditing: false,
-
-
                 cameraType: cameraFacing === 'front' ? 'front' : 'back',
-
                 base64: true,
                 exif: false,
                 quality: 0.85,
-
-                aspect: [4, 3],
+                zoom: 0,
                 presentationStyle: 'fullScreen',
             });
 
@@ -334,20 +401,126 @@ export default function CameraScanScreen({ navigation, route }) {
 
     if (isWeb) {
         return (
-            <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
-                <View className="w-full items-center rounded-3xl border border-white/10 bg-card p-6">
-                    <Ionicons name="camera-outline" size={42} color="#00C896" />
-                    <Text className="mt-4 text-center text-[22px] font-bold leading-[30px] text-textPrimary">
-                        Camera scanning is for Expo mobile.
-                    </Text>
-                    <Text className="mb-[22px] mt-2.5 text-center text-[15px] leading-[22px] text-textSecondary">
-                        Open CookSmart in the Expo app on your phone to use the camera scanner. Web keeps gallery upload only.
-                    </Text>
-                    <Pressable className="w-full items-center rounded-2xl bg-primary py-3.5" onPress={handlePickFromGallery}>
-                        <Text className="text-[15px] font-bold text-background">Pick From Gallery</Text>
-                    </Pressable>
+            <View style={styles.screen}>
+                <StatusBar barStyle="light-content" />
+
+                {/* Inject global styles for the video element */}
+                {typeof document !== 'undefined' && (() => {
+                    let s = document.getElementById('cooksmart-cam-style');
+                    if (!s) {
+                        s = document.createElement('style');
+                        s.id = 'cooksmart-cam-style';
+                        s.textContent = [
+                            '#cooksmart-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}',
+                            '#cooksmart-canvas{display:none;}',
+                        ].join('');
+                        document.head.appendChild(s);
+                    }
+                    return null;
+                })()}
+
+                {/* Live video background */}
+                <View style={StyleSheet.absoluteFill}>
+                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                    {typeof document !== 'undefined' && (
+                        <>
+                            <video
+                                id="cooksmart-video"
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                            />
+                            <canvas id="cooksmart-canvas" ref={canvasRef} />
+                        </>
+                    )}
                 </View>
-            </SafeAreaView>
+
+                {/* Dark overlay */}
+                <View style={styles.overlayShadeTop} />
+                <View style={styles.overlayShadeBottom} />
+
+                <SafeAreaView style={[styles.safeArea, { position: 'absolute', inset: 0 }]} edges={['top', 'left', 'right', 'bottom']}>
+                    <View style={styles.contentShell}>
+                        {/* Top bar */}
+                        <View style={styles.topBar}>
+                            <Pressable style={styles.iconButton} onPress={() => { stopWebcam(); handleBack(); }}>
+                                <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                            </Pressable>
+                            <Pressable style={styles.iconButton} onPress={handlePickFromGallery}>
+                                <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+                            </Pressable>
+                        </View>
+
+                        {/* Middle — error or hint */}
+                        <View style={styles.stage}>
+                            {webCamError ? (
+                                <View style={styles.nativeCameraStageCard}>
+                                    <Ionicons name="camera-off-outline" size={44} color="#F6B44F" />
+                                    <Text style={styles.nativeCameraStageTitle}>Camera unavailable</Text>
+                                    <Text style={styles.nativeCameraStageText}>{webCamError}</Text>
+                                    <Pressable style={styles.nativeCameraLaunchButton} onPress={() => startWebcam(webFacingFront)}>
+                                        <Text style={styles.nativeCameraLaunchButtonText}>Retry Camera</Text>
+                                    </Pressable>
+                                    <Pressable style={[styles.nativeCameraLaunchButton, { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.1)' }]} onPress={handlePickFromGallery}>
+                                        <Text style={[styles.nativeCameraLaunchButtonText, { color: '#FFFFFF' }]}>Pick From Gallery</Text>
+                                    </Pressable>
+                                </View>
+                            ) : !webCamReady ? (
+                                <View style={styles.nativeCameraStageCard}>
+                                    <Ionicons name="camera-outline" size={44} color="#00C896" />
+                                    <Text style={styles.nativeCameraStageTitle}>Starting camera…</Text>
+                                </View>
+                            ) : null}
+                        </View>
+
+                        <WebcamCaptureStatusBanner
+                            loading={isProcessing}
+                            loadingMessage={loadingMessage}
+                            errorMessage={uploadError}
+                            uploadedFile={uploadedFile}
+                            onDismissError={() => setUploadError('')}
+                        />
+
+                        {/* Bottom controls */}
+                        <View style={styles.bottomStack}>
+                            <View style={styles.controlDock}>
+                                {/* Flip camera */}
+                                <Pressable
+                                    style={styles.sideControl}
+                                    onPress={() => setWebFacingFront((f) => !f)}
+                                >
+                                    <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
+                                </Pressable>
+
+                                {/* Shutter */}
+                                <Pressable
+                                    style={[styles.shutterButton, (!webCamReady || isProcessing) && styles.shutterButtonDisabled]}
+                                    onPress={captureWebcam}
+                                    disabled={!webCamReady || isProcessing}
+                                >
+                                    <View style={styles.shutterOuterRing}>
+                                        <View style={styles.shutterInnerRing}>
+                                            <View style={styles.shutterCore} />
+                                        </View>
+                                    </View>
+                                </Pressable>
+
+                                {/* Gallery */}
+                                <Pressable style={styles.sideControl} onPress={handlePickFromGallery}>
+                                    <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+                                </Pressable>
+                            </View>
+
+                            <Text style={styles.bottomHelperText}>
+                                Tap the shutter to scan · tap 🔄 to flip camera
+                            </Text>
+                        </View>
+                    </View>
+                </SafeAreaView>
+
+                <LoadingOverlay visible={isProcessing} message={loadingMessage} />
+            </View>
         );
     }
 
