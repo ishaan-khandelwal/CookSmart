@@ -25,6 +25,17 @@ import { detectIngredientsFromImage } from '../services/claudeApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 
+function normalizeScanIngredients(ingredients) {
+    return Array.from(
+        new Set(
+            (Array.isArray(ingredients) ? ingredients : String(ingredients || '').split(','))
+                .map((item) => String(item).trim().toLowerCase())
+                .map((item) => item.replace(/^[\s\[\]'"`]+|[\[\]\s'"`]+$/g, ''))
+                .filter(Boolean),
+        ),
+    );
+}
+
 function inferMimeType(uri, fallback = 'image/jpeg') {
     const normalizedUri = String(uri || '').toLowerCase();
 
@@ -155,7 +166,7 @@ export default function CameraScanScreen({ navigation, route }) {
             await AsyncStorage.setItem(
                 RECENT_SCAN_KEY,
                 JSON.stringify({
-                    ingredients,
+                    ingredients: normalizeScanIngredients(ingredients),
                     photoUri,
                     scannedAt: new Date().toISOString(),
                 }),
@@ -167,10 +178,11 @@ export default function CameraScanScreen({ navigation, route }) {
 
     const navigateToResults = useCallback(
         async (ingredients, photoUri, options = {}) => {
-            await saveRecentScan(ingredients, photoUri);
+            const normalizedIngredients = normalizeScanIngredients(ingredients);
+            await saveRecentScan(normalizedIngredients, photoUri);
             const rootNavigation = navigation.getParent() ?? navigation;
             rootNavigation.navigate('IngredientsResult', {
-                ingredients,
+                ingredients: normalizedIngredients,
                 photoUri,
                 scannerError: options.scannerError || null,
                 mode: activeMode,

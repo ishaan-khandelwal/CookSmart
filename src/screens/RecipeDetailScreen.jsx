@@ -156,19 +156,39 @@ export default function RecipeDetailScreen({ navigation, route }) {
 
         try {
             setSavingFavorite(true);
-            const fallbackImage = recipe?.image ? '' : await generateFavoriteImageFromTitle(recipe.name, getExpoEnv('EXPO_PUBLIC_GEMINI_KEY'));
             const dietFlags = getRecipeDietFlags(recipe);
             await createFavorite({
                 recipeId: recipe.providerId || recipe.id || '',
                 provider: recipe.provider || 'manual',
                 title: recipe.name,
-                image: recipe.image || fallbackImage,
+                image: recipe.image || '',
                 vegetarian: dietFlags.vegetarian,
                 vegan: dietFlags.vegan,
                 source: 'recipe-detail',
                 userId: user.uid,
             });
             Alert.alert('Saved', 'Recipe added to favorites.');
+
+            if (!recipe?.image) {
+                generateFavoriteImageFromTitle(recipe.name, getExpoEnv('EXPO_PUBLIC_GEMINI_KEY'))
+                    .then((fallbackImage) => {
+                        if (!fallbackImage) {
+                            return null;
+                        }
+
+                        return createFavorite({
+                            recipeId: recipe.providerId || recipe.id || '',
+                            provider: recipe.provider || 'manual',
+                            title: recipe.name,
+                            image: fallbackImage,
+                            vegetarian: dietFlags.vegetarian,
+                            vegan: dietFlags.vegan,
+                            source: 'recipe-detail',
+                            userId: user.uid,
+                        });
+                    })
+                    .catch(() => {});
+            }
         } catch (error) {
             Alert.alert('Save Failed', error.message);
         } finally {
@@ -193,7 +213,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
                         <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                     </Pressable>
                     <Text className="text-lg font-bold text-textPrimary">Recipe Detail</Text>
-                    <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-card" onPress={handleSaveFavorite}>
+                    <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-card" onPress={handleSaveFavorite} disabled={savingFavorite}>
                         <Ionicons name={savingFavorite ? 'time-outline' : 'heart-outline'} size={20} color="#FFFFFF" />
                     </Pressable>
                 </View>
@@ -249,7 +269,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
                             </View>
 
                         <View className="mb-5 gap-3">
-                            <Pressable className="items-center rounded-2xl bg-primary px-4 py-3.5" onPress={handleSaveFavorite}>
+                            <Pressable className="items-center rounded-2xl bg-primary px-4 py-3.5" onPress={handleSaveFavorite} disabled={savingFavorite}>
                                 <Text className="text-[15px] font-bold text-background">
                                     {savingFavorite ? 'Saving...' : 'Save Recipe'}
                                 </Text>

@@ -19,11 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
-import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
-import { fetchFavorites } from '../services/api';
+import { fetchFavorites, getCachedFavorites } from '../services/api';
 import { fetchRecipeDetails } from '../services/spoonacularApi';
-import { hasExpoEnv } from '../utils/expoConfig';
+import { getRecipeDietLabel, getRecipeDietTone } from '../utils/recipeDiet';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 const RECENT_RECIPE_RESULTS_KEY = 'cooksmart:recentRecipeResults';
@@ -140,21 +139,18 @@ function candidateFromFavorite(item) {
         image: item.image || '',
         cookTime: 'Saved recipe',
         servings: null,
-        vegetarian: null,
-        vegan: null,
+        vegetarian: item.vegetarian ?? null,
+        vegan: item.vegan ?? null,
         ingredients: [],
         sourceLabel: 'Saved',
     };
 }
 
 function getDietLabel(recipe) {
-    if (recipe?.vegan) {
-        return { label: 'Vegan', tone: '#22C55E' };
-    }
-    if (recipe?.vegetarian) {
-        return { label: 'Veg', tone: '#22C55E' };
-    }
-    return { label: 'Non-Veg', tone: '#FB7185' };
+    return {
+        label: getRecipeDietLabel(recipe),
+        tone: getRecipeDietTone(recipe),
+    };
 }
 
 function getRecipeIngredientList(recipe) {
@@ -198,7 +194,7 @@ function computePantryMatch(ingredients, pantryIngredients) {
 
 function createPlannedMeal(recipe, sourceLabel) {
     return {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: recipe.plannedMealId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         provider: recipe.provider || 'manual',
         providerId: recipe.providerId || recipe.id || '',
         name: recipe.name || recipe.title || 'Recipe',
@@ -211,6 +207,7 @@ function createPlannedMeal(recipe, sourceLabel) {
         sourceLabel,
         status: 'planned',
         leftoverNextDay: false,
+        enriching: Boolean(recipe.enriching),
     };
 }
 
@@ -246,7 +243,6 @@ export default function PlannerScreen() {
     const [moveState, setMoveState] = useState(null);
     const [hydrated, setHydrated] = useState(false);
     const [loadingSources, setLoadingSources] = useState(true);
-    const [selectingRecipe, setSelectingRecipe] = useState(false);
     const [notice, setNotice] = useState('');
 
     const intro = useRef(new Animated.Value(0)).current;
@@ -279,8 +275,17 @@ export default function PlannerScreen() {
                     setRecentCandidates(Array.isArray(parsedRecentRecipes) ? parsedRecentRecipes : []);
                     setHydrated(true);
 
-                    if (user?.uid && hasExpoEnv('EXPO_PUBLIC_API_URL')) {
+                    if (isMounted) {
+                        setLoadingSources(false);
+                    }
+
+                    if (user?.uid) {
                         try {
+                            const cachedFavorites = await getCachedFavorites(user.uid);
+                            if (isMounted && cachedFavorites.length) {
+                                setSavedCandidates(cachedFavorites.map(candidateFromFavorite));
+                            }
+
                             const favorites = await fetchFavorites(user.uid);
                             if (isMounted) {
                                 setSavedCandidates((Array.isArray(favorites) ? favorites : []).map(candidateFromFavorite));
@@ -388,7 +393,7 @@ export default function PlannerScreen() {
                 ...candidate,
                 pantry: computePantryMatch(getRecipeIngredientList(candidate), pantryIngredients),
             }))
-            .filter((candidate) => candidate.pantry.score !== null && candidate.pantry.score > 0)
+            .filter((candidate) => candidate.pantry.score === 100 && candidate.pantry.missing.length === 0)
             .sort((left, right) => right.pantry.score - left.pantry.score);
     }, [pantryIngredients, recentCandidates, savedCandidates]);
 
@@ -425,41 +430,88 @@ export default function PlannerScreen() {
         ]);
     }, [weekDays]);
 
-    const handleSelectRecipe = useCallback(async (candidate) => {
+    const handleSelectRecipe = useCallback((candidate) => {
         if (!pickerState) return;
 
-        setSelectingRecipe(true);
-
-        let nextRecipe = candidate;
-
-        try {
-            if (candidate.provider && candidate.provider !== 'manual' && (candidate.providerId || candidate.id)) {
-                const details = await fetchRecipeDetails(
-                    { provider: candidate.provider, id: candidate.providerId || candidate.id },
-                    candidate,
-                );
-                nextRecipe = { ...candidate, ...details };
-            }
-        } catch {
-            nextRecipe = candidate;
-        } finally {
-            setSelectingRecipe(false);
-        }
-
+        const targetPickerState = pickerState;
+        const sourceLabel = pickerSource === 'saved'
+            ? 'Saved'
+            : pickerSource === 'pantry'
+                ? 'Pantry'
+                : pickerSource === 'manual'
+                    ? 'Manual'
+                    : 'Recent';
+        const plannedMealId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const shouldEnrich = candidate.provider && candidate.provider !== 'manual' && (candidate.providerId || candidate.id);
         const plannedMeal = createPlannedMeal(
-            nextRecipe,
-            pickerSource === 'saved' ? 'Saved' : pickerSource === 'pantry' ? 'Pantry' : 'Recent',
+            { ...candidate, plannedMealId, enriching: shouldEnrich },
+            sourceLabel,
         );
 
         setPlan((currentPlan) => ({
             ...currentPlan,
-            [pickerState.dayKey]: {
-                ...currentPlan[pickerState.dayKey],
-                [pickerState.mealKey]: plannedMeal,
+            [targetPickerState.dayKey]: {
+                ...currentPlan[targetPickerState.dayKey],
+                [targetPickerState.mealKey]: plannedMeal,
             },
         }));
 
         setPickerState(null);
+
+        if (!shouldEnrich) {
+            return;
+        }
+
+        fetchRecipeDetails(
+            { provider: candidate.provider, id: candidate.providerId || candidate.id },
+            candidate,
+        )
+            .then((details) => {
+                const enrichedMeal = createPlannedMeal(
+                    { ...candidate, ...details, plannedMealId, enriching: false },
+                    sourceLabel,
+                );
+
+                setPlan((currentPlan) => {
+                    const currentMeal = currentPlan[targetPickerState.dayKey]?.[targetPickerState.mealKey];
+                    if (!currentMeal || currentMeal.id !== plannedMealId) {
+                        return currentPlan;
+                    }
+
+                    return {
+                        ...currentPlan,
+                        [targetPickerState.dayKey]: {
+                            ...currentPlan[targetPickerState.dayKey],
+                            [targetPickerState.mealKey]: {
+                                ...currentMeal,
+                                ...enrichedMeal,
+                                status: currentMeal.status,
+                                leftoverNextDay: currentMeal.leftoverNextDay,
+                                enriching: false,
+                            },
+                        },
+                    };
+                });
+            })
+            .catch(() => {
+                setPlan((currentPlan) => {
+                    const currentMeal = currentPlan[targetPickerState.dayKey]?.[targetPickerState.mealKey];
+                    if (!currentMeal || currentMeal.id !== plannedMealId) {
+                        return currentPlan;
+                    }
+
+                    return {
+                        ...currentPlan,
+                        [targetPickerState.dayKey]: {
+                            ...currentPlan[targetPickerState.dayKey],
+                            [targetPickerState.mealKey]: {
+                                ...currentMeal,
+                                enriching: false,
+                            },
+                        },
+                    };
+                });
+            });
     }, [pickerSource, pickerState]);
 
     const handleRemoveMeal = useCallback((dayKey, mealKey) => {
@@ -696,8 +748,6 @@ export default function PlannerScreen() {
                 onClose={() => setMoveState(null)}
                 onMove={handleMoveMeal}
             />
-
-            <LoadingOverlay visible={selectingRecipe} message="Adding meal to planner..." />
         </View>
     );
 }
@@ -870,6 +920,9 @@ function MealCard({
                 ) : (
                     <Text className="mt-3 text-[12px] leading-5 text-[#B7C3D1]">Ingredient detail will improve after recipe enrichment.</Text>
                 )}
+                {meal.enriching ? (
+                    <Text className="mt-2 text-[12px] leading-5 text-[#F8B84E]">Updating details in background...</Text>
+                ) : null}
             </View>
         </View>
     );
@@ -957,7 +1010,7 @@ function RecipePickerModal({ visible, source, candidates, pantryIngredients, loa
                                     {source === 'saved'
                                         ? 'No saved recipes yet. Save a recipe from the detail screen first.'
                                         : source === 'pantry'
-                                            ? 'No recent recipes currently match your scanned pantry strongly enough.'
+                                            ? 'No recipes are 100% pantry-ready from your scanned ingredients yet.'
                                             : 'No recent recipe results stored yet. Run a recipe search first.'}
                                 </Text>
                             </View>

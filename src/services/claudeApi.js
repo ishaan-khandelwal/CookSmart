@@ -152,7 +152,7 @@ function parseJsonArray(rawText) {
             .trim();
         const tokens = normalizedText
             .split(/\n|,/)
-            .map((line) => line.replace(/^[\s\-*0-9.)"]+|["]+$/g, '').trim().toLowerCase())
+            .map((line) => line.replace(/^[\s\[\]\-*0-9.)'"]+|[\[\]'"]+$/g, '').trim().toLowerCase())
             .filter(Boolean)
             .filter((line) => line !== 'json' && line !== 'ingredients');
 

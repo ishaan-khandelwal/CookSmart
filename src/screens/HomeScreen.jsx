@@ -9,7 +9,7 @@ import RecipeModeCard from '../components/RecipeModeCard';
 import { DEFAULT_RECIPE_MODE, RECIPE_MODE_IDS, RECIPE_MODE_OPTIONS, getRecipeModeMeta } from '../constants/recipeModes';
 import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
-import { fetchFavorites, fetchHistory } from '../services/api';
+import { fetchFavorites, fetchHistory, getCachedFavorites, getCachedHistory } from '../services/api';
 import { hasExpoEnv } from '../utils/expoConfig';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
@@ -116,7 +116,9 @@ export default function HomeScreen({ navigation }) {
             if (savedScan) {
                 const parsedScan = JSON.parse(savedScan);
                 setRecentScan({
-                    ingredients: Array.isArray(parsedScan.ingredients) ? parsedScan.ingredients.slice(0, 6) : [],
+                    ingredients: Array.isArray(parsedScan.ingredients) 
+                        ? parsedScan.ingredients.slice(0, 6).map(item => String(item).replace(/^[\s\[\]'"`]+|[\[\]\s'"`]+$/g, ''))
+                        : [],
                     photoUri: parsedScan.photoUri || null,
                     scannedAt: parsedScan.scannedAt || null,
                 });
@@ -127,10 +129,21 @@ export default function HomeScreen({ navigation }) {
             setRecentScan({ ingredients: [], photoUri: null, scannedAt: null });
         }
 
-        if (!user?.uid || !hasExpoEnv('EXPO_PUBLIC_API_URL')) {
+        if (!user?.uid) {
             setFavoritesCount(0);
             setHistoryCount(0);
             return;
+        }
+
+        const [cachedFavorites, cachedHistory] = await Promise.all([
+            getCachedFavorites(user.uid),
+            getCachedHistory(user.uid),
+        ]);
+        if (cachedFavorites.length) {
+            setFavoritesCount(cachedFavorites.length);
+        }
+        if (cachedHistory.length) {
+            setHistoryCount(cachedHistory.length);
         }
 
         const [favoritesResult, historyResult] = await Promise.allSettled([
@@ -188,24 +201,20 @@ export default function HomeScreen({ navigation }) {
     const introLift = intro.interpolate({ inputRange: [0, 1], outputRange: [32, 0] });
 
     const openRecentScan = useCallback(() => {
-        if (recentScan.ingredients.length) {
-            if (selectedMode === RECIPE_MODE_IDS.COOK_FREEDOM) {
-                const rootNavigation = navigation.getParent() ?? navigation;
-                rootNavigation.navigate('IngredientsResult', {
-                    ingredients: [],
-                    photoUri: null,
-                    mode: selectedMode,
-                });
-                return;
-            }
+        const rootNavigation = navigation.getParent() ?? navigation;
 
-            navigation.navigate('Scan', { mode: selectedMode });
+        if (recentScan.ingredients.length) {
+            rootNavigation.navigate('IngredientsResult', {
+                ingredients: recentScan.ingredients,
+                photoUri: recentScan.photoUri,
+                mode: selectedMode,
+            });
             return;
         }
-        const rootNavigation = navigation.getParent() ?? navigation;
+
         rootNavigation.navigate('IngredientsResult', {
-            ingredients: recentScan.ingredients,
-            photoUri: recentScan.photoUri,
+            ingredients: [],
+            photoUri: null,
             mode: selectedMode,
         });
     }, [navigation, recentScan.ingredients, recentScan.photoUri, selectedMode]);

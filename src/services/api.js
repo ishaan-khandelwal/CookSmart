@@ -4,6 +4,15 @@ import { Platform } from 'react-native';
 
 const LOCAL_FAVORITES_KEY = 'cooksmart:localFavorites';
 const LOCAL_HISTORY_KEY = 'cooksmart:localHistory';
+const FAVORITES_CACHE_KEY_PREFIX = 'cooksmart:cachedFavorites:';
+const HISTORY_CACHE_KEY_PREFIX = 'cooksmart:cachedHistory:';
+const REQUEST_TIMEOUT_MS = 1500;
+const CACHE_TTL_MS = 30000;
+
+const memoryCache = {
+  favorites: new Map(),
+  history: new Map(),
+};
 
 function getExtraConfigValue(key) {
   return (
@@ -126,15 +135,25 @@ async function requestWithFallback(path, { method = 'GET', query = {}, body } = 
     const url = buildUrl(baseUrl, path, query);
     let response;
 
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+      : null;
+
     try {
       response = await fetch(url, {
         method,
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined,
+        signal: controller?.signal,
       });
     } catch (error) {
       lastError = new Error(formatNetworkError(error, url));
       continue;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
 
     return parseResponse(response);
@@ -163,6 +182,159 @@ async function writeLocalList(key, items) {
 
 function sortNewestFirst(items) {
   return [...items].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+function cacheKey(prefix, userId) {
+  return `${prefix}${String(userId || '').trim()}`;
+}
+
+function getMemoryCache(type, userId) {
+  const cached = memoryCache[type]?.get(String(userId || '').trim());
+  if (!cached) {
+    return null;
+  }
+
+  return {
+    data: cached.data,
+    isFresh: Date.now() - cached.updatedAt < CACHE_TTL_MS,
+  };
+}
+
+async function readPersistentCache(prefix, userId) {
+  if (!userId) {
+    return [];
+  }
+
+  try {
+    const rawValue = await AsyncStorage.getItem(cacheKey(prefix, userId));
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writePersistentCache(prefix, userId, items) {
+  if (!userId) {
+    return;
+  }
+
+  try {
+    await AsyncStorage.setItem(cacheKey(prefix, userId), JSON.stringify(Array.isArray(items) ? items : []));
+  } catch { }
+}
+
+function setMemoryCache(type, userId, items) {
+  if (!userId || !memoryCache[type]) {
+    return;
+  }
+
+  memoryCache[type].set(String(userId).trim(), {
+    data: Array.isArray(items) ? items : [],
+    updatedAt: Date.now(),
+  });
+}
+
+async function setCachedList(type, prefix, userId, items) {
+  const list = Array.isArray(items) ? items : [];
+  setMemoryCache(type, userId, list);
+  await writePersistentCache(prefix, userId, list);
+  return list;
+}
+
+function mergeCachedItem(items, item, matchItem) {
+  const list = Array.isArray(items) ? items : [];
+  const nextItem = item || {};
+  const existingIndex = list.findIndex((current) => matchItem(current, nextItem));
+  const nextList = [...list];
+
+  if (existingIndex >= 0) {
+    nextList[existingIndex] = nextItem;
+  } else {
+    nextList.unshift(nextItem);
+  }
+
+  return sortNewestFirst(nextList);
+}
+
+function mergeFavoritesLists(primaryItems, secondaryItems) {
+  const seen = new Set();
+  return sortNewestFirst([...(primaryItems || []), ...(secondaryItems || [])])
+    .filter((item) => {
+      const key = [
+        item?.userId || '',
+        item?.title || '',
+        item?.recipeId || '',
+        item?.provider || '',
+      ].join(':').toLowerCase();
+      if (!key.trim() || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+function mergeHistoryLists(primaryItems, secondaryItems) {
+  const seen = new Set();
+  return sortNewestFirst([...(primaryItems || []), ...(secondaryItems || [])])
+    .filter((item) => {
+      const ingredientsKey = Array.isArray(item?.ingredients) ? item.ingredients.join(',') : '';
+      const semanticKey = [
+        item?.title || '',
+        item?.type || '',
+        item?.source || '',
+        ingredientsKey,
+        typeof item?.resultCount === 'number' ? item.resultCount : '',
+      ].join(':');
+      const key = semanticKey.replace(/:+/g, ':').trim() || item?._id || `${item?.title || ''}:${item?.createdAt || ''}`;
+      if (!key || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 20);
+}
+
+export async function getCachedFavorites(userId) {
+  const cached = getMemoryCache('favorites', userId);
+  if (cached?.data) {
+    return cached.data;
+  }
+
+  const [persistentFavorites, localFavorites] = await Promise.all([
+    readPersistentCache(FAVORITES_CACHE_KEY_PREFIX, userId),
+    fetchLocalFavorites(userId),
+  ]);
+  const mergedFavorites = mergeFavoritesLists(persistentFavorites, localFavorites);
+
+  if (mergedFavorites.length) {
+    await setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, mergedFavorites);
+  }
+
+  return mergedFavorites;
+}
+
+export async function getCachedHistory(userId) {
+  const cached = getMemoryCache('history', userId);
+  if (cached?.data) {
+    return cached.data;
+  }
+
+  const [persistentHistory, localHistory] = await Promise.all([
+    readPersistentCache(HISTORY_CACHE_KEY_PREFIX, userId),
+    fetchLocalHistory(userId),
+  ]);
+  const mergedHistory = mergeHistoryLists(persistentHistory, localHistory);
+
+  if (mergedHistory.length) {
+    await setCachedList('history', HISTORY_CACHE_KEY_PREFIX, userId, mergedHistory);
+  }
+
+  return mergedHistory;
 }
 
 async function fetchLocalFavorites(userId) {
@@ -252,34 +424,102 @@ async function createLocalHistory(payload = {}) {
   return historyItem;
 }
 
-export async function fetchFavorites(userId) {
+export async function fetchFavorites(userId, options = {}) {
+  const cached = getMemoryCache('favorites', userId);
+  if (!options.force && cached?.isFresh) {
+    return cached.data;
+  }
+
+  if (options.preferCache && cached?.data) {
+    return cached.data;
+  }
+
   try {
-    return await requestWithFallback('/favorites', { query: { userId } });
+    const favorites = await requestWithFallback('/favorites', { query: { userId } });
+    const localFavorites = await fetchLocalFavorites(userId);
+    return setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, mergeFavoritesLists(favorites, localFavorites));
   } catch (error) {
-    return fetchLocalFavorites(userId);
+    const localFavorites = await fetchLocalFavorites(userId);
+    return setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, localFavorites);
   }
 }
 
 export async function createFavorite(payload) {
-  try {
-    return await requestWithFallback('/favorites', { method: 'POST', body: payload });
-  } catch (error) {
-    return createLocalFavorite(payload);
+  const favorite = await createLocalFavorite(payload);
+  const userId = String(payload?.userId || favorite?.userId || '').trim();
+
+  if (userId) {
+    const existingFavorites = await getCachedFavorites(userId);
+    const nextFavorites = mergeCachedItem(
+      existingFavorites,
+      favorite,
+      (current, next) => current._id === next._id || current.title === next.title,
+    );
+    await setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, nextFavorites);
   }
+
+  requestWithFallback('/favorites', { method: 'POST', body: payload })
+    .then(async (remoteFavorite) => {
+      const remoteUserId = String(payload?.userId || remoteFavorite?.userId || '').trim();
+      if (!remoteUserId) {
+        return;
+      }
+
+      const existingFavorites = await getCachedFavorites(remoteUserId);
+      const nextFavorites = mergeFavoritesLists([remoteFavorite], existingFavorites);
+      await setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, remoteUserId, nextFavorites);
+    })
+    .catch(() => {});
+
+  return favorite;
 }
 
-export async function fetchHistory(userId) {
+export async function fetchHistory(userId, options = {}) {
+  const cached = getMemoryCache('history', userId);
+  if (!options.force && cached?.isFresh) {
+    return cached.data;
+  }
+
+  if (options.preferCache && cached?.data) {
+    return cached.data;
+  }
+
   try {
-    return await requestWithFallback('/history', { query: { userId } });
+    const history = await requestWithFallback('/history', { query: { userId } });
+    const localHistory = await fetchLocalHistory(userId);
+    return setCachedList('history', HISTORY_CACHE_KEY_PREFIX, userId, mergeHistoryLists(history, localHistory));
   } catch (error) {
-    return fetchLocalHistory(userId);
+    const localHistory = await fetchLocalHistory(userId);
+    return setCachedList('history', HISTORY_CACHE_KEY_PREFIX, userId, localHistory);
   }
 }
 
 export async function createHistory(payload) {
-  try {
-    return await requestWithFallback('/history', { method: 'POST', body: payload });
-  } catch (error) {
-    return createLocalHistory(payload);
+  const historyItem = await createLocalHistory(payload);
+  const userId = String(payload?.userId || historyItem?.userId || '').trim();
+
+  if (userId) {
+    const existingHistory = await getCachedHistory(userId);
+    const nextHistory = mergeCachedItem(
+      existingHistory,
+      historyItem,
+      (current, next) => current._id === next._id,
+    ).slice(0, 20);
+    await setCachedList('history', HISTORY_CACHE_KEY_PREFIX, userId, nextHistory);
   }
+
+  requestWithFallback('/history', { method: 'POST', body: payload })
+    .then(async (remoteHistoryItem) => {
+      const remoteUserId = String(payload?.userId || remoteHistoryItem?.userId || '').trim();
+      if (!remoteUserId) {
+        return;
+      }
+
+      const existingHistory = await getCachedHistory(remoteUserId);
+      const nextHistory = mergeHistoryLists([remoteHistoryItem], existingHistory);
+      await setCachedList('history', HISTORY_CACHE_KEY_PREFIX, remoteUserId, nextHistory);
+    })
+    .catch(() => {});
+
+  return historyItem;
 }

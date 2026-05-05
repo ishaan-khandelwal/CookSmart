@@ -19,8 +19,9 @@ import { getIngredientIcon } from '../services/claudeApi';
 function normalizeIngredients(list) {
     return Array.from(
         new Set(
-            list
+            (Array.isArray(list) ? list : String(list || '').split(','))
                 .map((item) => String(item).trim().toLowerCase())
+                .map((item) => item.replace(/^[\s\[\]'"`]+|[\[\]\s'"`]+$/g, ''))
                 .filter(Boolean),
         ),
     );

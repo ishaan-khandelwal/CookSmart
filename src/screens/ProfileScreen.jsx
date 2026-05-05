@@ -9,7 +9,7 @@ import {
     User,
     Utensils
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -25,7 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { logout } from '../backend/auth';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
-import { fetchHistory } from '../services/api';
+import { fetchHistory, getCachedHistory } from '../services/api';
 import { getStoredSpoonacularQuota } from '../services/spoonacularApi';
 
 export default function ProfileScreen({ navigation }) {
@@ -34,10 +34,16 @@ export default function ProfileScreen({ navigation }) {
     const [historyLoading, setHistoryLoading] = useState(true);
     const [quota, setQuota] = useState(null);
     const [accountInfoVisible, setAccountInfoVisible] = useState(false);
+    const lastHistoryRefreshAtRef = useRef(0);
+    const historyLoadInFlightRef = useRef(false);
 
     const userId = user?.uid;
 
-    const loadHistory = useCallback(async () => {
+    const loadHistory = useCallback(async ({ force = false } = {}) => {
+        if (historyLoadInFlightRef.current) {
+            return;
+        }
+
         if (!userId) {
             setHistory([]);
             setHistoryLoading(false);
@@ -45,12 +51,22 @@ export default function ProfileScreen({ navigation }) {
         }
 
         try {
-            setHistoryLoading(true);
-            const data = await fetchHistory(userId);
+            historyLoadInFlightRef.current = true;
+            const cachedHistory = await getCachedHistory(userId);
+            if (cachedHistory.length) {
+                setHistory(cachedHistory);
+                setHistoryLoading(false);
+            } else {
+                setHistoryLoading(true);
+            }
+
+            const data = await fetchHistory(userId, { force });
             setHistory(Array.isArray(data) ? data : []);
+            lastHistoryRefreshAtRef.current = Date.now();
         } catch (error) {
             Alert.alert('History Error', error.message);
         } finally {
+            historyLoadInFlightRef.current = false;
             setHistoryLoading(false);
         }
     }, [userId]);
@@ -60,7 +76,10 @@ export default function ProfileScreen({ navigation }) {
     }, [loadHistory]);
 
     useEffect(() => {
-        const unsubscribe = navigation?.addListener?.('focus', loadHistory);
+        const unsubscribe = navigation?.addListener?.('focus', () => {
+            const shouldRefresh = Date.now() - lastHistoryRefreshAtRef.current > 30000;
+            loadHistory({ force: shouldRefresh });
+        });
         return unsubscribe;
     }, [loadHistory, navigation]);
 
@@ -95,12 +114,6 @@ export default function ProfileScreen({ navigation }) {
     const handleLogout = async () => {
         try {
             await logout();
-            if (navigation?.reset) {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Login' }],
-                });
-            }
         } catch (error) {
             Alert.alert('Logout Error', error.message);
         }
@@ -179,7 +192,7 @@ export default function ProfileScreen({ navigation }) {
                 <View className="mt-6">
                     <View className="mb-3 flex-row items-center justify-between">
                         <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px] text-[#6D8296]">Recent Activity</Text>
-                        <TouchableOpacity onPress={loadHistory} activeOpacity={0.85}>
+                        <TouchableOpacity onPress={() => loadHistory({ force: true })} activeOpacity={0.85}>
                             <Text className="text-[12px] font-bold text-[#F6B44F]">Refresh</Text>
                         </TouchableOpacity>
                     </View>

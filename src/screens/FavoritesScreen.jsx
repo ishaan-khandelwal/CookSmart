@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
-import { createFavorite, fetchFavorites } from '../services/api';
+import { createFavorite, fetchFavorites, getCachedFavorites } from '../services/api';
 import { findRealFavoriteImageFromTitle, generateFavoriteImageFromTitle } from '../services/favoriteImageApi';
 import { getExpoEnv } from '../utils/expoConfig';
 import { getRecipeDietLabel, isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
@@ -48,6 +48,8 @@ export default function FavoritesScreen({ navigation }) {
     const [saving, setSaving] = useState(false);
     const [isVegetarian, setIsVegetarian] = useState(true);
     const [activeFilter, setActiveFilter] = useState('all');
+    const imageRefreshQueueRef = useRef(new Set());
+    const lastRefreshAtRef = useRef(0);
 
     const userId = user?.uid;
 
@@ -80,12 +82,20 @@ export default function FavoritesScreen({ navigation }) {
             return;
         }
 
-        for (const item of items) {
+        const itemsNeedingImages = items.filter((item) => item?.title && shouldUpgradeFavoriteImage(item.image)).slice(0, 3);
+
+        for (const item of itemsNeedingImages) {
             if (!item?.title || !shouldUpgradeFavoriteImage(item.image)) {
                 continue;
             }
 
+            const refreshKey = `${userId}:${item.title}`;
+            if (imageRefreshQueueRef.current.has(refreshKey)) {
+                continue;
+            }
+
             try {
+                imageRefreshQueueRef.current.add(refreshKey);
                 const realImage = await findRealFavoriteImageFromTitle(item.title);
                 if (!realImage || realImage === item.image) {
                     continue;
@@ -107,11 +117,13 @@ export default function FavoritesScreen({ navigation }) {
                 )));
             } catch {
                 // Keep the current image if the upgrade lookup fails.
+            } finally {
+                imageRefreshQueueRef.current.delete(refreshKey);
             }
         }
     }, [userId]);
 
-    const loadFavorites = useCallback(async (showRefresh = false) => {
+    const loadFavorites = useCallback(async ({ force = false, showRefresh = false } = {}) => {
         if (!userId) {
             setFavorites([]);
             setLoading(false);
@@ -120,16 +132,23 @@ export default function FavoritesScreen({ navigation }) {
         }
 
         try {
+            const cachedFavorites = await getCachedFavorites(userId);
+            if (cachedFavorites.length) {
+                setFavorites(cachedFavorites);
+                setLoading(false);
+            }
+
             if (showRefresh) {
                 setRefreshing(true);
-            } else {
+            } else if (!cachedFavorites.length) {
                 setLoading(true);
             }
 
-            const data = await fetchFavorites(userId);
+            const data = await fetchFavorites(userId, { force });
             const favoritesList = Array.isArray(data) ? data : [];
             setFavorites(favoritesList);
             refreshFavoriteImages(favoritesList);
+            lastRefreshAtRef.current = Date.now();
         } catch (error) {
             Alert.alert('Load Failed', error.message);
         } finally {
@@ -144,7 +163,8 @@ export default function FavoritesScreen({ navigation }) {
 
     useEffect(() => {
         const unsubscribe = navigation?.addListener?.('focus', () => {
-            loadFavorites(true);
+            const shouldRefresh = Date.now() - lastRefreshAtRef.current > 30000;
+            loadFavorites({ force: shouldRefresh, showRefresh: false });
         });
 
         return unsubscribe;
@@ -165,11 +185,9 @@ export default function FavoritesScreen({ navigation }) {
 
         try {
             setSaving(true);
-            const generatedImage = await generateFavoriteImageFromTitle(title, getExpoEnv('EXPO_PUBLIC_GEMINI_KEY'));
-
             const createdFavorite = await createFavorite({
                 title,
-                image: generatedImage,
+                image: '',
                 vegetarian: isVegetarian,
                 userId,
                 source: 'favorites-screen',
@@ -180,6 +198,26 @@ export default function FavoritesScreen({ navigation }) {
                 return [createdFavorite, ...nextFavorites];
             });
             setNewTitle('');
+
+            generateFavoriteImageFromTitle(title, getExpoEnv('EXPO_PUBLIC_GEMINI_KEY'))
+                .then(async (generatedImage) => {
+                    if (!generatedImage) {
+                        return;
+                    }
+
+                    const updatedFavorite = await createFavorite({
+                        title,
+                        image: generatedImage,
+                        vegetarian: isVegetarian,
+                        userId,
+                        source: 'favorites-screen',
+                    });
+
+                    setFavorites((currentFavorites) => currentFavorites.map((item) => (
+                        item._id === createdFavorite._id || item.title === title ? updatedFavorite : item
+                    )));
+                })
+                .catch(() => {});
         } catch (error) {
             Alert.alert('Save Failed', error.message);
         } finally {
@@ -197,7 +235,7 @@ export default function FavoritesScreen({ navigation }) {
                 refreshControl={(
                     <RefreshControl
                         refreshing={refreshing}
-                        onRefresh={() => loadFavorites(true)}
+                        onRefresh={() => loadFavorites({ force: true, showRefresh: true })}
                         tintColor="#F6B44F"
                     />
                 )}
@@ -262,7 +300,7 @@ export default function FavoritesScreen({ navigation }) {
                                 disabled={saving || !newTitle.trim()}
                             >
                                 <Text className="text-[14px] font-black uppercase tracking-[1px] text-[#08131c]">
-                                    {saving ? 'Generating Image...' : 'Add To Favorites'}
+                                    {saving ? 'Saving...' : 'Add To Favorites'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
