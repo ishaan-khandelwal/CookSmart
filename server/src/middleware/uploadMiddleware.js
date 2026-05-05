@@ -40,9 +40,6 @@ function formatTimestamp(date = new Date()) {
 }
 
 export function getWebcamUploadDirectory() {
-  // Try to use the environment variable for the webcam directory
-  // This is especially important for cloud deployments (Heroku, Render, etc.)
-  // If not set, fall back to the default local directory
   return process.env.WEBCAM_UPLOAD_DIR || process.env.UPLOAD_DIR || DEFAULT_WEBCAM_UPLOAD_DIR;
 }
 
