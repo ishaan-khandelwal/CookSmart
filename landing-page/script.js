@@ -3,6 +3,7 @@ const menuToggle = document.querySelector('.menu-toggle');
 const navLinks = document.querySelector('.nav-links');
 const navItems = document.querySelectorAll('.nav-links a');
 const downloadStatus = document.querySelector('#download-status');
+const appLinks = document.querySelectorAll('[data-app-link]');
 
 const closeMenu = () => {
     navLinks?.classList.remove('is-open');
@@ -43,6 +44,17 @@ navItems.forEach(link => {
         if (!link.getAttribute('href')?.startsWith('#')) {
             closeMenu();
         }
+    });
+});
+
+appLinks.forEach(link => {
+    link.addEventListener('click', event => {
+        if (window.location.protocol !== 'file:') {
+            return;
+        }
+
+        event.preventDefault();
+        window.location.href = 'http://localhost:3000/app';
     });
 });
 
