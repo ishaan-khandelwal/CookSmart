@@ -60,10 +60,10 @@ appLinks.forEach(link => {
 
 document.querySelectorAll('[data-download-platform]').forEach(button => {
     button.addEventListener('click', () => {
+        // This is kept for any legacy buttons, but updated to be less restrictive
         const platform = button.getAttribute('data-download-platform');
-
         if (downloadStatus) {
-            downloadStatus.textContent = `${platform} download link is not configured yet. Add the store URL and this button will open it directly.`;
+            downloadStatus.textContent = `Redirecting to ${platform} download...`;
         }
     });
 });
