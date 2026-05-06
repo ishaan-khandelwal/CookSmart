@@ -235,14 +235,18 @@ async function start() {
   });
 }
 
-start().catch((error) => {
-  const errorCode = error.code ? ` code=${error.code}` : '';
-  const errorName = error.name ? ` name=${error.name}` : '';
-  const hint =
-    error.message && /server selection|timed out|econnrefused|enotfound/i.test(error.message)
-      ? ' Check Atlas cluster status, the exact hostname from Atlas, local DNS connectivity, and Atlas Network Access/IP whitelist.'
-      : '';
+export default app;
 
-  console.error(`Server startup error:${errorName}${errorCode} ${error.message}.${hint}`);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  start().catch((error) => {
+    const errorCode = error.code ? ` code=${error.code}` : '';
+    const errorName = error.name ? ` name=${error.name}` : '';
+    const hint =
+      error.message && /server selection|timed out|econnrefused|enotfound/i.test(error.message)
+        ? ' Check Atlas cluster status, the exact hostname from Atlas, local DNS connectivity, and Atlas Network Access/IP whitelist.'
+        : '';
+
+    console.error(`Server startup error:${errorName}${errorCode} ${error.message}.${hint}`);
+    process.exit(1);
+  });
+}
