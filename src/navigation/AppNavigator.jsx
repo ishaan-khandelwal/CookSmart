@@ -17,6 +17,7 @@ import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import RecipeResultsScreen from '../screens/RecipeResultsScreen';
 import CreateAccountScreen from '../screens/SignUpScreen';
 import SplashScreen from '../screens/SplashScreen';
+import LandingScreen from '../screens/LandingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -116,6 +117,7 @@ function AppScreens() {
                 </>
             ) : (
                 <>
+                    <Stack.Screen name="Landing" component={LandingScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{ headerShown: false }} />
                 </>

@@ -30,6 +30,7 @@ app.use(express.json({ limit: BODY_SIZE_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_SIZE_LIMIT }));
 app.use('/uploads', uploadRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/', express.static(path.join(__dirname, '../../landing-page')));
 
 app.get('/health', (_req, res) => {
   const database = getDatabaseStatus();
