@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "server": "npm --prefix server run dev",
     "preview": "node scripts/preview.js",
-    "build": "expo export --platform web",
+    "build": "node scripts/build-web.js",
     "build:android:preview": "npx eas build --platform android --profile preview",
     "build:android:production": "npx eas build --platform android --profile production",
     "build:ios:preview": "npx eas build --platform ios --profile preview",

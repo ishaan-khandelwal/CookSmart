@@ -84,10 +84,25 @@ export default function HomeScreen({ navigation }) {
     const floatAnim = useRef(new Animated.Value(0)).current;
     const scrollY = useRef(new Animated.Value(0)).current;
 
-    const firstName = useMemo(() => {
-        const name = user?.displayName ? user.displayName.split(' ')[0] : 'Chef';
-        return name.charAt(0).toUpperCase() + name.slice(1);
-    }, [user]);
+    const displayName = useMemo(() => {
+        const rawName = user?.displayName?.trim() || user?.email?.split('@')?.[0] || 'Chef';
+        return rawName
+            .replace(/[._-]+/g, ' ')
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }, [user?.displayName, user?.email]);
+
+    const userInitials = useMemo(() => {
+        const initials = displayName
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part.charAt(0).toUpperCase())
+            .join('');
+        return initials || 'C';
+    }, [displayName]);
     const isCompact = width < 460 || height < 780;
     const useSplitSectionLayout = width >= 720;
 
@@ -253,22 +268,22 @@ export default function HomeScreen({ navigation }) {
                                 <View style={styles.heroGlowA} />
                                 <View style={styles.heroGlowB} />
 
-                                <View className="mb-8 flex-row items-center justify-between">
-                                    <View className="flex-1 pr-4">
+                                <View className="mb-8 flex-row items-start justify-between">
+                                    <View className="flex-1 pr-3">
                                         <Text className="text-[12px] font-extrabold uppercase tracking-[2px] text-[#F8B84E]">Kitchen Intelligence</Text>
                                         <Text
-                                            className={`${isCompact ? 'text-[30px]' : 'text-[34px]'} mt-2 font-black text-white`}
-                                            numberOfLines={1}
+                                            className={`${isCompact ? 'text-[28px] leading-[34px]' : 'text-[34px] leading-[40px]'} mt-2 font-black text-white`}
+                                            numberOfLines={2}
                                             adjustsFontSizeToFit
-                                            minimumFontScale={0.82}
+                                            minimumFontScale={0.74}
                                         >
-                                            {dayPart}, {firstName}
+                                            {dayPart}, {displayName}
                                         </Text>
                                         <Text className="mt-1.5 text-[14px] font-medium text-white/70">{dateLabel}</Text>
 
                                     </View>
-                                    <View className={`${isCompact ? 'h-12 w-12' : 'h-14 w-14'} items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-lg`}>
-                                        <Text className="text-xl font-black uppercase text-white">{firstName.slice(0, 1)}</Text>
+                                    <View className={`${isCompact ? 'h-12 w-12' : 'h-14 w-14'} shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-lg`}>
+                                        <Text className="text-lg font-black uppercase text-white">{userInitials}</Text>
                                     </View>
                                 </View>
 

@@ -29,11 +29,11 @@
     },
     {
       "source": "/app",
-      "destination": "/index.html"
+      "destination": "/app/index.html"
     },
     {
       "source": "/app/(.*)",
-      "destination": "/index.html"
+      "destination": "/app/index.html"
     },
     {
       "source": "/((?!api|uploads|app|_expo|assets/node_modules|assets/assets).*)",

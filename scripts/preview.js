@@ -5,6 +5,7 @@ const path = require('path');
 const rootDir = path.resolve(__dirname, '..');
 const landingDir = path.join(rootDir, 'landing-page');
 const distDir = path.join(rootDir, 'dist');
+const appDir = path.join(distDir, 'app');
 const port = Number(process.env.PORT || 3000);
 
 const types = {
@@ -42,7 +43,7 @@ const server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(url.pathname);
 
     if (pathname === '/app' || pathname.startsWith('/app/')) {
-        sendFile(response, path.join(distDir, 'index.html'));
+        sendFile(response, path.join(appDir, 'index.html'));
         return;
     }
 

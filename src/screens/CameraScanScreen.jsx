@@ -54,6 +54,64 @@ function inferMimeType(uri, fallback = 'image/jpeg') {
     return fallback;
 }
 
+async function getPreferredVideoDeviceId(useFront) {
+    if (!navigator?.mediaDevices?.enumerateDevices) {
+        return null;
+    }
+
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter((device) => device.kind === 'videoinput');
+
+        if (!videoDevices.length) {
+            return null;
+        }
+
+        const scoredDevices = videoDevices
+            .map((device, index) => {
+                const label = String(device.label || '').toLowerCase();
+                let score = videoDevices.length - index;
+
+                if (useFront) {
+                    if (/front|user|face|selfie/.test(label)) score += 80;
+                    if (/back|rear|environment|world/.test(label)) score -= 40;
+                } else {
+                    if (/back|rear|environment|world/.test(label)) score += 80;
+                    if (/front|user|face|selfie/.test(label)) score -= 50;
+                    if (/ultra.?wide|wide|0\.5/.test(label)) score += 60;
+                    if (/tele|zoom|macro|depth|portrait/.test(label)) score -= 80;
+                }
+
+                return { deviceId: device.deviceId, score };
+            })
+            .sort((a, b) => b.score - a.score);
+
+        return scoredDevices[0]?.deviceId || null;
+    } catch {
+        return null;
+    }
+}
+
+async function resetBrowserCameraZoom(stream) {
+    const track = stream?.getVideoTracks?.()[0];
+
+    if (!track?.getCapabilities || !track?.applyConstraints) {
+        return;
+    }
+
+    try {
+        const capabilities = track.getCapabilities();
+
+        if (typeof capabilities.zoom?.min === 'number') {
+            await track.applyConstraints({
+                advanced: [{ zoom: capabilities.zoom.min }],
+            });
+        }
+    } catch {
+        // Browser zoom control is best-effort and not available on every device.
+    }
+}
+
 export default function CameraScanScreen({ navigation, route }) {
     const isWeb = Platform.OS === 'web';
     const { user } = useAuth();
@@ -107,15 +165,21 @@ export default function CameraScanScreen({ navigation, route }) {
                 streamRef.current.getTracks().forEach((t) => t.stop());
                 streamRef.current = null;
             }
+            const preferredDeviceId = await getPreferredVideoDeviceId(useFront);
             const constraints = {
                 video: {
-                    facingMode: useFront ? 'user' : { ideal: 'environment' },
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
+                    ...(preferredDeviceId
+                        ? { deviceId: { exact: preferredDeviceId } }
+                        : { facingMode: useFront ? 'user' : { ideal: 'environment' } }),
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 },
+                    aspectRatio: { ideal: 16 / 9 },
+                    resizeMode: { ideal: 'none' },
                 },
                 audio: false,
             };
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            await resetBrowserCameraZoom(stream);
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
@@ -146,20 +210,6 @@ export default function CameraScanScreen({ navigation, route }) {
         startWebcam(webFacingFront);
         return () => stopWebcam();
     }, [isWeb, webFacingFront, startWebcam, stopWebcam]);
-
-    // Capture frame from webcam
-    const captureWebcam = useCallback(async () => {
-        if (!videoRef.current || !canvasRef.current || isProcessing) return;
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth || 1280;
-        canvas.height = video.videoHeight || 720;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        const base64 = dataUrl.split(',')[1];
-        await processImageAsset({ uri: dataUrl, base64, mimeType: 'image/jpeg' });
-    }, [isProcessing, processImageAsset]);
 
     const saveRecentScan = useCallback(async (ingredients, photoUri) => {
         try {
@@ -258,6 +308,22 @@ export default function CameraScanScreen({ navigation, route }) {
         },
         [navigateToResults, user?.uid],
     );
+
+    // Capture the raw stream frame, not the fitted preview, so scans are not cropped.
+    const captureWebcam = useCallback(async () => {
+        if (!videoRef.current || !canvasRef.current || isProcessing) return;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const width = video.videoWidth || 1280;
+        const height = video.videoHeight || 720;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const base64 = dataUrl.split(',')[1];
+        await processImageAsset({ uri: dataUrl, base64, mimeType: 'image/jpeg' });
+    }, [isProcessing, processImageAsset]);
 
     const requestNativeCameraPermission = useCallback(async () => {
         try {
@@ -423,7 +489,8 @@ export default function CameraScanScreen({ navigation, route }) {
                         s = document.createElement('style');
                         s.id = 'cooksmart-cam-style';
                         s.textContent = [
-                            '#cooksmart-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}',
+                            '#cooksmart-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}',
+                            '#cooksmart-video.is-front-camera{transform:scaleX(-1);}',
                             '#cooksmart-canvas{display:none;}',
                         ].join('');
                         document.head.appendChild(s);
@@ -442,6 +509,7 @@ export default function CameraScanScreen({ navigation, route }) {
                                 autoPlay
                                 playsInline
                                 muted
+                                className={webFacingFront ? 'is-front-camera' : ''}
                             />
                             <canvas id="cooksmart-canvas" ref={canvasRef} />
                         </>
