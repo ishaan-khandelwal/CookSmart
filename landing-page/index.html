@@ -11,22 +11,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body id="top">
     <nav class="navbar">
         <div class="container">
-            <div class="logo">
-                <span class="logo-icon">🍳</span>
+            <a class="logo" href="#top" aria-label="CookSmart home">
+                <span class="logo-icon"><i data-lucide="chef-hat"></i></span>
                 <span class="logo-text">CookSmart</span>
-            </div>
-            <ul class="nav-links">
+            </a>
+            <ul class="nav-links" id="primary-navigation">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#how-it-works">How it Works</a></li>
                 <li><a href="#about">About</a></li>
-                <li><a href="#" class="btn btn-primary">Download App</a></li>
+                <li><a href="#download" class="btn btn-primary">Download App</a></li>
             </ul>
-            <div class="menu-toggle">
+            <button class="menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="primary-navigation">
                 <i data-lucide="menu"></i>
-            </div>
+            </button>
         </div>
     </nav>
 
@@ -34,22 +34,22 @@
         <div class="container">
             <div class="hero-content">
                 <h1 class="fade-in">Cook Smarter, <br><span class="text-gradient">Not Harder.</span></h1>
-                <p class="fade-in delay-1">Turn your leftover ingredients into gourmet meals. Our AI scans your pantry and suggests the perfect recipes to reduce waste and save time.</p>
+                <p class="fade-in delay-1">Turn leftover ingredients into meals you actually want to make. CookSmart scans your pantry and suggests practical recipes that reduce waste and save time.</p>
                 <div class="hero-btns fade-in delay-2">
-                    <a href="#" class="btn btn-primary btn-lg">Get Started</a>
+                    <a href="/app" class="btn btn-primary btn-lg">Get Started</a>
                     <a href="#how-it-works" class="btn btn-outline btn-lg">Learn More</a>
                 </div>
             </div>
             <div class="hero-image fade-in delay-3">
                 <div class="image-wrapper">
-                    <img src="assets/app_mockup.png" alt="CookSmart App Mockup">
+                    <img src="assets/app_mockup.png" alt="CookSmart app showing recipe suggestions">
                     <div class="floating-card card-1">
                         <i data-lucide="scan"></i>
-                        <span>AI Scanning...</span>
+                        <span>AI scanning</span>
                     </div>
                     <div class="floating-card card-2">
                         <i data-lucide="chef-hat"></i>
-                        <span>New Recipe Found!</span>
+                        <span>Recipe found</span>
                     </div>
                 </div>
             </div>
@@ -60,23 +60,23 @@
         <div class="container">
             <div class="section-header">
                 <h2>Why Choose CookSmart?</h2>
-                <p>Revolutionize the way you cook with our cutting-edge features.</p>
+                <p>Simple tools for choosing what to cook from the food already in your kitchen.</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon"><i data-lucide="camera"></i></div>
                     <h3>AI Ingredient Scanner</h3>
-                    <p>Snap a photo of your fridge or pantry, and our AI instantly identifies every ingredient you have.</p>
+                    <p>Snap a photo of your fridge or pantry, and CookSmart identifies the ingredients you have.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon"><i data-lucide="zap"></i></div>
                     <h3>Smart Recipe Generation</h3>
-                    <p>Get personalized recipe suggestions based on what's available, dietary preferences, and time.</p>
+                    <p>Get recipe ideas based on available ingredients, diet preferences, and cooking time.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon"><i data-lucide="leaf"></i></div>
                     <h3>Reduce Food Waste</h3>
-                    <p>Join thousands of users in saving money and the planet by using ingredients before they expire.</p>
+                    <p>Use food before it expires and make grocery planning easier throughout the week.</p>
                 </div>
             </div>
         </div>
@@ -86,37 +86,50 @@
         <div class="container">
             <div class="section-header">
                 <h2>How It Works</h2>
-                <p>Three simple steps to a better culinary experience.</p>
+                <p>Three simple steps to get from ingredients to dinner.</p>
             </div>
             <div class="steps-container">
                 <div class="step">
                     <div class="step-number">1</div>
                     <h3>Scan Your Pantry</h3>
-                    <p>Use your camera to let CookSmart know what ingredients you have on hand.</p>
+                    <p>Use your camera to show CookSmart what ingredients you have on hand.</p>
                 </div>
                 <div class="step">
                     <div class="step-number">2</div>
                     <h3>Pick a Recipe</h3>
-                    <p>Browse through AI-curated recipes that match your ingredients and mood.</p>
+                    <p>Browse AI-curated recipes that match your ingredients and mood.</p>
                 </div>
                 <div class="step">
                     <div class="step-number">3</div>
                     <h3>Start Cooking</h3>
-                    <p>Follow our easy, step-by-step instructions and enjoy your masterpiece!</p>
+                    <p>Follow clear instructions and turn what you have into a meal.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="cta">
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-layout">
+                <div>
+                    <p class="eyebrow">Built for everyday kitchens</p>
+                    <h2>CookSmart helps you decide what to make before good food goes to waste.</h2>
+                </div>
+                <p>It brings ingredient scanning, recipe discovery, and meal planning into one focused cooking assistant, so your next meal starts with what you already own.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="download" class="cta">
         <div class="container">
             <div class="cta-content">
                 <h2>Ready to transform your kitchen?</h2>
-                <p>Download CookSmart today and start cooking with intelligence.</p>
+                <p>Choose your platform and we will help you get CookSmart on your device.</p>
                 <div class="cta-btns">
-                    <a href="#" class="btn btn-primary btn-lg">Download for iOS</a>
-                    <a href="#" class="btn btn-primary btn-lg">Download for Android</a>
+                    <button type="button" class="btn btn-primary btn-lg" data-download-platform="iOS">Download for iOS</button>
+                    <button type="button" class="btn btn-primary btn-lg" data-download-platform="Android">Download for Android</button>
                 </div>
+                <p class="download-status" id="download-status" aria-live="polite"></p>
             </div>
         </div>
     </section>
@@ -125,10 +138,10 @@
         <div class="container">
             <div class="footer-grid">
                 <div class="footer-about">
-                    <div class="logo">
-                        <span class="logo-icon">🍳</span>
+                    <a class="logo" href="#top" aria-label="CookSmart home">
+                        <span class="logo-icon"><i data-lucide="chef-hat"></i></span>
                         <span class="logo-text">CookSmart</span>
-                    </div>
+                    </a>
                     <p>Empowering home cooks with AI to create delicious meals and reduce waste.</p>
                 </div>
                 <div class="footer-links">
@@ -136,16 +149,16 @@
                     <ul>
                         <li><a href="#features">Features</a></li>
                         <li><a href="#how-it-works">How It Works</a></li>
-                        <li><a href="#">Privacy Policy</a></li>
-                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#about">About</a></li>
+                        <li><a href="#download">Download</a></li>
                     </ul>
                 </div>
                 <div class="footer-social">
                     <h4>Follow Us</h4>
                     <div class="social-icons">
-                        <a href="#"><i data-lucide="instagram"></i></a>
-                        <a href="#"><i data-lucide="twitter"></i></a>
-                        <a href="#"><i data-lucide="facebook"></i></a>
+                        <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram"><i data-lucide="instagram"></i></a>
+                        <a href="https://twitter.com/" target="_blank" rel="noreferrer" aria-label="Twitter"><i data-lucide="twitter"></i></a>
+                        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook"><i data-lucide="facebook"></i></a>
                     </div>
                 </div>
             </div>
@@ -156,8 +169,5 @@
     </footer>
 
     <script src="script.js"></script>
-    <script>
-      lucide.createIcons();
-    </script>
 </body>
 </html>

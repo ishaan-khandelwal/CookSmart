@@ -16,7 +16,7 @@ const { width } = Dimensions.get('window');
 
 export default function LandingScreen({ navigation }) {
     const handleGetStarted = () => {
-        navigation.replace('Login');
+        navigation.replace('Splash');
     };
 
     return (

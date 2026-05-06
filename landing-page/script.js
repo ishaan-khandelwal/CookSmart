@@ -1,46 +1,60 @@
-// Navbar scroll effect
 const navbar = document.querySelector('.navbar');
-window.addEventListener('scroll', () => {
-    if (window.scrollY > 50) {
-        navbar.classList.add('scrolled');
-    } else {
-        navbar.classList.remove('scrolled');
-    }
-});
-
-// Mobile menu toggle (simple version)
 const menuToggle = document.querySelector('.menu-toggle');
 const navLinks = document.querySelector('.nav-links');
+const navItems = document.querySelectorAll('.nav-links a');
+const downloadStatus = document.querySelector('#download-status');
 
-menuToggle.addEventListener('click', () => {
-    navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
-    navLinks.style.flexDirection = 'column';
-    navLinks.style.position = 'absolute';
-    navLinks.style.top = '100%';
-    navLinks.style.left = '0';
-    navLinks.style.width = '100%';
-    navLinks.style.background = 'white';
-    navLinks.style.padding = '1rem';
-    navLinks.style.boxShadow = '0 10px 15px -3px rgb(0 0 0 / 0.1)';
+const closeMenu = () => {
+    navLinks?.classList.remove('is-open');
+    menuToggle?.setAttribute('aria-expanded', 'false');
+};
+
+window.addEventListener('scroll', () => {
+    navbar?.classList.toggle('scrolled', window.scrollY > 50);
 });
 
-// Smooth scroll for internal links
+menuToggle?.addEventListener('click', () => {
+    const isOpen = navLinks.classList.toggle('is-open');
+    menuToggle.setAttribute('aria-expanded', String(isOpen));
+});
+
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth'
-            });
+    anchor.addEventListener('click', event => {
+        const hash = anchor.getAttribute('href');
+
+        if (!hash || hash === '#') {
+            return;
+        }
+
+        const target = document.getElementById(hash.slice(1));
+
+        if (!target) {
+            return;
+        }
+
+        event.preventDefault();
+        closeMenu();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+});
+
+navItems.forEach(link => {
+    link.addEventListener('click', () => {
+        if (!link.getAttribute('href')?.startsWith('#')) {
+            closeMenu();
         }
     });
 });
 
-// Simple intersection observer for animations
-const observerOptions = {
-    threshold: 0.1
-};
+document.querySelectorAll('[data-download-platform]').forEach(button => {
+    button.addEventListener('click', () => {
+        const platform = button.getAttribute('data-download-platform');
+
+        if (downloadStatus) {
+            downloadStatus.textContent = `${platform} download link is not configured yet. Add the store URL and this button will open it directly.`;
+        }
+    });
+});
 
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -49,9 +63,13 @@ const observer = new IntersectionObserver((entries) => {
             observer.unobserve(entry.target);
         }
     });
-}, observerOptions);
+}, { threshold: 0.1 });
 
-document.querySelectorAll('.feature-card, .step, .section-header').forEach(el => {
+document.querySelectorAll('.feature-card, .step, .section-header, .about-layout').forEach(el => {
     el.style.opacity = '0';
     observer.observe(el);
 });
+
+if (window.lucide) {
+    window.lucide.createIcons();
+}

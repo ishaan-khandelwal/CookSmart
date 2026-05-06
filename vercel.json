@@ -9,6 +9,13 @@
     {
       "src": "landing-page/**/*",
       "use": "@vercel/static"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "rewrites": [
@@ -21,7 +28,15 @@
       "destination": "server/src/index.js"
     },
     {
-      "source": "/((?!api|uploads).*)",
+      "source": "/app",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api|uploads|app|_expo|assets/node_modules|assets/assets).*)",
       "destination": "/landing-page/$1"
     },
     {

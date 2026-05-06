@@ -82,7 +82,7 @@ export default function SplashScreen({ navigation }) {
         }
 
         const timer = setTimeout(() => {
-            navigation.replace(user ? 'MainTabs' : 'Landing');
+            navigation.replace(user ? 'MainTabs' : 'Login');
         }, 1500);
 
         return () => {

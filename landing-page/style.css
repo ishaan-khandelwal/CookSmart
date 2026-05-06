@@ -23,6 +23,7 @@
 
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 96px;
 }
 
 body {
@@ -63,6 +64,7 @@ ul {
     cursor: pointer;
     transition: var(--transition);
     text-align: center;
+    font: inherit;
 }
 
 .btn-primary {
@@ -135,7 +137,17 @@ ul {
 }
 
 .logo-icon {
-    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .nav-links {
@@ -156,6 +168,14 @@ ul {
 .menu-toggle {
     display: none;
     cursor: pointer;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary-dark);
 }
 
 /* Hero Section */
@@ -348,6 +368,38 @@ ul {
     color: var(--text-muted);
 }
 
+/* About */
+.about {
+    padding: 7rem 0;
+    background-color: var(--bg-white);
+}
+
+.about-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+    gap: 4rem;
+    align-items: end;
+}
+
+.eyebrow {
+    color: var(--primary-dark);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+}
+
+.about h2 {
+    font-size: 3rem;
+    max-width: 760px;
+}
+
+.about-layout > p {
+    color: var(--text-muted);
+    font-size: 1.12rem;
+}
+
 /* CTA */
 .cta {
     padding: 8rem 0;
@@ -371,6 +423,14 @@ ul {
     display: flex;
     justify-content: center;
     gap: 2rem;
+}
+
+.download-status {
+    min-height: 1.5rem;
+    margin-top: 1.5rem;
+    color: white;
+    font-size: 0.95rem;
+    opacity: 0.92;
 }
 
 .cta .btn-primary {
@@ -493,9 +553,34 @@ ul {
     .nav-links {
         display: none;
     }
+
+    .nav-links.is-open {
+        display: flex;
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        left: 1rem;
+        right: 1rem;
+        width: auto;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .nav-links.is-open a {
+        display: block;
+        padding: 0.65rem 0.75rem;
+    }
+
+    .nav-links.is-open .btn {
+        padding: 0.8rem 1rem;
+    }
     
     .menu-toggle {
-        display: block;
+        display: inline-flex;
     }
     
     .hero-content h1 {
@@ -505,6 +590,15 @@ ul {
     .features-grid, .steps-container {
         grid-template-columns: 1fr;
     }
+
+    .about-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .about h2 {
+        font-size: 2.25rem;
+    }
     
     .cta-content h2 {
         font-size: 2.2rem;
@@ -513,5 +607,13 @@ ul {
     .cta-btns {
         flex-direction: column;
         gap: 1rem;
+    }
+
+    .hero-btns {
+        flex-direction: column;
+    }
+
+    .btn-lg {
+        width: 100%;
     }
 }
