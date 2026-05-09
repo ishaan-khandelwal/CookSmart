@@ -2,7 +2,6 @@ import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icon
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     KeyboardAvoidingView,
     Platform,
@@ -24,6 +23,7 @@ export default function CreateAccountScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [emailError, setEmailError] = useState('');
     const [emailTouched, setEmailTouched] = useState(false);
+    const [authError, setAuthError] = useState('');
     const emailInputRef = useRef(null);
     const passwordInputRef = useRef(null);
     const errorOpacity = useRef(new Animated.Value(0)).current;
@@ -43,6 +43,7 @@ export default function CreateAccountScreen({ navigation }) {
 
     const handleEmailChange = (value) => {
         setEmail(value);
+        setAuthError('');
         if (emailTouched) {
             validateEmail(value);
         }
@@ -64,11 +65,12 @@ export default function CreateAccountScreen({ navigation }) {
     }, [emailError]);
 
     const handleRegister = async () => {
+        setAuthError('');
         setEmailTouched(true);
         const isEmailValid = validateEmail(email);
 
         if (!fullName || !email || !password) {
-            Alert.alert('Error', 'Please fill in all required fields.');
+            setAuthError('Please fill in all required fields.');
             return;
         }
 
@@ -81,7 +83,7 @@ export default function CreateAccountScreen({ navigation }) {
             await signUpWithEmail(email, password, fullName);
             await logout();
         } catch (error) {
-            Alert.alert('Signup Failed', error.message);
+            setAuthError(error.message || 'Signup failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -200,7 +202,7 @@ export default function CreateAccountScreen({ navigation }) {
                                     returnKeyType="done"
                                     secureTextEntry
                                     value={password}
-                                    onChangeText={setPassword}
+                                    onChangeText={(v) => { setPassword(v); setAuthError(''); }}
                                     onSubmitEditing={handleRegister}
                                 />
                             </View>
@@ -212,6 +214,15 @@ export default function CreateAccountScreen({ navigation }) {
                                 Save favorites, organize meals faster, and keep your cooking flow simple.
                             </Text>
                         </View>
+
+                        {authError ? (
+                            <View className="mb-4 flex-row items-start gap-2.5 rounded-2xl border border-[#EF4444]/25 bg-[#EF4444]/10 px-4 py-3">
+                                <Feather name="alert-circle" size={16} color="#EF4444" style={{ marginTop: 1 }} />
+                                <Text className="flex-1 text-[13px] font-medium leading-5 text-[#EF4444]">
+                                    {authError}
+                                </Text>
+                            </View>
+                        ) : null}
 
                         <TouchableOpacity
                             className={`h-14 flex-row items-center justify-center gap-2.5 rounded-[18px] bg-[#22C55E] ${loading ? 'opacity-70' : ''}`}

@@ -2,7 +2,6 @@ import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icon
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     KeyboardAvoidingView,
     Platform,
@@ -25,6 +24,7 @@ export default function LoginScreen({ navigation }) {
     const [showPassword, setShowPassword] = useState(false);
     const [emailError, setEmailError] = useState('');
     const [emailTouched, setEmailTouched] = useState(false);
+    const [authError, setAuthError] = useState('');
     const passwordInputRef = useRef(null);
     const errorOpacity = useRef(new Animated.Value(0)).current;
 
@@ -43,6 +43,7 @@ export default function LoginScreen({ navigation }) {
 
     const handleEmailChange = (value) => {
         setEmail(value);
+        setAuthError('');
         if (emailTouched) {
             validateEmail(value);
         }
@@ -64,11 +65,12 @@ export default function LoginScreen({ navigation }) {
     }, [emailError]);
 
     const handleLogin = async () => {
+        setAuthError('');
         setEmailTouched(true);
         const isEmailValid = validateEmail(email);
 
         if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password.');
+            setAuthError('Please enter both email and password.');
             return;
         }
 
@@ -80,7 +82,7 @@ export default function LoginScreen({ navigation }) {
         try {
             await signInWithEmail(email, password);
         } catch (error) {
-            Alert.alert('Login Failed', error.message);
+            setAuthError(error.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -182,7 +184,7 @@ export default function LoginScreen({ navigation }) {
                                         returnKeyType="done"
                                         secureTextEntry={!showPassword}
                                         value={password}
-                                        onChangeText={setPassword}
+                                        onChangeText={(v) => { setPassword(v); setAuthError(''); }}
                                         onSubmitEditing={handleLogin}
                                     />
                                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -194,6 +196,15 @@ export default function LoginScreen({ navigation }) {
                             <TouchableOpacity className="-mt-1 mb-6 self-end" activeOpacity={0.8}>
                                 <Text className="text-[13px] font-bold text-[#F6C453]">Forgot Password?</Text>
                             </TouchableOpacity>
+
+                            {authError ? (
+                                <View className="mb-4 flex-row items-start gap-2.5 rounded-2xl border border-[#EF4444]/25 bg-[#EF4444]/10 px-4 py-3">
+                                    <Feather name="alert-circle" size={16} color="#EF4444" style={{ marginTop: 1 }} />
+                                    <Text className="flex-1 text-[13px] font-medium leading-5 text-[#EF4444]">
+                                        {authError}
+                                    </Text>
+                                </View>
+                            ) : null}
 
                             <TouchableOpacity
                                 className={`h-14 flex-row items-center justify-center gap-2.5 rounded-[18px] bg-[#F59E0B] ${loading ? 'opacity-70' : ''}`}
