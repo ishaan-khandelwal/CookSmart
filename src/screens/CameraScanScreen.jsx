@@ -488,13 +488,13 @@ export default function CameraScanScreen({ navigation, route }) {
                     if (!s) {
                         s = document.createElement('style');
                         s.id = 'cooksmart-cam-style';
-                        s.textContent = [
-                            '#cooksmart-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}',
-                            '#cooksmart-video.is-front-camera{transform:scaleX(-1);}',
-                            '#cooksmart-canvas{display:none;}',
-                        ].join('');
                         document.head.appendChild(s);
                     }
+                    s.textContent = [
+                        '#cooksmart-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}',
+                        '#cooksmart-video.is-front-camera{transform:scaleX(-1);}',
+                        '#cooksmart-canvas{display:none;}',
+                    ].join('');
                     return null;
                 })()}
 
