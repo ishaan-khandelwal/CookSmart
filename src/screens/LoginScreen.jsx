@@ -1,8 +1,9 @@
 import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Animated,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -15,16 +16,63 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInWithEmail } from '../backend/auth';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [emailError, setEmailError] = useState('');
+    const [emailTouched, setEmailTouched] = useState(false);
     const passwordInputRef = useRef(null);
+    const errorOpacity = useRef(new Animated.Value(0)).current;
+
+    const validateEmail = (value) => {
+        if (!value) {
+            setEmailError('');
+            return false;
+        }
+        if (!EMAIL_REGEX.test(value)) {
+            setEmailError('Please enter a valid email address');
+            return false;
+        }
+        setEmailError('');
+        return true;
+    };
+
+    const handleEmailChange = (value) => {
+        setEmail(value);
+        if (emailTouched) {
+            validateEmail(value);
+        }
+    };
+
+    const handleEmailBlur = () => {
+        setEmailTouched(true);
+        if (email) {
+            validateEmail(email);
+        }
+    };
+
+    useEffect(() => {
+        Animated.timing(errorOpacity, {
+            toValue: emailError ? 1 : 0,
+            duration: 200,
+            useNativeDriver: true,
+        }).start();
+    }, [emailError]);
 
     const handleLogin = async () => {
+        setEmailTouched(true);
+        const isEmailValid = validateEmail(email);
+
         if (!email || !password) {
             Alert.alert('Error', 'Please enter both email and password.');
+            return;
+        }
+
+        if (!isEmailValid) {
             return;
         }
 
@@ -78,8 +126,18 @@ export default function LoginScreen({ navigation }) {
 
                             <View className="mb-4">
                                 <Text className="mb-2 text-[13px] font-bold text-[#E8E8E8]">Email</Text>
-                                <View className="min-h-14 flex-row items-center gap-3 rounded-[18px] border border-white/10 bg-[#151515] px-4">
-                                    <MaterialCommunityIcons name="email-outline" size={20} color="#8A8A8A" />
+                                <View
+                                    className={`min-h-14 flex-row items-center gap-3 rounded-[18px] border bg-[#151515] px-4 ${
+                                        emailError && emailTouched
+                                            ? 'border-[#EF4444]'
+                                            : 'border-white/10'
+                                    }`}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="email-outline"
+                                        size={20}
+                                        color={emailError && emailTouched ? '#EF4444' : '#8A8A8A'}
+                                    />
                                     <TextInput
                                         placeholder="Enter your email"
                                         placeholderTextColor="#8A8A8A"
@@ -92,10 +150,19 @@ export default function LoginScreen({ navigation }) {
                                         returnKeyType="next"
                                         blurOnSubmit={false}
                                         value={email}
-                                        onChangeText={setEmail}
+                                        onChangeText={handleEmailChange}
+                                        onBlur={handleEmailBlur}
                                         onSubmitEditing={() => passwordInputRef.current?.focus()}
                                     />
                                 </View>
+                                {emailTouched && (
+                                    <Animated.View style={{ opacity: errorOpacity }} className="mt-2 flex-row items-center gap-1.5 pl-1">
+                                        <Feather name="alert-circle" size={13} color="#EF4444" />
+                                        <Text className="text-[12px] font-medium text-[#EF4444]">
+                                            {emailError}
+                                        </Text>
+                                    </Animated.View>
+                                )}
                             </View>
 
                             <View className="mb-4">
