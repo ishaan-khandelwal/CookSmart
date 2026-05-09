@@ -334,12 +334,11 @@ function getLocalCookFreedomRecipes(ingredients) {
 }
 
 function getRelevantLocalCookFreedomRecipes(ingredients) {
-    const localRecipes = getLocalCookFreedomRecipes(ingredients);
-
     if (!Array.isArray(ingredients) || !ingredients.length) {
-        return localRecipes;
+        return [];
     }
 
+    const localRecipes = getLocalCookFreedomRecipes(ingredients);
     return localRecipes.filter((recipe) => Number(recipe?.matchingCount || 0) > 0);
 }
 
@@ -837,7 +836,7 @@ export async function getStoredSpoonacularQuota() {
 export async function fetchRecipesByIngredients(ingredients, options = {}) {
     const mode = options?.mode === RECIPE_MODE_IDS.COOK_FREEDOM ? RECIPE_MODE_IDS.COOK_FREEDOM : DEFAULT_RECIPE_MODE;
     const normalized = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
-    if (!normalized.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) return { recipes: [], quota: null, provider: null };
+    if (!normalized.length) return { recipes: [], quota: null, provider: null };
     const localPantryRecipes = getLocalPantryRecipes(normalized);
     const localCookFreedomRecipes = getRelevantLocalCookFreedomRecipes(normalized);
 
