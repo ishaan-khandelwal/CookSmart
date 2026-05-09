@@ -84,12 +84,18 @@ export default function IngredientsResultScreen({ navigation, route }) {
                             </View>
                         </View>
                         <Text className="mt-3 text-[22px] font-black text-textPrimary">
-                            {allowEmptyContinue ? 'Browse first, stock up later.' : 'Cook only from your current pantry.'}
+                            Cook only from your current pantry.
                         </Text>
                         <Text className="mt-2 text-sm leading-6 text-textSecondary">{modeMeta.description}</Text>
                     </View>
 
-                    {photoUri ? <Image source={{ uri: photoUri }} className="mb-[22px] h-[220px] w-full rounded-[20px]" /> : null}
+                    {photoUri ? (
+                        <Image 
+                            source={{ uri: photoUri }} 
+                            className="mb-[22px] h-[220px] w-full rounded-[20px] bg-card" 
+                            resizeMode="cover"
+                        />
+                    ) : null}
 
                     {scannerError ? (
                         <View className="mb-[18px] flex-row items-start rounded-2xl border border-[#00c89638] bg-[#00c8961f] p-3.5">

@@ -314,13 +314,26 @@ export default function CameraScanScreen({ navigation, route }) {
         if (!videoRef.current || !canvasRef.current || isProcessing) return;
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        const width = video.videoWidth || 1280;
-        const height = video.videoHeight || 720;
+        
+        // Ensure video is ready and has valid dimensions
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+        
+        if (!width || !height) {
+            console.warn('Webcam capture failed: Video dimensions are 0');
+            return;
+        }
+
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        
+        // Clear and draw
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
         ctx.drawImage(video, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         const base64 = dataUrl.split(',')[1];
         await processImageAsset({ uri: dataUrl, base64, mimeType: 'image/jpeg' });
     }, [isProcessing, processImageAsset]);
