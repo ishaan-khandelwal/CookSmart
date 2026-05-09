@@ -16,7 +16,6 @@ export default function SplashScreen({ navigation }) {
     const translateAnim = useRef(new Animated.Value(24)).current;
     const scaleAnim = useRef(new Animated.Value(0.88)).current;
     const orbitAnim = useRef(new Animated.Value(0)).current;
-    const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         const introAnimation = Animated.parallel([
@@ -49,32 +48,13 @@ export default function SplashScreen({ navigation }) {
             })
         );
 
-        const pulseLoop = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, {
-                    toValue: 1.06,
-                    duration: 1600,
-                    easing: Easing.inOut(Easing.ease),
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseAnim, {
-                    toValue: 1,
-                    duration: 1600,
-                    easing: Easing.inOut(Easing.ease),
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-
         introAnimation.start();
         orbitLoop.start();
-        pulseLoop.start();
 
         return () => {
             orbitLoop.stop();
-            pulseLoop.stop();
         };
-    }, [fadeAnim, orbitAnim, pulseAnim, scaleAnim, translateAnim]);
+    }, [fadeAnim, orbitAnim, scaleAnim, translateAnim]);
 
     useEffect(() => {
         if (loading) {
@@ -115,7 +95,7 @@ export default function SplashScreen({ navigation }) {
                     style={[
                         styles.logoOrbitWrap,
                         {
-                            transform: [{ scale: scaleAnim }, { scale: pulseAnim }],
+                            transform: [{ scale: scaleAnim }],
                         },
                     ]}
                 >
