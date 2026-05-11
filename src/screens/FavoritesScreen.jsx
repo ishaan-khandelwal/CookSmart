@@ -136,9 +136,13 @@ export default function FavoritesScreen({ navigation }) {
             return;
         }
 
+        const requestId = Date.now();
+        lastRefreshAtRef.current = requestId;
+
         try {
             const cachedFavorites = await getCachedFavorites(userId);
-            if (cachedFavorites.length) {
+            // Only update if no newer request has started
+            if (lastRefreshAtRef.current === requestId && cachedFavorites.length) {
                 setFavorites(cachedFavorites);
                 setLoading(false);
             }
@@ -150,15 +154,22 @@ export default function FavoritesScreen({ navigation }) {
             }
 
             const data = await fetchFavorites(userId, { force });
+            if (lastRefreshAtRef.current !== requestId) {
+                return;
+            }
+
             const favoritesList = (Array.isArray(data) ? data : []).filter(item => item && typeof item === 'object');
             setFavorites(favoritesList);
             refreshFavoriteImages(favoritesList);
-            lastRefreshAtRef.current = Date.now();
         } catch (error) {
-            Alert.alert('Load Failed', error.message);
+            if (lastRefreshAtRef.current === requestId) {
+                Alert.alert('Load Failed', error.message);
+            }
         } finally {
-            setLoading(false);
-            setRefreshing(false);
+            if (lastRefreshAtRef.current === requestId) {
+                setLoading(false);
+                setRefreshing(false);
+            }
         }
     }, [refreshFavoriteImages, userId]);
 
@@ -250,7 +261,7 @@ export default function FavoritesScreen({ navigation }) {
                         <View className="mb-5 mt-2">
                             <View>
                                 <Text className="text-[11px] font-extrabold uppercase tracking-[1.8px] text-[#F6B44F]">Saved Collection</Text>
-                                <Text className="mt-2 text-[32px] font-black text-white">Favorites</Text>
+                                <Text className="mt-2 text-[32px] font-black text-white">Recipes</Text>
                                 <Text className="mt-2 max-w-[300px] text-sm leading-6 text-[#93A6B8]">
                                     Keep your best meals, AI finds, and pantry staples in one clean archive.
                                 </Text>
@@ -352,10 +363,18 @@ export default function FavoritesScreen({ navigation }) {
                                     style={styles.favoriteImage}
                                     resizeMode="cover"
                                     onError={() => {
-                                        // If image fails to load, update local state to show fallback
+                                        // Update local state for immediate feedback
                                         setFavorites(current => current.map(f => 
                                             f._id === item._id ? { ...f, image: '' } : f
                                         ));
+                                        
+                                        // Persist the broken image state so it doesn't try to reload next time
+                                        createFavorite({
+                                            ...item,
+                                            image: '',
+                                            userId,
+                                            source: 'image-error-fallback'
+                                        }).catch(() => {});
                                     }}
                                 />
                             ) : (
