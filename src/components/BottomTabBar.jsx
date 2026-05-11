@@ -98,7 +98,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                                 activeOpacity={0.9}
                             >
                                 <View className={`w-full items-center rounded-[18px] px-1 py-1.5 ${isFocused ? 'bg-white/6' : 'bg-transparent'}`}>
-                                    <View className={`h-9 w-9 items-center justify-center rounded-[14px] ${isFocused ? 'bg-[#f6b44f14]' : 'bg-transparent'}`}>
+                                    <View className={`h-9 w-9 items-center justify-center rounded-[14px] ${isFocused ? 'bg-[#f6b44f]/10' : 'bg-transparent'}`}>
                                         <Ionicons
                                             name={getIconName(route.name, isFocused)}
                                             size={19}

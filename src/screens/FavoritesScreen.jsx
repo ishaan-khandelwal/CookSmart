@@ -150,7 +150,7 @@ export default function FavoritesScreen({ navigation }) {
             }
 
             const data = await fetchFavorites(userId, { force });
-            const favoritesList = Array.isArray(data) ? data : [];
+            const favoritesList = (Array.isArray(data) ? data : []).filter(item => item && typeof item === 'object');
             setFavorites(favoritesList);
             refreshFavoriteImages(favoritesList);
             lastRefreshAtRef.current = Date.now();
@@ -374,7 +374,7 @@ export default function FavoritesScreen({ navigation }) {
                                         </Text>
                                         <Text className="mt-2 text-[22px] font-black leading-7 text-white">{item.title}</Text>
                                     </View>
-                                    <View className={`rounded-full px-3 py-1.5 ${isVeg ? 'bg-[#00c89620]' : 'bg-[#ff6b6b20]'}`}>
+                                    <View className={`rounded-full px-3 py-1.5 ${isVeg ? 'bg-[#00c896]/10' : 'bg-[#ff6b6b]/10'}`}>
                                         <Text className={`text-[11px] font-black uppercase tracking-[0.8px] ${isVeg ? 'text-[#89E3CC]' : 'text-[#FF9A9A]'}`}>
                                             {dietLabel}
                                         </Text>

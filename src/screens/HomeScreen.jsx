@@ -288,7 +288,7 @@ export default function HomeScreen({ navigation }) {
                                 </View>
 
                                 <View className={isCompact ? '' : 'max-w-[260px]'}>
-                                    <View className="mb-5 flex-row items-center self-start rounded-full border border-white/10 bg-[#00000044] px-4 py-2">
+                                    <View className="mb-5 flex-row items-center self-start rounded-full border border-white/10 bg-black/25 px-4 py-2">
                                         <FontAwesome5 name="utensils" size={12} color="#F8B84E" />
                                         <Text className="ml-2 text-[11px] font-extrabold uppercase tracking-[1px] text-white/90">{syncLabel}</Text>
                                     </View>

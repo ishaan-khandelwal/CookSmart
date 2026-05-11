@@ -136,8 +136,8 @@ export default function ProfileScreen({ navigation }) {
                 </View>
 
                 <View className="overflow-hidden rounded-[34px] border border-white/10 bg-[#0d1721] px-5 pb-6 pt-6">
-                    <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#f6b44f1f]" />
-                    <View className="absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-[#00c89614]" />
+                    <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#f6b44f]/10" />
+                    <View className="absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-[#00c896]/10" />
 
                     <View className="flex-row items-center justify-between">
                         <View className="flex-1 pr-4">
@@ -180,7 +180,7 @@ export default function ProfileScreen({ navigation }) {
                                     : 'Your latest quota snapshot will appear here after a recipe search.'}
                             </Text>
                         </View>
-                        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#f6b44f14]">
+                        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#f6b44f]/10">
                             <Star color="#F6B44F" size={20} />
                         </View>
                     </View>
@@ -204,7 +204,7 @@ export default function ProfileScreen({ navigation }) {
                             </View>
                         ) : history.length ? (
                             history.slice(0, 8).map((item, index) => (
-                                <View key={item._id || `${item.title}-${index}`} className={index ? 'mt-4 border-t border-white/8 pt-4' : ''}>
+                                <View key={item._id || `${item.title}-${index}`} className={index ? 'mt-4 border-t border-white/5 pt-4' : ''}>
                                     <Text className="text-[16px] font-bold text-white">{item.title}</Text>
                                     <Text className="mt-1 text-[11px] font-extrabold uppercase tracking-[1px] text-[#F6B44F]">
                                         {item.type || item.source || 'manual'} - {formatDate(item.createdAt)}
@@ -223,7 +223,7 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
 
-                <TouchableOpacity className="mt-6 flex-row items-center justify-center rounded-full border border-[#ff6b6b33] bg-[#30181c] px-5 py-4" activeOpacity={0.85} onPress={handleLogout}>
+                <TouchableOpacity className="mt-6 flex-row items-center justify-center rounded-full border border-[#ff6b6b]/20 bg-[#30181c] px-5 py-4" activeOpacity={0.85} onPress={handleLogout}>
                     <LogOut color="#FF7F7F" size={18} />
                     <Text className="ml-2 text-[14px] font-black uppercase tracking-[0.8px] text-[#FF8E8E]">Log Out</Text>
                 </TouchableOpacity>
@@ -235,7 +235,7 @@ export default function ProfileScreen({ navigation }) {
                 animationType="fade"
                 onRequestClose={() => setAccountInfoVisible(false)}
             >
-                <Pressable className="flex-1 items-center justify-center bg-[#02070ccc] px-6" onPress={() => setAccountInfoVisible(false)}>
+                <Pressable className="flex-1 items-center justify-center bg-black/80 px-6" onPress={() => setAccountInfoVisible(false)}>
                     <Pressable className="w-full max-w-[360px] rounded-[30px] border border-white/10 bg-[#0d1721] px-5 pb-5 pt-6">
                         <Text className="text-[11px] font-extrabold uppercase tracking-[1.6px] text-[#F6B44F]">Your Information</Text>
                         <Text className="mt-3 text-[28px] font-black text-white">{user?.displayName || 'User'}</Text>
@@ -259,7 +259,7 @@ export default function ProfileScreen({ navigation }) {
 
 function ProfileStat({ label, value, accent }) {
     return (
-        <View className="min-w-0 flex-1 rounded-[22px] border border-white/8 bg-white/5 px-3 py-3">
+        <View className="min-w-0 flex-1 rounded-[22px] border border-white/5 bg-white/5 px-3 py-3">
             <View className="mb-3 h-1.5 w-10 rounded-full" style={{ backgroundColor: accent }} />
             <Text className="text-[22px] font-black text-white">{value}</Text>
             <Text className="mt-1 text-[11px] font-semibold uppercase tracking-[1px] text-[#71869A]">{label}</Text>
@@ -287,7 +287,7 @@ function ProfileRow({ icon: Icon, iconColor, label, onPress }) {
 
 function InfoRow({ label, value }) {
     return (
-        <View className="rounded-[20px] border border-white/8 bg-white/5 px-4 py-3.5">
+        <View className="rounded-[20px] border border-white/5 bg-white/5 px-4 py-3.5">
             <Text className="text-[11px] font-extrabold uppercase tracking-[1.2px] text-[#6D8296]">{label}</Text>
             <Text className="mt-2 text-[15px] leading-6 text-white">{value}</Text>
         </View>
