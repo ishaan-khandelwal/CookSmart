@@ -424,9 +424,19 @@ export default function PlannerScreen() {
     }, [openPicker, plan, weekDays]);
 
     const handleClearWeek = useCallback(() => {
+        const clearAction = () => setPlan(createEmptyPlan(weekDays));
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Clear this week? This removes all planned meals for the current week.');
+            if (confirmed) {
+                clearAction();
+            }
+            return;
+        }
+
         Alert.alert('Clear this week?', 'This removes all planned meals for the current week.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Clear', style: 'destructive', onPress: () => setPlan(createEmptyPlan(weekDays)) },
+            { text: 'Clear', style: 'destructive', onPress: clearAction },
         ]);
     }, [weekDays]);
 

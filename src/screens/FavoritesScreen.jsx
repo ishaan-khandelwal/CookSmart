@@ -27,7 +27,11 @@ const FILTERS = [
 
 function canRenderFavoriteImage(uri) {
     const value = String(uri || '').trim();
-    return Boolean(value) && !/^data:image\/svg\+xml/i.test(value);
+    if (!value || value === 'null' || value === 'undefined') {
+        return false;
+    }
+    // Block SVG data URIs as they often fail to render in standard Image components
+    return !/^data:image\/svg\+xml/i.test(value);
 }
 
 function shouldUpgradeFavoriteImage(uri) {
@@ -346,10 +350,19 @@ export default function FavoritesScreen({ navigation }) {
                                     source={{ uri: item.image }}
                                     style={styles.favoriteImage}
                                     resizeMode="cover"
+                                    onError={() => {
+                                        // If image fails to load, update local state to show fallback
+                                        setFavorites(current => current.map(f => 
+                                            f._id === item._id ? { ...f, image: '' } : f
+                                        ));
+                                    }}
                                 />
                             ) : (
                                 <View style={styles.favoriteImageFallback}>
-                                    <Text className="text-[13px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">Saved Recipe</Text>
+                                    <View className="items-center">
+                                        <Ionicons name="restaurant-outline" size={28} color="#F6B44F" style={{ opacity: 0.5 }} />
+                                        <Text className="mt-3 text-[13px] font-black uppercase tracking-[1.4px] text-[#F6B44F]">Saved Recipe</Text>
+                                    </View>
                                 </View>
                             )}
                             <View className="px-5 pb-5 pt-4">

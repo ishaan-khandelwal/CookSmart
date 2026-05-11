@@ -46,6 +46,7 @@ function MainTabs() {
                 freezeOnBlur: true,
                 detachInactiveScreens: true,
             }}
+            backBehavior="history"
             tabBar={(props) => <BottomTabBar {...props} />}
         >
             <Tab.Screen
