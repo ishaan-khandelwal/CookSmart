@@ -8,6 +8,7 @@ import {
     Animated,
     Image,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StatusBar,
