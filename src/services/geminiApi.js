@@ -19,9 +19,12 @@ async function extractGeminiErrorDetail(response) {
 }
 
 function createGeminiError(message, response, model) {
+    const detail = String(message || '').toLowerCase();
+    const isRateLimit = response?.status === 429 || detail.includes('rate limit') || detail.includes('too many requests') || detail.includes('resource exhausted');
+    
     return Object.assign(new Error(message || 'Gemini request failed'), {
         code: response?.status === 401 || response?.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
-        status: response?.status,
+        status: isRateLimit ? 429 : response?.status,
         provider: 'gemini',
         model,
     });

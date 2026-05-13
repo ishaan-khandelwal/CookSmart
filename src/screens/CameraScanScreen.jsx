@@ -294,10 +294,14 @@ export default function CameraScanScreen({ navigation, route }) {
                 } else if (error?.code === 'INVALID_RESPONSE') {
                     scannerError = 'The photo did not return usable ingredient data. Enter ingredients manually below.';
                 } else if (error?.code === 'API_ERROR' && error?.status) {
-                    scannerError =
-                        error?.detail && error.detail.length < 180
-                            ? error.detail
-                            : `Ingredient scanner failed with status ${error.status}. Enter ingredients manually below.`;
+                    if (error.status === 429) {
+                        scannerError = 'The ingredient scanner is busy (rate limit reached). Please wait a moment and try again, or enter ingredients manually below.';
+                    } else {
+                        scannerError =
+                            error?.detail && error.detail.length < 180
+                                ? error.detail
+                                : `Ingredient scanner failed with status ${error.status}. Enter ingredients manually below.`;
+                    }
                 }
 
                 await navigateToResults([], uri, { scannerError });

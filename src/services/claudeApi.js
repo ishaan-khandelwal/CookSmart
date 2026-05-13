@@ -380,6 +380,12 @@ async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
             }
 
             lastError = error;
+            
+            // If we hit 429, don't immediately blast more models on the same provider
+            if (response.status === 429) {
+                break; 
+            }
+            
             continue;
         }
 
@@ -433,11 +439,24 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
             lastError = Object.assign(error || new Error('Scanner request failed'), {
                 provider: candidate.provider,
             });
+
+            // If we hit a rate limit (429), log it and potentially wait or move to next provider
+            console.warn(`[Scanner] Provider ${candidate.provider} rate limited (429).`);
+            
+            // If it's a 429, we might want to try the next provider, 
+            // but we shouldn't blast them all at once.
+            if (error.status === 429 && scannerCandidates.length > 1) {
+                // Short sleep before trying fallback provider
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
         }
     }
 
     if (lastError?.code === 'INVALID_RESPONSE') {
         Alert.alert('Scanner Error', 'Could not parse ingredients. AI output was invalid.');
+    } else if (lastError?.status === 429) {
+        // Don't show alert for 429, we handle it in the UI screen with a cleaner message
+        console.warn('Scanner rate limited (429).');
     } else {
         Alert.alert('Scanner Error', `${lastError?.provider || scannerConfig.provider} failed: ${lastError?.message || 'Unknown error'}`);
     }
