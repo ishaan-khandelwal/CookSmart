@@ -283,28 +283,25 @@ export default function CameraScanScreen({ navigation, route }) {
 
                 await navigateToResults(ingredients, previewUri || null);
             } catch (error) {
+                console.error('Scan Error:', error);
                 let scannerError = 'Scanner unavailable. Add the ingredients manually below.';
 
                 if (error?.code === 'MISSING_API_KEY') {
-                    scannerError = 'Scanner API key is missing. Add Anthropic, Gemini, or OpenRouter credentials, restart Expo, or enter ingredients manually below.';
+                    scannerError = 'Scanner API key is missing. Add credentials to your .env file or try Demo Mode below.';
                 } else if (error?.code === 'AUTH_ERROR') {
-                    scannerError = 'The scanner API key was rejected. Check the provider key, or enter ingredients manually below.';
-                } else if (error?.code === 'NETWORK_ERROR') {
-                    scannerError = 'Could not contact the scanner provider from the device. Enter ingredients manually below.';
+                    scannerError = 'The scanner API key was rejected. Please check your .env file or try Demo Mode below.';
+                } else if (error?.code === 'API_ERROR' && error?.status === 429) {
+                    scannerError = 'The scanner is busy (rate limit reached). Please wait a minute or try Demo Mode below.';
                 } else if (error?.code === 'INVALID_RESPONSE') {
-                    scannerError = 'The photo did not return usable ingredient data. Enter ingredients manually below.';
-                } else if (error?.code === 'API_ERROR' && error?.status) {
-                    if (error.status === 429) {
-                        scannerError = 'The ingredient scanner is busy (rate limit reached). Please wait a moment and try again, or enter ingredients manually below.';
-                    } else {
-                        scannerError =
-                            error?.detail && error.detail.length < 180
-                                ? error.detail
-                                : `Ingredient scanner failed with status ${error.status}. Enter ingredients manually below.`;
-                    }
+                    scannerError = 'The photo did not return usable data. Try Demo Mode below.';
+                } else {
+                    scannerError = error.message || 'Scanner failed. Try Demo Mode below or enter ingredients manually.';
                 }
 
-                await navigateToResults([], uri, { scannerError });
+                await navigateToResults([], uri, { 
+                    scannerError,
+                    showDemoOption: true 
+                });
             } finally {
                 setIsProcessing(false);
                 setLoadingMessage('Preparing camera...');
@@ -337,7 +334,7 @@ export default function CameraScanScreen({ navigation, route }) {
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(video, 0, 0, width, height);
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
         const base64 = dataUrl.split(',')[1];
         await processImageAsset({ uri: dataUrl, base64, mimeType: 'image/jpeg' });
     }, [isProcessing, processImageAsset]);
@@ -383,7 +380,7 @@ export default function CameraScanScreen({ navigation, route }) {
                 cameraType: cameraFacing === 'front' ? 'front' : 'back',
                 base64: true,
                 exif: false,
-                quality: 0.85,
+                quality: 0.70,
                 zoom: 0,
                 presentationStyle: 'fullScreen',
             });

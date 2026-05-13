@@ -98,9 +98,20 @@ export default function IngredientsResultScreen({ navigation, route }) {
                     ) : null}
 
                     {scannerError ? (
-                        <View className="mb-[18px] flex-row items-start rounded-2xl border border-[#00c89638] bg-[#00c8961f] p-3.5">
-                            <Ionicons name="warning-outline" size={18} color="#00C896" />
-                            <Text className="ml-2.5 flex-1 text-sm leading-5 text-textPrimary">{scannerError}</Text>
+                        <View className="mb-[18px] rounded-2xl border border-[#00c89638] bg-[#00c8961f] p-4">
+                            <View className="flex-row items-start">
+                                <Ionicons name="warning-outline" size={18} color="#00C896" />
+                                <Text className="ml-2.5 flex-1 text-sm leading-5 text-textPrimary">{scannerError}</Text>
+                            </View>
+                            
+                            {route.params?.showDemoOption && (
+                                <Pressable 
+                                    className="mt-3.5 items-center justify-center rounded-xl bg-[#00C896] py-2.5"
+                                    onPress={() => setItems(normalizeIngredients(['onion', 'tomato', 'chicken', 'garlic', 'potato']))}
+                                >
+                                    <Text className="text-xs font-black uppercase tracking-wider text-background">Try Demo Mode</Text>
+                                </Pressable>
+                            )}
                         </View>
                     ) : null}
 

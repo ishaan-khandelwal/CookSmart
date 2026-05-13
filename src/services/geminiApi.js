@@ -1,8 +1,9 @@
 const GEMINI_API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_GEMINI_MODELS = [
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
 ];
 
 function normalizeGeminiModelName(model) {
@@ -137,8 +138,13 @@ export async function generateGeminiContent({
         return initialResult;
     }
 
+    // If we hit 429, wait a bit and try one more time with a broader list
+    if (lastError?.status === 429) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
     try {
-        const supportedModels = await listGeminiGenerateContentModels(apiKey);
+        const supportedModels = await listGeminiGenerateContentModels(apiKey).catch(() => []);
         const discoveredResult = await tryModels([preferredModel, ...fallbackModels, ...supportedModels]);
         if (discoveredResult) {
             return discoveredResult;

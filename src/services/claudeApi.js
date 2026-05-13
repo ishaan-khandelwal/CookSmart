@@ -4,13 +4,19 @@ import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
 const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const OPENROUTER_MODEL = 'google/gemini-2.0-flash-001';
+const GEMINI_MODEL = 'gemini-1.5-flash';
+const OPENROUTER_MODEL = 'meta-llama/llama-3.2-11b-vision-instruct:free';
+const OPENAI_MODEL = 'gpt-4o-mini';
+const GROQ_MODEL = 'llama-3.2-11b-vision-preview';
+
 const OPENROUTER_FALLBACK_MODELS = [
-    'anthropic/claude-3.5-sonnet',
-    'meta-llama/llama-3.2-11b-vision-instruct',
-    OPENROUTER_MODEL,
+    'meta-llama/llama-3.2-11b-vision-instruct:free',
+    'google/gemini-2.0-flash-lite-preview-02-05:free',
+    'google/gemini-2.0-flash-exp:free',
 ];
 const INGREDIENT_PROMPT = `You are a food ingredient detector. Look at this image and identify ALL visible food ingredients.
 Reply ONLY with a valid JSON array of ingredient names in lowercase English.
@@ -58,8 +64,17 @@ function getScannerConfig() {
     const anthropicKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_ANTHROPIC_KEY'));
     const openRouterKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENROUTER_KEY')) || anthropicKey;
     const geminiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GEMINI_KEY'));
+    const openAIKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENAI_KEY'));
+    const groqKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GROQ_KEY'));
 
-    // Priority for Scanning: 1. OpenRouter, 2. Anthropic, 3. Gemini
+    // Priority for Scanning: 1. OpenAI, 2. OpenRouter, 3. Anthropic, 4. Groq, 5. Gemini
+    if (openAIKey.startsWith('sk-')) {
+        return {
+            provider: 'openai',
+            apiKey: openAIKey,
+            model: getEnvValue('EXPO_PUBLIC_OPENAI_MODEL') || OPENAI_MODEL,
+        };
+    }
     if (openRouterKey.startsWith('sk-or-v1-')) {
         return {
             provider: 'openrouter',
@@ -80,7 +95,15 @@ function getScannerConfig() {
         return {
             provider: 'gemini',
             apiKey: geminiKey,
-            model: normalizeGeminiModelName(getEnvValue('EXPO_PUBLIC_GEMINI_MODEL')) || GEMINI_MODEL,
+            model: 'gemini-1.5-flash',
+        };
+    }
+
+    if (groqKey.startsWith('gsk_')) {
+        return {
+            provider: 'groq',
+            apiKey: groqKey,
+            model: getEnvValue('EXPO_PUBLIC_GROQ_MODEL') || GROQ_MODEL,
         };
     }
 
@@ -95,7 +118,17 @@ function getScannerCandidates() {
     const anthropicKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_ANTHROPIC_KEY'));
     const openRouterKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENROUTER_KEY')) || anthropicKey;
     const geminiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GEMINI_KEY'));
+    const openAIKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENAI_KEY'));
+    const groqKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GROQ_KEY'));
     const candidates = [];
+
+    if (openAIKey.startsWith('sk-')) {
+        candidates.push({
+            provider: 'openai',
+            apiKey: openAIKey,
+            model: getEnvValue('EXPO_PUBLIC_OPENAI_MODEL') || OPENAI_MODEL,
+        });
+    }
 
     if (openRouterKey.startsWith('sk-or-v1-')) {
         candidates.push({
@@ -117,6 +150,14 @@ function getScannerCandidates() {
             provider: 'openrouter',
             apiKey: anthropicKey,
             model: 'anthropic/claude-3.5-sonnet',
+        });
+    }
+
+    if (groqKey.startsWith('gsk_')) {
+        candidates.push({
+            provider: 'groq',
+            apiKey: groqKey,
+            model: getEnvValue('EXPO_PUBLIC_GROQ_MODEL') || GROQ_MODEL,
         });
     }
 
@@ -193,6 +234,11 @@ function parseGeminiText(data) {
         : [];
 
     return textBlocks.join('\n').trim();
+}
+
+function parseOpenAIResponse(data) {
+    const content = data?.choices?.[0]?.message?.content;
+    return typeof content === 'string' ? content.trim() : '';
 }
 
 function parseOpenRouterText(data) {
@@ -326,6 +372,106 @@ async function detectWithGemini(base64Image, apiKey, model, mimeType) {
     }
 }
 
+async function detectWithOpenAI(base64Image, apiKey, model, mimeType) {
+    try {
+        const response = await fetch(OPENAI_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: INGREDIENT_PROMPT },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: `data:${mimeType};base64,${base64Image}`,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                max_tokens: 300,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await extractErrorDetail(response);
+            throw Object.assign(new Error(errorText || 'OpenAI request failed'), {
+                code: response.status === 401 || response.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
+                status: response.status,
+                detail: errorText,
+                provider: 'openai',
+            });
+        }
+
+        const data = await response.json();
+        return parseOpenAIResponse(data);
+    } catch (error) {
+        throw Object.assign(new Error(error?.message || 'OpenAI request failed'), {
+            code: error?.code || 'API_ERROR',
+            status: error?.status,
+            detail: error?.message,
+            provider: 'openai',
+        });
+    }
+}
+
+async function detectWithGroq(base64Image, apiKey, model, mimeType) {
+    try {
+        const response = await fetch(GROQ_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: INGREDIENT_PROMPT },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: `data:${mimeType};base64,${base64Image}`,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                max_tokens: 300,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await extractErrorDetail(response);
+            throw Object.assign(new Error(errorText || 'Groq request failed'), {
+                code: response.status === 401 || response.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
+                status: response.status,
+                detail: errorText,
+                provider: 'groq',
+            });
+        }
+
+        const data = await response.json();
+        return parseOpenAIResponse(data); // Groq uses OpenAI-compatible format
+    } catch (error) {
+        throw Object.assign(new Error(error?.message || 'Groq request failed'), {
+            code: error?.code || 'API_ERROR',
+            status: error?.status,
+            detail: error?.message,
+            provider: 'groq',
+        });
+    }
+}
+
 async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
     const modelCandidates = Array.from(new Set([String(model || '').trim(), ...getOpenRouterModelCandidates()])).filter(Boolean);
     let lastError = null;
@@ -344,14 +490,12 @@ async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
                 },
                 body: JSON.stringify({
                     model: modelCandidate,
+                    max_tokens: 150, // Keep it small to avoid credit issues
                     messages: [
                         {
                             role: 'user',
                             content: [
-                                {
-                                    type: 'text',
-                                    text: INGREDIENT_PROMPT,
-                                },
+                                { type: 'text', text: INGREDIENT_PROMPT },
                                 {
                                     type: 'image_url',
                                     image_url: {
@@ -361,8 +505,6 @@ async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
                             ],
                         },
                     ],
-                    temperature: 0.2,
-                    max_tokens: 300,
                 }),
             });
         } catch (error) {
@@ -387,12 +529,12 @@ async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
             }
 
             lastError = error;
-            
+
             // If we hit 429, don't immediately blast more models on the same provider
             if (response.status === 429) {
-                break; 
+                break;
             }
-            
+
             continue;
         }
 
@@ -417,6 +559,9 @@ async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
 
 export async function detectIngredientsFromImage(base64Image, options = {}) {
     const scannerConfig = getScannerConfig();
+    // Optimization: Ensure image isn't unnecessarily large for the AI
+    // We don't need a high-res image for ingredient detection.
+    // Low-res saves tokens and prevents rate limits.
     const scannerCandidates = getScannerCandidates();
     const mimeType = options.mimeType || 'image/jpeg';
 
@@ -437,19 +582,26 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
                 rawText = await detectWithAnthropic(base64Image, candidate.apiKey, candidate.model, mimeType);
             } else if (candidate.provider === 'gemini') {
                 rawText = await detectWithGemini(base64Image, candidate.apiKey, candidate.model, mimeType);
+            } else if (candidate.provider === 'openai') {
+                rawText = await detectWithOpenAI(base64Image, candidate.apiKey, candidate.model, mimeType);
+            } else if (candidate.provider === 'groq') {
+                rawText = await detectWithGroq(base64Image, candidate.apiKey, candidate.model, mimeType);
             } else {
                 rawText = await detectWithOpenRouter(base64Image, candidate.apiKey, candidate.model, mimeType);
             }
 
             return normalizeIngredients(parseJsonArray(rawText));
         } catch (error) {
+            console.error(`[Scanner] Provider ${candidate.provider} failed:`, {
+                status: error.status,
+                message: error.message,
+                detail: error.detail,
+            });
+
             lastError = Object.assign(error || new Error('Scanner request failed'), {
                 provider: candidate.provider,
             });
 
-            // If we hit a rate limit (429), log it and potentially wait or move to next provider
-            console.warn(`[Scanner] Provider ${candidate.provider} rate limited (429).`);
-            
             // If it's a 429, we might want to try the next provider, 
             // but we shouldn't blast them all at once.
             if (error.status === 429 && scannerCandidates.length > 1) {
