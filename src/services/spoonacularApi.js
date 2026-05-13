@@ -841,6 +841,24 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
     const localCookFreedomRecipes = getRelevantLocalCookFreedomRecipes(normalized);
 
     if (mode === RECIPE_MODE_IDS.COOK_FREEDOM) {
+        // Try OpenRouter first to preserve Gemini quota for scanning
+        try {
+            const { apiKey } = getOpenRouterRecipeConfig();
+            if (apiKey) {
+                const result = prepareCookFreedomRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
+                if (result.recipes.length) {
+                    return {
+                        ...result,
+                        provider: result.recipes[0]?.provider || result.provider,
+                        recipes: await attachRecipeImages(result.recipes),
+                    };
+                }
+            }
+        } catch (error) {
+            logRecipeProviderEvent('OpenRouter Recipe Search Failed', error);
+        }
+
+        // Fallback to Gemini if OpenRouter fails or is missing
         try {
             const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
             if (geminiKey) {
@@ -855,21 +873,6 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
             }
         } catch (error) {
             logRecipeProviderEvent('Gemini Recipe Search Failed', error);
-            const isRateLimited = error?.status === 429 || /too many requests|rate limit|resource exhausted/i.test(String(error?.message || ''));
-            if (isRateLimited) {
-                try {
-                    const result = prepareCookFreedomRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
-                    if (result.recipes.length) {
-                        return {
-                            ...result,
-                            provider: result.recipes[0]?.provider || result.provider,
-                            recipes: await attachRecipeImages(result.recipes),
-                        };
-                    }
-                } catch (openRouterError) {
-                    logRecipeProviderEvent('OpenRouter Gemini Failed', openRouterError);
-                }
-            }
         }
 
         if (normalized.length) {
@@ -910,6 +913,25 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
         };
     }
 
+    // Try OpenRouter first to preserve Gemini quota for scanning
+    try {
+        const { apiKey } = getOpenRouterRecipeConfig();
+        if (apiKey) {
+            const result = keepPantryReadyRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
+            const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
+            if (mergedRecipes.length) {
+                return {
+                    ...result,
+                    provider: mergedRecipes[0]?.provider || result.provider,
+                    recipes: await attachRecipeImages(mergedRecipes),
+                };
+            }
+        }
+    } catch (error) {
+        logRecipeProviderEvent('OpenRouter Recipe Search Failed', error);
+    }
+
+    // Fallback to Gemini
     try {
         const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
         if (geminiKey) {
@@ -925,22 +947,6 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
         }
     } catch (error) {
         logRecipeProviderEvent('Gemini Recipe Search Failed', error);
-        const isRateLimited = error?.status === 429 || /too many requests|rate limit|resource exhausted/i.test(String(error?.message || ''));
-        if (isRateLimited) {
-            try {
-                const result = keepPantryReadyRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
-                const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
-                if (mergedRecipes.length) {
-                    return {
-                        ...result,
-                        provider: mergedRecipes[0]?.provider || result.provider,
-                        recipes: await attachRecipeImages(mergedRecipes),
-                    };
-                }
-            } catch (openRouterError) {
-                logRecipeProviderEvent('OpenRouter Gemini Failed', openRouterError);
-            }
-        }
     }
 
     try {

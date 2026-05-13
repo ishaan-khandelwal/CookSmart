@@ -111,6 +111,13 @@ function getScannerCandidates() {
             apiKey: anthropicKey,
             model: getEnvValue('EXPO_PUBLIC_ANTHROPIC_MODEL') || ANTHROPIC_MODEL,
         });
+    } else if (anthropicKey.startsWith('sk-or-v1-') && anthropicKey !== openRouterKey) {
+        // Handle case where user puts a different OpenRouter key in the Anthropic slot
+        candidates.push({
+            provider: 'openrouter',
+            apiKey: anthropicKey,
+            model: 'anthropic/claude-3.5-sonnet',
+        });
     }
 
     if (geminiKey.startsWith('AIza')) {
