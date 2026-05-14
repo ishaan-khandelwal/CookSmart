@@ -11,6 +11,7 @@ const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
 const OPENROUTER_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
 const OPENAI_MODEL = 'gpt-4o-mini';
 const GROQ_MODEL = 'llama-3.1-8b-instant'; 
+const GEMINI_MODEL = 'gemini-1.5-flash';
 
 const OPENROUTER_FALLBACK_MODELS = [
     'nvidia/nemotron-nano-12b-v2-vl:free',

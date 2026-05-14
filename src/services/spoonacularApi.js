@@ -10,7 +10,7 @@ const SPOONACULAR_QUOTA_STORAGE_KEY = 'cooksmart.spoonacularQuota';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENROUTER_GEMINI_MODEL = 'google/gemini-2.0-flash-001';
 const EDAMAM_ACCOUNT_USER = 'cooksmart-app';
-const ENABLE_RECIPE_DEBUG_LOGS = false;
+const ENABLE_RECIPE_DEBUG_LOGS = true;
 const OPTIONAL_PANTRY_STAPLES = [
     'salt',
     'black pepper',
@@ -234,6 +234,48 @@ function getLocalPantryRecipes(ingredients) {
                 'Divide the dough, fill each portion with the potato mixture, and seal it gently.',
                 'Roll each stuffed dough ball into a paratha without pressing too hard.',
                 'Cook on a hot pan with a little oil or ghee until both sides are golden.',
+            ],
+        }));
+    }
+
+    const hasEgg = ingredients.some(i => i.includes('egg'));
+    const hasBread = ingredients.some(i => i.includes('bread') || i.includes('toast'));
+    const hasTomato = ingredients.some(i => i.includes('tomato'));
+
+    if (hasEgg) {
+        recipes.push(createCookSmartRecipe({
+            id: 'cooksmart-scrambled-eggs',
+            name: 'Simple Scrambled Eggs',
+            summary: 'A protein-rich breakfast or snack made in minutes with just eggs and pantry staples.',
+            cookTime: '5 min',
+            difficulty: 'Easy',
+            ingredients: ['egg', 'butter', 'salt', 'pepper'],
+            selectedIngredients: ingredients,
+            pantryStaples: ['butter', 'salt', 'pepper'],
+            instructionSteps: [
+                'Whisk the eggs in a bowl with a pinch of salt and pepper.',
+                'Melt butter in a pan over medium heat.',
+                'Pour in the eggs and stir gently until they reach your preferred consistency.',
+                'Serve hot immediately.'
+            ],
+        }));
+    }
+
+    if (hasBread && hasTomato) {
+        recipes.push(createCookSmartRecipe({
+            id: 'cooksmart-tomato-toast',
+            name: 'Bruschetta-style Tomato Toast',
+            summary: 'A fresh, crunchy snack using toast and ripe tomatoes.',
+            cookTime: '10 min',
+            difficulty: 'Easy',
+            ingredients: ['bread', 'tomato', 'olive oil', 'garlic', 'salt'],
+            selectedIngredients: ingredients,
+            pantryStaples: ['olive oil', 'garlic', 'salt'],
+            instructionSteps: [
+                'Toast the bread until golden brown.',
+                'Rub a garlic clove over the warm toast for flavor.',
+                'Dice the tomato and mix with olive oil and salt.',
+                'Top the toast with the tomato mixture and serve.'
             ],
         }));
     }
@@ -607,8 +649,9 @@ async function searchGeminiRecipes(ingredients, mode = DEFAULT_RECIPE_MODE) {
             recipes: recipes.map((r, index) => normalizeAiRecipe(r, ingredients, index + 1)),
             quota: null,
         };
-    } catch {
-        throw new Error('Could not parse Gemini JSON output');
+    } catch (e) {
+        console.error('[Gemini Recipe Parse Error]', e, rawText);
+        throw new Error('Could not parse Gemini JSON output. AI returned: ' + (rawText.slice(0, 50) + '...'));
     }
 }
 
@@ -653,7 +696,8 @@ async function searchOpenRouterGeminiRecipes(ingredients, mode = DEFAULT_RECIPE_
             })),
             quota: null,
         };
-    } catch {
+    } catch (e) {
+        console.error('[OpenRouter Gemini Recipe Parse Error]', e, rawText);
         throw new Error('Could not parse OpenRouter Gemini JSON output');
     }
 }
@@ -836,7 +880,12 @@ export async function getStoredSpoonacularQuota() {
 export async function fetchRecipesByIngredients(ingredients, options = {}) {
     const mode = options?.mode === RECIPE_MODE_IDS.COOK_FREEDOM ? RECIPE_MODE_IDS.COOK_FREEDOM : DEFAULT_RECIPE_MODE;
     const normalized = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
-    if (!normalized.length) return { recipes: [], quota: null, provider: null };
+    
+    // For PantryChef mode, we still block empty ingredients to avoid irrelevant matches.
+    // But for CookFreedom, we allow it to provide "flexible inspiration".
+    if (!normalized.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) {
+        return { recipes: [], quota: null, provider: null };
+    }
     const localPantryRecipes = getLocalPantryRecipes(normalized);
     const localCookFreedomRecipes = getRelevantLocalCookFreedomRecipes(normalized);
 
@@ -903,13 +952,15 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
             }
         }
 
+        const fallbackRecipes = localCookFreedomRecipes.length ? localCookFreedomRecipes : getLocalCookFreedomRecipes(normalized).slice(0, 3);
+        
         return {
-            provider: localCookFreedomRecipes[0]?.provider || null,
+            provider: fallbackRecipes[0]?.provider || null,
             quota: null,
             notice: normalized.length
                 ? 'Showing full recipe ideas, including dishes that may need a few extra ingredients.'
                 : 'Showing flexible recipe ideas first. Add ingredients later or order what you need.',
-            recipes: await attachRecipeImages(localCookFreedomRecipes),
+            recipes: await attachRecipeImages(fallbackRecipes),
         };
     }
 
