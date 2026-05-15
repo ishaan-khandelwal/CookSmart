@@ -100,21 +100,12 @@ export default function RecipeResultsScreen({ navigation, route }) {
         };
 
         const loadRecipes = async () => {
-            // First, load local recipes instantly to provide immediate feedback
-            const normalizedIngredients = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
-            const localRecipes = getLocalRecipes(normalizedIngredients, activeMode);
-            
-            if (localRecipes.length > 0) {
-                setRecipes(localRecipes);
-                setLoading(false); // Stop main spinner if we have something to show
-            } else {
-                setLoading(true);
-            }
+            setLoading(true);
+            setIsFetching(true);
 
             setErrorMessage('');
             setQuota(null);
             setProviderNotice('');
-            setIsFetching(true);
 
             try {
                 const result = await fetchRecipesByIngredients(ingredients, { mode: activeMode });
