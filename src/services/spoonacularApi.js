@@ -394,7 +394,7 @@ function getRelevantLocalCookFreedomRecipes(ingredients) {
     return localRecipes.filter((recipe) => Number(recipe?.matchingCount || 0) > 0);
 }
 
-function mergeRecipeSources(primaryRecipes, secondaryRecipes = []) {
+export function mergeRecipeSources(primaryRecipes, secondaryRecipes = []) {
     const seen = new Set();
 
     return [...primaryRecipes, ...secondaryRecipes].filter((recipe) => {
@@ -1003,9 +1003,8 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
             if (!processed.recipes.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) return null;
 
             let finalRecipes = processed.recipes;
-            if (mode !== RECIPE_MODE_IDS.COOK_FREEDOM) {
-                finalRecipes = mergeRecipeSources(localPantryRecipes, finalRecipes);
-            }
+            const localToMerge = mode === RECIPE_MODE_IDS.COOK_FREEDOM ? localCookFreedomRecipes : localPantryRecipes;
+            finalRecipes = mergeRecipeSources(localToMerge, finalRecipes);
 
             return {
                 ...processed,
@@ -1049,9 +1048,8 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
                     ? prepareCookFreedomRecipes(result, normalized)
                     : keepPantryReadyRecipes(result, normalized);
 
-                const finalRecipes = mode === RECIPE_MODE_IDS.COOK_FREEDOM
-                    ? processed.recipes
-                    : mergeRecipeSources(localPantryRecipes, processed.recipes);
+                const localToMerge = mode === RECIPE_MODE_IDS.COOK_FREEDOM ? localCookFreedomRecipes : localPantryRecipes;
+                const finalRecipes = mergeRecipeSources(localToMerge, processed.recipes);
 
                 return finalRecipes.length ? { ...processed, finalRecipes } : null;
             }).catch(e => { logRecipeProviderEvent('Spoonacular Failed', e); return null; }),
@@ -1061,9 +1059,8 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
                     ? prepareCookFreedomRecipes(result, normalized)
                     : keepPantryReadyRecipes(result, normalized);
 
-                const finalRecipes = mode === RECIPE_MODE_IDS.COOK_FREEDOM
-                    ? processed.recipes
-                    : mergeRecipeSources(localPantryRecipes, processed.recipes);
+                const localToMerge = mode === RECIPE_MODE_IDS.COOK_FREEDOM ? localCookFreedomRecipes : localPantryRecipes;
+                const finalRecipes = mergeRecipeSources(localToMerge, processed.recipes);
 
                 return finalRecipes.length ? { ...processed, finalRecipes } : null;
             }).catch(e => { logRecipeProviderEvent('Edamam Failed', e); return null; })

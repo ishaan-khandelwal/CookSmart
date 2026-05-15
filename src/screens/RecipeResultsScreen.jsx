@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { createHistory } from '../services/api';
 import { findRealFavoriteImageFromTitle } from '../services/favoriteImageApi';
-import { fetchRecipesByIngredients, getLocalRecipes } from '../services/spoonacularApi';
+import { fetchRecipesByIngredients, getLocalRecipes, mergeRecipeSources } from '../services/spoonacularApi';
 import { isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
 
 const FILTERS = [
@@ -119,7 +119,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 if (!isMounted) return;
 
                 const nextRecipes = result?.recipes ?? [];
-                setRecipes(nextRecipes);
+                setRecipes(prev => mergeRecipeSources(prev, nextRecipes));
                 setQuota(result?.quota ?? null);
                 setProviderNotice(result?.notice || '');
                 persistRecentRecipeResults(nextRecipes, ingredients, result?.provider, activeMode).catch(() => {});
