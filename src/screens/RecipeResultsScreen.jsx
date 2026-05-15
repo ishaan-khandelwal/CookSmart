@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingOverlay from '../components/LoadingOverlay';
 import RecipeCard from '../components/RecipeCard';
@@ -49,6 +49,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
     const [errorMessage, setErrorMessage] = useState('');
     const [providerNotice, setProviderNotice] = useState('');
     const [activeFilter, setActiveFilter] = useState('all');
+    const [isFetching, setIsFetching] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -113,6 +114,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
             setErrorMessage('');
             setQuota(null);
             setProviderNotice('');
+            setIsFetching(true);
 
             try {
                 const result = await fetchRecipesByIngredients(ingredients, { mode: activeMode });
@@ -145,6 +147,7 @@ export default function RecipeResultsScreen({ navigation, route }) {
             } finally {
                 if (isMounted) {
                     setLoading(false);
+                    setIsFetching(false);
                 }
             }
         };
@@ -261,6 +264,13 @@ export default function RecipeResultsScreen({ navigation, route }) {
                 {providerNotice ? (
                     <View className="mb-4 rounded-[22px] border border-white/10 bg-[#0d1721] px-4 py-3.5">
                         <Text className="text-sm leading-6 text-[#B5C3D1]">{providerNotice}</Text>
+                    </View>
+                ) : null}
+
+                {isFetching && !loading ? (
+                    <View className="mb-4 flex-row items-center justify-center space-x-2 rounded-[22px] border border-[#F6B44F]/20 bg-[#F6B44F]/5 px-4 py-3">
+                        <ActivityIndicator size="small" color="#F6B44F" />
+                        <Text className="ml-2 text-sm font-medium text-[#F6B44F]">AI is searching for more recipes...</Text>
                     </View>
                 ) : null}
 

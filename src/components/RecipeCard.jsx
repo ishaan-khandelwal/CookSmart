@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { RECIPE_MODE_IDS } from '../constants/recipeModes';
 import { getRecipeDietLabel, getRecipeDietTone } from '../utils/recipeDiet';
@@ -8,7 +9,7 @@ const difficultyStripe = {
     Hard: '#FF6B6B',
 };
 
-export default function RecipeCard({ recipe, onPress, mode = RECIPE_MODE_IDS.PANTRY_CHEF }) {
+const RecipeCard = memo(function RecipeCard({ recipe, onPress, mode = RECIPE_MODE_IDS.PANTRY_CHEF }) {
     const stripeColor = difficultyStripe[recipe.difficulty] ?? '#00C896';
     const dietLabel = getRecipeDietLabel(recipe);
     const dietColor = getRecipeDietTone(recipe);
@@ -80,7 +81,9 @@ export default function RecipeCard({ recipe, onPress, mode = RECIPE_MODE_IDS.PAN
             </View>
         </Pressable>
     );
-}
+});
+
+export default RecipeCard;
 
 const styles = StyleSheet.create({
     image: {
