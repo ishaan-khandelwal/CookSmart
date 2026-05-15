@@ -259,14 +259,18 @@ function mergeCachedItem(items, item, matchItem) {
 
 function mergeFavoritesLists(primaryItems, secondaryItems) {
   const seen = new Set();
-  return sortNewestFirst([...(primaryItems || []), ...(secondaryItems || [])])
+  const combined = [...(primaryItems || []), ...(secondaryItems || [])];
+  
+  const merged = sortNewestFirst(combined)
     .filter((item) => {
+      if (!item) return false;
       const key = [
         item?.userId || '',
         item?.title || '',
         item?.recipeId || '',
         item?.provider || '',
       ].join(':').toLowerCase();
+      
       if (!key.trim() || seen.has(key)) {
         return false;
       }
@@ -274,6 +278,9 @@ function mergeFavoritesLists(primaryItems, secondaryItems) {
       seen.add(key);
       return true;
     });
+
+  console.log(`[mergeFavoritesLists] In: ${combined.length} (Primary: ${primaryItems?.length || 0}, Secondary: ${secondaryItems?.length || 0}), Out: ${merged.length}`);
+  return merged;
 }
 
 function mergeHistoryLists(primaryItems, secondaryItems) {
@@ -437,8 +444,11 @@ export async function fetchFavorites(userId, options = {}) {
   try {
     const favorites = await requestWithFallback('/favorites', { query: { userId } });
     const localFavorites = await fetchLocalFavorites(userId);
-    return setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, mergeFavoritesLists(favorites, localFavorites));
+    const merged = mergeFavoritesLists(favorites, localFavorites);
+    console.log(`[fetchFavorites] User ${userId}: Remote: ${favorites.length}, Local: ${localFavorites.length}, Merged: ${merged.length}`);
+    return setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, merged);
   } catch (error) {
+    console.log(`[fetchFavorites] Error fetching from remote, falling back to local: ${error.message}`);
     const localFavorites = await fetchLocalFavorites(userId);
     return setCachedList('favorites', FAVORITES_CACHE_KEY_PREFIX, userId, localFavorites);
   }

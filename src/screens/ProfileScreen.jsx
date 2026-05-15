@@ -25,7 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { logout } from '../backend/auth';
 import { BOTTOM_TAB_BAR_RESERVED_SPACE } from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
-import { fetchHistory, getCachedHistory } from '../services/api';
+import { fetchFavorites, fetchHistory, getCachedFavorites, getCachedHistory } from '../services/api';
 import { getStoredSpoonacularQuota } from '../services/spoonacularApi';
 
 export default function ProfileScreen({ navigation }) {
@@ -34,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
     const [historyLoading, setHistoryLoading] = useState(true);
     const [quota, setQuota] = useState(null);
     const [accountInfoVisible, setAccountInfoVisible] = useState(false);
+    const [favoritesCount, setFavoritesCount] = useState(0);
     const lastHistoryRefreshAtRef = useRef(0);
     const historyLoadInFlightRef = useRef(false);
 
@@ -71,9 +72,26 @@ export default function ProfileScreen({ navigation }) {
         }
     }, [userId]);
 
+    const loadFavoritesCount = useCallback(async () => {
+        if (!userId) {
+            setFavoritesCount(0);
+            return;
+        }
+        try {
+            const cached = await getCachedFavorites(userId);
+            setFavoritesCount(cached.length);
+            
+            const data = await fetchFavorites(userId);
+            setFavoritesCount(Array.isArray(data) ? data.length : 0);
+        } catch (error) {
+            console.log('Error loading favorites count in profile', error);
+        }
+    }, [userId]);
+
     useEffect(() => {
         loadHistory();
-    }, [loadHistory]);
+        loadFavoritesCount();
+    }, [loadHistory, loadFavoritesCount]);
 
     useEffect(() => {
         const unsubscribe = navigation?.addListener?.('focus', () => {
@@ -150,7 +168,7 @@ export default function ProfileScreen({ navigation }) {
                     </View>
 
                     <View className="mt-5 flex-row gap-3">
-                        <ProfileStat label="Saved" value={history.length} accent="#F6B44F" />
+                        <ProfileStat label="Saved" value={favoritesCount} accent="#F6B44F" />
                         <ProfileStat label="Quota" value={typeof quota?.remaining === 'number' ? quota.remaining.toFixed(0) : '--'} accent="#00C896" />
                         <ProfileStat label="Mode" value={userId ? 'Cloud' : 'Guest'} accent="#60A5FA" />
                     </View>
