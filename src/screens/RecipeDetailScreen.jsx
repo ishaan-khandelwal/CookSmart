@@ -94,7 +94,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
         let isMounted = true;
 
         const loadRecipe = async () => {
-            if (!recipeId && !recipe?.name) {
+            if (!recipeId) {
                 setLoading(false);
                 setErrorMessage('Recipe details are unavailable.');
                 return;
@@ -426,10 +426,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
                 </View>
             </ScrollView>
 
-            <LoadingOverlay 
-                visible={loading && (!recipe?.ingredients?.length && !recipe?.instructionSteps?.length)} 
-                message="Loading recipe details..." 
-            />
+            <LoadingOverlay visible={loading} message="Loading recipe details..." />
         </SafeAreaView>
     );
 }

@@ -356,19 +356,7 @@ export default function FavoritesScreen({ navigation }) {
                     const dietLabel = getRecipeDietLabel(item);
                     const hasRenderableImage = canRenderFavoriteImage(item.image);
                     return (
-                        <TouchableOpacity
-                            key={item._id}
-                            activeOpacity={0.9}
-                            onPress={() => navigation.navigate('RecipeDetail', {
-                                recipeId: item.recipeId,
-                                recipe: {
-                                    ...item,
-                                    id: item.recipeId,
-                                    name: item.title,
-                                }
-                            })}
-                            className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]"
-                        >
+                        <View className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1721]">
                             {hasRenderableImage ? (
                                 <Image
                                     source={{ uri: item.image }}
@@ -412,7 +400,7 @@ export default function FavoritesScreen({ navigation }) {
                                     </View>
                                 </View>
                             </View>
-                        </TouchableOpacity>
+                        </View>
                     );
                 }}
             />
