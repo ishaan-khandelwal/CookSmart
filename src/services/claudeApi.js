@@ -10,7 +10,7 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
 const OPENROUTER_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
 const OPENAI_MODEL = 'gpt-4o-mini';
-const GROQ_MODEL = 'llama-3.1-8b-instant'; 
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 const GEMINI_MODEL = 'gemini-1.5-flash';
 
 const OPENROUTER_FALLBACK_MODELS = [
@@ -122,6 +122,15 @@ function getScannerCandidates() {
     const groqKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_GROQ_KEY'));
     const candidates = [];
 
+    // Priority for Scanning: 1. Gemini (Fastest Vision), 2. OpenAI (Reliable/Fast), 3. OpenRouter, 4. Anthropic, 5. Groq
+    if (geminiKey.startsWith('AIza')) {
+        candidates.push({
+            provider: 'gemini',
+            apiKey: geminiKey,
+            model: normalizeGeminiModelName(getEnvValue('EXPO_PUBLIC_GEMINI_MODEL')) || GEMINI_MODEL,
+        });
+    }
+
     if (openAIKey.startsWith('sk-')) {
         candidates.push({
             provider: 'openai',
@@ -144,13 +153,6 @@ function getScannerCandidates() {
             apiKey: anthropicKey,
             model: getEnvValue('EXPO_PUBLIC_ANTHROPIC_MODEL') || ANTHROPIC_MODEL,
         });
-    } else if (anthropicKey.startsWith('sk-or-v1-') && anthropicKey !== openRouterKey) {
-        // Handle case where user puts a different OpenRouter key in the Anthropic slot
-        candidates.push({
-            provider: 'openrouter',
-            apiKey: anthropicKey,
-            model: 'anthropic/claude-3.5-sonnet',
-        });
     }
 
     if (groqKey.startsWith('gsk_')) {
@@ -158,14 +160,6 @@ function getScannerCandidates() {
             provider: 'groq',
             apiKey: groqKey,
             model: getEnvValue('EXPO_PUBLIC_GROQ_MODEL') || GROQ_MODEL,
-        });
-    }
-
-    if (geminiKey.startsWith('AIza')) {
-        candidates.push({
-            provider: 'gemini',
-            apiKey: geminiKey,
-            model: normalizeGeminiModelName(getEnvValue('EXPO_PUBLIC_GEMINI_MODEL')) || GEMINI_MODEL,
         });
     }
 
@@ -559,9 +553,6 @@ async function detectWithOpenRouter(base64Image, apiKey, model, mimeType) {
 
 export async function detectIngredientsFromImage(base64Image, options = {}) {
     const scannerConfig = getScannerConfig();
-    // Optimization: Ensure image isn't unnecessarily large for the AI
-    // We don't need a high-res image for ingredient detection.
-    // Low-res saves tokens and prevents rate limits.
     const scannerCandidates = getScannerCandidates();
     const mimeType = options.mimeType || 'image/jpeg';
 
@@ -572,12 +563,9 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
         });
     }
 
-    let lastError = null;
-
-    for (const candidate of scannerCandidates) {
+    const runDetection = async (candidate) => {
         try {
             let rawText = '';
-
             if (candidate.provider === 'anthropic') {
                 rawText = await detectWithAnthropic(base64Image, candidate.apiKey, candidate.model, mimeType);
             } else if (candidate.provider === 'gemini') {
@@ -589,25 +577,26 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
             } else {
                 rawText = await detectWithOpenRouter(base64Image, candidate.apiKey, candidate.model, mimeType);
             }
-
             return normalizeIngredients(parseJsonArray(rawText));
         } catch (error) {
-            console.error(`[Scanner] Provider ${candidate.provider} failed:`, {
-                status: error.status,
-                message: error.message,
-                detail: error.detail,
-            });
-
-            lastError = Object.assign(error || new Error('Scanner request failed'), {
+            throw Object.assign(error || new Error('Scanner request failed'), {
                 provider: candidate.provider,
             });
+        }
+    };
 
-            // If it's a 429, we might want to try the next provider, 
-            // but we shouldn't blast them all at once.
-            if (error.status === 429 && scannerCandidates.length > 1) {
-                // Short sleep before trying fallback provider
-                await new Promise(resolve => setTimeout(resolve, 800));
-            }
+    let lastError = null;
+
+    // Optimization: Race ALL available providers to get the fastest result
+    // This significantly improves UX when some providers are slow or rate-limited.
+    if (scannerCandidates.length > 0) {
+        try {
+            // We use Promise.any to return the first successful one.
+            return await Promise.any(scannerCandidates.map(runDetection));
+        } catch (aggregateError) {
+            console.log('[Scanner] All providers failed.');
+            // Extract the most useful error from the aggregate
+            lastError = aggregateError.errors?.[0] || aggregateError;
         }
     }
 
@@ -615,7 +604,7 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
         Alert.alert('Scanner Error', 'Could not parse ingredients. AI output was invalid.');
     } else if (lastError?.status === 429) {
         // Don't show alert for 429, we handle it in the UI screen with a cleaner message
-        console.warn('Scanner rate limited (429).');
+        console.log('Scanner rate limited (429).');
     } else {
         Alert.alert('Scanner Error', `${lastError?.provider || scannerConfig.provider} failed: ${lastError?.message || 'Unknown error'}`);
     }

@@ -22,7 +22,7 @@ async function extractGeminiErrorDetail(response) {
 function createGeminiError(message, response, model) {
     const detail = String(message || '').toLowerCase();
     const isRateLimit = response?.status === 429 || detail.includes('rate limit') || detail.includes('too many requests') || detail.includes('resource exhausted');
-    
+
     return Object.assign(new Error(message || 'Gemini request failed'), {
         code: response?.status === 401 || response?.status === 403 ? 'AUTH_ERROR' : 'API_ERROR',
         status: isRateLimit ? 429 : response?.status,
@@ -121,8 +121,15 @@ export async function generateGeminiContent({
                 const data = await postGeminiGenerateContent(apiKey, model, body);
                 return { data, model };
             } catch (error) {
+                lastError = error;
+
+
                 if (isModelCompatibilityError(error)) {
-                    lastError = error;
+                    continue;
+                }
+
+
+                if (error?.status === 429) {
                     continue;
                 }
 
@@ -133,26 +140,22 @@ export async function generateGeminiContent({
         return null;
     };
 
-    const initialResult = await tryModels([preferredModel, ...fallbackModels]);
-    if (initialResult) {
-        return initialResult;
-    }
+    let result = await tryModels([preferredModel, ...fallbackModels]);
 
-    // If we hit 429, wait a bit and try one more time with a broader list
-    if (lastError?.status === 429) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-    }
+    if (!result && lastError?.status === 429) {
+        // If all primary models hit 429, wait briefly and try one last time
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-    try {
         const supportedModels = await listGeminiGenerateContentModels(apiKey).catch(() => []);
-        const discoveredResult = await tryModels([preferredModel, ...fallbackModels, ...supportedModels]);
-        if (discoveredResult) {
-            return discoveredResult;
-        }
-    } catch (error) {
-        if (!lastError) {
-            throw error;
-        }
+        result = await tryModels(supportedModels);
+    } else if (!result) {
+        // Try discovered models if we haven't found a result yet
+        const supportedModels = await listGeminiGenerateContentModels(apiKey).catch(() => []);
+        result = await tryModels(supportedModels);
+    }
+
+    if (result) {
+        return result;
     }
 
     throw lastError || new Error('No compatible Gemini model is available for generateContent.');

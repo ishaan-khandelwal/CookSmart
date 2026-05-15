@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -249,36 +250,56 @@ export default function CameraScanScreen({ navigation, route }) {
 
             try {
                 const normalizedMimeType = mimeType || inferMimeType(uri);
+                let processingUri = uri;
+                let processingBase64 = base64;
+
+                // Optimization: Resize image to 800px width and compress heavily.
+                // AI vision models don't need high-res images for ingredient detection.
+                // Smaller payload = much faster network transfer and faster AI inference.
+                if (uri && !uri.startsWith('data:')) {
+                    try {
+                        const manipulated = await ImageManipulator.manipulateAsync(
+                            uri,
+                            [{ resize: { width: 800 } }],
+                            { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+                        );
+                        processingUri = manipulated.uri;
+                        processingBase64 = manipulated.base64;
+                    } catch (e) {
+                        console.warn('Image manipulation failed, using original:', e);
+                    }
+                }
+
                 const previewUri =
-                    uri ||
-                    (base64 ? `data:${normalizedMimeType};base64,${base64}` : '');
+                    processingUri ||
+                    (processingBase64 ? `data:${normalizedMimeType};base64,${processingBase64}` : '');
+                
                 const base64Image =
-                    base64 ||
-                    (uri
-                        ? await FileSystem.readAsStringAsync(uri, {
+                    processingBase64 ||
+                    (processingUri
+                        ? await FileSystem.readAsStringAsync(processingUri, {
                             encoding: FileSystem.EncodingType.Base64,
                         })
                         : '');
 
                 if (!base64Image) {
-                    throw Object.assign(new Error('Image data could not be read from picker result.'), {
+                    throw Object.assign(new Error('Image data could not be read.'), {
                         code: 'INVALID_IMAGE_DATA',
                     });
                 }
 
                 setLoadingMessage('Scanning ingredients...');
                 const ingredients = await detectIngredientsFromImage(base64Image, {
-                    mimeType: normalizedMimeType,
+                    mimeType: 'image/jpeg',
                 });
 
-                if (uri && !String(uri).startsWith('data:')) {
+                if (processingUri && !String(processingUri).startsWith('data:')) {
                     uploadWebcamImage({
-                        uri,
-                        mimeType: normalizedMimeType,
+                        uri: processingUri,
+                        mimeType: 'image/jpeg',
                         userId: user?.uid,
                         filePrefix: 'cooksmart-scan',
-                    })
-                        .catch(() => { });
+                    }).catch(() => { });
                 }
 
                 await navigateToResults(ingredients, previewUri || null);
@@ -334,7 +355,7 @@ export default function CameraScanScreen({ navigation, route }) {
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(video, 0, 0, width, height);
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.40);
         const base64 = dataUrl.split(',')[1];
         await processImageAsset({ uri: dataUrl, base64, mimeType: 'image/jpeg' });
     }, [isProcessing, processImageAsset]);
@@ -380,7 +401,7 @@ export default function CameraScanScreen({ navigation, route }) {
                 cameraType: cameraFacing === 'front' ? 'front' : 'back',
                 base64: true,
                 exif: false,
-                quality: 0.70,
+                quality: 0.50,
                 zoom: 0,
                 presentationStyle: 'fullScreen',
             });
@@ -429,7 +450,7 @@ export default function CameraScanScreen({ navigation, route }) {
 
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
-                quality: 1,
+                quality: 0.6,
                 base64: true,
                 allowsEditing: false,
             });
@@ -586,7 +607,6 @@ export default function CameraScanScreen({ navigation, route }) {
                                 >
                                     <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
                                 </Pressable>
-
                                 {/* Shutter */}
                                 <Pressable
                                     style={[styles.shutterButton, (!webCamReady || isProcessing) && styles.shutterButtonDisabled]}
@@ -599,7 +619,6 @@ export default function CameraScanScreen({ navigation, route }) {
                                         </View>
                                     </View>
                                 </Pressable>
-
                                 {/* Gallery */}
                                 <Pressable style={styles.sideControl} onPress={handlePickFromGallery}>
                                     <Ionicons name="images-outline" size={22} color="#FFFFFF" />
@@ -798,7 +817,7 @@ const styles = StyleSheet.create({
         width: 260,
         height: 260,
         borderRadius: 130,
-        backgroundColor: 'rgba(128, 201, 150, 0.16)',
+        backgroundColor: 'rgba(0, 200, 150, 0.08)',
     },
     overlayShadeTop: {
         position: 'absolute',
@@ -806,251 +825,112 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: 180,
-        backgroundColor: 'rgba(4, 10, 16, 0.34)',
+        backgroundColor: 'rgba(5, 10, 16, 0.4)',
     },
     overlayShadeBottom: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        height: 320,
-        backgroundColor: 'rgba(4, 10, 16, 0.55)',
+        height: 280,
+        backgroundColor: 'rgba(5, 10, 16, 0.5)',
     },
     safeArea: {
         flex: 1,
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 12,
     },
     contentShell: {
         flex: 1,
         justifyContent: 'space-between',
+        paddingHorizontal: 20,
     },
     topBar: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 10,
     },
     iconButton: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.3)',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-        backgroundColor: 'rgba(7,16,24,0.76)',
-    },
-    headerMetaStack: {
-        alignItems: 'flex-end',
-        gap: 10,
-    },
-    modeBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 999,
-        borderWidth: 1,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    modeBadgeText: {
-        marginLeft: 8,
-        fontSize: 12,
-        fontWeight: '800',
-        letterSpacing: 0.4,
-    },
-    miniBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(7,16,24,0.7)',
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-    },
-    miniBadgeText: {
-        marginLeft: 6,
-        fontSize: 11,
-        fontWeight: '700',
-        color: '#FFFFFF',
+        borderColor: 'rgba(255,255,255,0.1)',
     },
     stage: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 18,
-    },
-    sideRail: {
-        position: 'absolute',
-        top: '20%',
-        right: 0,
-        alignItems: 'center',
-        gap: 12,
-    },
-    railButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(7,16,24,0.84)',
-    },
-    controlDisabled: {
-        opacity: 0.45,
-    },
-    scanFrame: {
-        borderRadius: 34,
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.18)',
-        backgroundColor: 'rgba(5, 10, 16, 0.12)',
-        overflow: 'hidden',
-    },
-    frameCorner: {
-        position: 'absolute',
-        width: 42,
-        height: 42,
-        borderColor: '#F6B44F',
-    },
-    frameCornerTopLeft: {
-        top: 18,
-        left: 18,
-        borderTopWidth: 4,
-        borderLeftWidth: 4,
-        borderTopLeftRadius: 18,
-    },
-    frameCornerTopRight: {
-        top: 18,
-        right: 18,
-        borderTopWidth: 4,
-        borderRightWidth: 4,
-        borderTopRightRadius: 18,
-    },
-    frameCornerBottomLeft: {
-        bottom: 18,
-        left: 18,
-        borderBottomWidth: 4,
-        borderLeftWidth: 4,
-        borderBottomLeftRadius: 18,
-    },
-    frameCornerBottomRight: {
-        bottom: 18,
-        right: 18,
-        borderBottomWidth: 4,
-        borderRightWidth: 4,
-        borderBottomRightRadius: 18,
-    },
-    frameGuideHorizontal: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: '50%',
-        height: 1.5,
-        backgroundColor: 'rgba(255,255,255,0.22)',
-    },
-    frameGuideVertical: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: '50%',
-        width: 1.5,
-        backgroundColor: 'rgba(255,255,255,0.14)',
-    },
-    frameFocusWindow: {
-        position: 'absolute',
-        left: '18%',
-        right: '18%',
-        top: '22%',
-        bottom: '22%',
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-    },
-    focusHint: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        maxWidth: 330,
-        marginTop: 18,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(7,16,24,0.78)',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-    },
-    focusHintText: {
-        flex: 1,
-        marginLeft: 8,
-        fontSize: 12,
-        lineHeight: 17,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.74)',
     },
     bottomStack: {
-        paddingTop: 8,
+        paddingBottom: Platform.OS === 'ios' ? 10 : 25,
+        alignItems: 'center',
     },
     controlDock: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderRadius: 30,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        backgroundColor: 'rgba(7,16,24,0.9)',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        width: '100%',
+        paddingHorizontal: 20,
+        marginBottom: 20,
     },
     sideControl: {
-        width: 58,
-        height: 58,
-        borderRadius: 20,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    controlDisabled: {
+        opacity: 0.5,
     },
     shutterButton: {
+        width: 84,
+        height: 84,
+        borderRadius: 42,
         alignItems: 'center',
         justifyContent: 'center',
     },
     shutterButtonDisabled: {
-        opacity: 0.65,
+        opacity: 0.6,
     },
     shutterOuterRing: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 84,
+        height: 84,
+        borderRadius: 42,
+        borderWidth: 4,
+        borderColor: '#FFFFFF',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1.5,
-        borderColor: 'rgba(246,180,79,0.7)',
-        backgroundColor: 'rgba(246,180,79,0.08)',
     },
     shutterInnerRing: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        borderWidth: 2,
+        borderColor: 'rgba(0,0,0,0.1)',
+        backgroundColor: '#FFFFFF',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 5,
-        borderColor: '#FFFFFF',
-        backgroundColor: 'rgba(255,255,255,0.08)',
     },
     shutterCore: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#F6B44F',
+        width: 62,
+        height: 62,
+        borderRadius: 31,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
     },
     bottomHelperText: {
-        marginTop: 10,
+        fontSize: 13,
+        fontWeight: '500',
+        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
-        fontSize: 12,
-        lineHeight: 17,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.58)',
+        letterSpacing: 0.3,
     },
 });

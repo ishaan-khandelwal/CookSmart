@@ -6,8 +6,10 @@ import { generateGeminiContent, normalizeGeminiModelName } from './geminiApi';
 const SPOONACULAR_BASE_URL = 'https://api.spoonacular.com';
 const EDAMAM_BASE_URL = 'https://api.edamam.com';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const SPOONACULAR_QUOTA_STORAGE_KEY = 'cooksmart.spoonacularQuota';
 const GEMINI_MODEL = 'gemini-2.0-flash';
+const OPENAI_MODEL = 'gpt-4o-mini';
 const OPENROUTER_GEMINI_MODEL = 'google/gemini-2.0-flash-001';
 const EDAMAM_ACCOUNT_USER = 'cooksmart-app';
 const ENABLE_RECIPE_DEBUG_LOGS = true;
@@ -84,6 +86,14 @@ function getOpenRouterRecipeConfig() {
     return {
         apiKey: apiKey.startsWith('sk-or-v1-') ? apiKey : '',
         model: getEnvValue('EXPO_PUBLIC_OPENROUTER_MODEL') || OPENROUTER_GEMINI_MODEL,
+    };
+}
+
+function getOpenAIRecipeConfig() {
+    const apiKey = sanitizeApiKey(getEnvValue('EXPO_PUBLIC_OPENAI_KEY'));
+    return {
+        apiKey: apiKey.startsWith('sk-') ? apiKey : '',
+        model: getEnvValue('EXPO_PUBLIC_OPENAI_MODEL') || OPENAI_MODEL,
     };
 }
 
@@ -506,26 +516,24 @@ function parseOpenRouterText(data) {
 
 function createPantryChefPrompt(ingredients) {
     return `You are a creative chef for a pantry-only cooking app.
-Suggest 10 unique recipes that can be made using ONLY these ingredients already available at home: ${ingredients.join(', ')}.
-You may optionally assume tiny pantry basics only: salt, pepper, water, oil, butter, or ghee.
-Do NOT include any other extra ingredients, shopping items, or market additions.
+Suggest 6 unique recipes that can be made using ONLY these ingredients: ${ingredients.join(', ')}.
+Pantry basics allowed: salt, pepper, water, oil, butter, ghee.
 Reply ONLY with a professional JSON array of objects.
-Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
-Set missingCount to 0 for every recipe.
+Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array), instructionSteps (array).
+Set missingCount to 0.
 Return ONLY the JSON array.`;
 }
 
 function createCookFreedomPrompt(ingredients) {
     const ingredientContext = ingredients.length
-        ? `The user already has: ${ingredients.join(', ')}. Use those where helpful, but you may add other ingredients if the recipe genuinely needs them.`
-        : 'No pantry ingredients were provided yet, so suggest popular, approachable recipes worth cooking this week.';
+        ? `The user has: ${ingredients.join(', ')}.`
+        : 'Suggest popular recipes.';
 
-    return `You are a creative chef for a flexible cooking app.
+    return `You are a creative chef.
 ${ingredientContext}
-Suggest 10 full recipe ideas. It is okay if some recipes require extra ingredients the user does not have yet.
+Suggest 6 full recipe ideas. It is okay if some need extra ingredients.
 Reply ONLY with a professional JSON array of objects.
-Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array of strings), instructionSteps (array of strings).
-Use complete ingredient lists for each recipe.
+Each object MUST have: id, name, summary, cookTime, difficulty, vegetarian (bool), vegan (bool), matchingCount (int), missingCount (int), ingredients (array), instructionSteps (array).
 Return ONLY the JSON array.`;
 }
 
@@ -642,16 +650,29 @@ async function searchGeminiRecipes(ingredients, mode = DEFAULT_RECIPE_MODE) {
     const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     try {
-        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-        const recipes = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+        // Robust JSON extraction: Find the first [ and last ] to extract the array
+        const start = rawText.indexOf('[');
+        const end = rawText.lastIndexOf(']');
+        
+        if (start === -1 || end === -1) {
+            throw new Error('No JSON array found in AI response');
+        }
+        
+        const jsonText = rawText.substring(start, end + 1);
+        const recipes = JSON.parse(jsonText);
+        
         return {
             provider: 'gemini',
-            recipes: recipes.map((r, index) => normalizeAiRecipe(r, ingredients, index + 1)),
+            recipes: (Array.isArray(recipes) ? recipes : []).map((r, index) => normalizeAiRecipe(r, ingredients, index + 1)),
             quota: null,
         };
     } catch (e) {
         console.error('[Gemini Recipe Parse Error]', e, rawText);
-        throw new Error('Could not parse Gemini JSON output. AI returned: ' + (rawText.slice(0, 50) + '...'));
+        // If it looks like a quota/billing error from the provider's text
+        if (rawText.toLowerCase().includes('billing') || rawText.toLowerCase().includes('quota') || rawText.toLowerCase().includes('credit')) {
+            throw Object.assign(new Error('AI provider quota exceeded'), { status: 429, code: 'QUOTA_EXCEEDED' });
+        }
+        throw new Error('Could not parse Gemini JSON output.');
     }
 }
 
@@ -699,6 +720,56 @@ async function searchOpenRouterGeminiRecipes(ingredients, mode = DEFAULT_RECIPE_
     } catch (e) {
         console.error('[OpenRouter Gemini Recipe Parse Error]', e, rawText);
         throw new Error('Could not parse OpenRouter Gemini JSON output');
+    }
+}
+
+async function searchOpenAIRecipes(ingredients, mode = DEFAULT_RECIPE_MODE) {
+    const { apiKey, model } = getOpenAIRecipeConfig();
+    if (!apiKey) {
+        throw Object.assign(new Error('Missing OpenAI API key'), { code: 'MISSING_API_KEY', provider: 'openai' });
+    }
+    const prompt = mode === RECIPE_MODE_IDS.COOK_FREEDOM ? createCookFreedomPrompt(ingredients) : createPantryChefPrompt(ingredients);
+
+    const data = await fetchJson(OPENAI_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+            model,
+            messages: [
+                {
+                    role: 'user',
+                    content: prompt,
+                },
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+        }),
+    });
+
+    const rawText = parseOpenRouterText(data);
+
+    try {
+        const start = rawText.indexOf('[');
+        const end = rawText.lastIndexOf(']');
+
+        if (start === -1 || end === -1) {
+            throw new Error('No JSON array found in AI response');
+        }
+
+        const jsonText = rawText.substring(start, end + 1);
+        const recipes = JSON.parse(jsonText);
+
+        return {
+            provider: 'openai',
+            recipes: (Array.isArray(recipes) ? recipes : []).map((r, index) => normalizeAiRecipe(r, ingredients, index + 1)),
+            quota: null,
+        };
+    } catch (e) {
+        console.error('[OpenAI Recipe Parse Error]', e, rawText);
+        throw new Error('Could not parse OpenAI JSON output');
     }
 }
 
@@ -767,16 +838,31 @@ async function searchEdamamRecipes(ingredients) {
 }
 
 async function searchSpoonacularRecipes(ingredients) {
-    const { data, quota } = await spoonacularFetch('/recipes/findByIngredients', {
-        ingredients: ingredients.join(','),
-        number: '24',
-        ranking: '2',
-        ignorePantry: 'true',
+    // Switching to complexSearch to get full recipe details (summary, instructions, time) in a single request.
+    const { data, quota } = await spoonacularFetch('/recipes/complexSearch', {
+        includeIngredients: ingredients.join(','),
+        fillIngredients: 'true',
         addRecipeInformation: 'true',
+        instructionsRequired: 'true',
+        number: '12',
+        sort: 'max-used-ingredients',
+        ignorePantry: 'true',
     });
+
+    const results = Array.isArray(data?.results) ? data.results : [];
+    
     return {
         provider: 'spoonacular',
-        recipes: (data || []).map(mapSpoonacularSummary),
+        recipes: results.map((recipe) => {
+            // Map complexSearch format to our app format
+            const mapped = mapSpoonacularSummary(recipe);
+            return {
+                ...mapped,
+                instructions: stripHtml(recipe.instructions || ''),
+                instructionSteps: (recipe.analyzedInstructions || []).flatMap(g => g.steps || []).map(s => s.step),
+                ingredients: (recipe.extendedIngredients || []).map(i => i.original),
+            };
+        }),
         quota: { ...quota, remaining: Math.max(0, 50 - (quota.used || 0)), dailyLimit: 50 },
     };
 }
@@ -877,162 +963,135 @@ export async function getStoredSpoonacularQuota() {
     }
 }
 
+export function getLocalRecipes(normalized, mode) {
+    const localPantryRecipes = getLocalPantryRecipes(normalized);
+    const localCookFreedomRecipes = getRelevantLocalCookFreedomRecipes(normalized);
+
+    return mode === RECIPE_MODE_IDS.COOK_FREEDOM ? localCookFreedomRecipes : localPantryRecipes;
+}
+
 export async function fetchRecipesByIngredients(ingredients, options = {}) {
     const mode = options?.mode === RECIPE_MODE_IDS.COOK_FREEDOM ? RECIPE_MODE_IDS.COOK_FREEDOM : DEFAULT_RECIPE_MODE;
     const normalized = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
     
-    // For PantryChef mode, we still block empty ingredients to avoid irrelevant matches.
-    // But for CookFreedom, we allow it to provide "flexible inspiration".
     if (!normalized.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) {
         return { recipes: [], quota: null, provider: null };
     }
+
     const localPantryRecipes = getLocalPantryRecipes(normalized);
     const localCookFreedomRecipes = getRelevantLocalCookFreedomRecipes(normalized);
 
-    if (mode === RECIPE_MODE_IDS.COOK_FREEDOM) {
-        // Try OpenRouter first to preserve Gemini quota for scanning
+    const runAiSearch = async (providerName) => {
         try {
-            const { apiKey } = getOpenRouterRecipeConfig();
-            if (apiKey) {
-                const result = prepareCookFreedomRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
-                if (result.recipes.length) {
-                    return {
-                        ...result,
-                        provider: result.recipes[0]?.provider || result.provider,
-                        recipes: await attachRecipeImages(result.recipes),
-                    };
-                }
+            let result;
+            if (providerName === 'openai') {
+                result = await searchOpenAIRecipes(normalized, mode);
+            } else if (providerName === 'gemini') {
+                result = await searchGeminiRecipes(normalized, mode);
+            } else if (providerName === 'openrouter') {
+                result = await searchOpenRouterGeminiRecipes(normalized, mode);
+            } else {
+                return null;
             }
-        } catch (error) {
-            logRecipeProviderEvent('OpenRouter Recipe Search Failed', error);
-        }
 
-        // Fallback to Gemini if OpenRouter fails or is missing
+            if (!result || !result.recipes.length) return null;
+
+            const processed = mode === RECIPE_MODE_IDS.COOK_FREEDOM
+                ? prepareCookFreedomRecipes(result, normalized)
+                : keepPantryReadyRecipes(result, normalized);
+
+            if (!processed.recipes.length && mode !== RECIPE_MODE_IDS.COOK_FREEDOM) return null;
+
+            let finalRecipes = processed.recipes;
+            if (mode !== RECIPE_MODE_IDS.COOK_FREEDOM) {
+                finalRecipes = mergeRecipeSources(localPantryRecipes, finalRecipes);
+            }
+
+            return {
+                ...processed,
+                provider: finalRecipes[0]?.provider || processed.provider,
+                recipes: await attachRecipeImages(finalRecipes),
+            };
+        } catch (error) {
+            logRecipeProviderEvent(`${providerName} Recipe Search Failed`, error);
+            throw error;
+        }
+    };
+
+    // Optimization: Fire AI providers in parallel and take the first success
+    // This dramatically reduces perceived latency by the user.
+    const providers = [];
+    const { apiKey: openRouterKey } = getOpenRouterRecipeConfig();
+    const { apiKey: openAiKey } = getOpenAIRecipeConfig();
+    const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
+
+    if (openAiKey) providers.push('openai');
+    if (geminiKey) providers.push('gemini');
+    if (openRouterKey) providers.push('openrouter');
+
+    if (providers.length > 0) {
         try {
-            const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
-            if (geminiKey) {
-                const result = prepareCookFreedomRecipes(await searchGeminiRecipes(normalized, mode), normalized);
-                if (result.recipes.length) {
-                    return {
-                        ...result,
-                        provider: result.recipes[0]?.provider || result.provider,
-                        recipes: await attachRecipeImages(result.recipes),
-                    };
-                }
+
+            const winner = await Promise.any(providers.map(runAiSearch));
+            if (winner && winner.recipes.length > 0) {
+                return winner;
             }
-        } catch (error) {
-            logRecipeProviderEvent('Gemini Recipe Search Failed', error);
+        } catch (e) {
+
         }
-
-        if (normalized.length) {
-            try {
-                const spoonacularResult = prepareCookFreedomRecipes(await searchSpoonacularRecipes(normalized), normalized);
-                if (spoonacularResult.recipes.length) {
-                    return {
-                        ...spoonacularResult,
-                        provider: spoonacularResult.recipes[0]?.provider || spoonacularResult.provider,
-                        recipes: await attachRecipeImages(spoonacularResult.recipes),
-                    };
-                }
-            } catch (error) {
-                logRecipeProviderEvent('Spoonacular Failed', error);
-            }
-
-            try {
-                const edamamResult = prepareCookFreedomRecipes(await searchEdamamRecipes(normalized), normalized);
-                if (edamamResult.recipes.length) {
-                    return {
-                        ...edamamResult,
-                        provider: edamamResult.recipes[0]?.provider || edamamResult.provider,
-                        recipes: await attachRecipeImages(edamamResult.recipes),
-                    };
-                }
-            } catch (error) {
-                logRecipeProviderEvent('Edamam Failed', error);
-            }
-        }
-
-        const fallbackRecipes = localCookFreedomRecipes.length ? localCookFreedomRecipes : getLocalCookFreedomRecipes(normalized).slice(0, 3);
-        
-        return {
-            provider: fallbackRecipes[0]?.provider || null,
-            quota: null,
-            notice: normalized.length
-                ? 'Showing full recipe ideas, including dishes that may need a few extra ingredients.'
-                : 'Showing flexible recipe ideas first. Add ingredients later or order what you need.',
-            recipes: await attachRecipeImages(fallbackRecipes),
-        };
     }
 
-    // Try OpenRouter first to preserve Gemini quota for scanning
-    try {
-        const { apiKey } = getOpenRouterRecipeConfig();
-        if (apiKey) {
-            const result = keepPantryReadyRecipes(await searchOpenRouterGeminiRecipes(normalized, mode), normalized);
-            const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
-            if (mergedRecipes.length) {
+
+    if (normalized.length) {
+        const fallbackResults = await Promise.allSettled([
+            searchSpoonacularRecipes(normalized).then(result => {
+                const processed = mode === RECIPE_MODE_IDS.COOK_FREEDOM
+                    ? prepareCookFreedomRecipes(result, normalized)
+                    : keepPantryReadyRecipes(result, normalized);
+
+                const finalRecipes = mode === RECIPE_MODE_IDS.COOK_FREEDOM
+                    ? processed.recipes
+                    : mergeRecipeSources(localPantryRecipes, processed.recipes);
+
+                return finalRecipes.length ? { ...processed, finalRecipes } : null;
+            }).catch(e => { logRecipeProviderEvent('Spoonacular Failed', e); return null; }),
+
+            searchEdamamRecipes(normalized).then(result => {
+                const processed = mode === RECIPE_MODE_IDS.COOK_FREEDOM
+                    ? prepareCookFreedomRecipes(result, normalized)
+                    : keepPantryReadyRecipes(result, normalized);
+
+                const finalRecipes = mode === RECIPE_MODE_IDS.COOK_FREEDOM
+                    ? processed.recipes
+                    : mergeRecipeSources(localPantryRecipes, processed.recipes);
+
+                return finalRecipes.length ? { ...processed, finalRecipes } : null;
+            }).catch(e => { logRecipeProviderEvent('Edamam Failed', e); return null; })
+        ]);
+
+        for (const res of fallbackResults) {
+            if (res.status === 'fulfilled' && res.value) {
+                const { finalRecipes, ...processed } = res.value;
                 return {
-                    ...result,
-                    provider: mergedRecipes[0]?.provider || result.provider,
-                    recipes: await attachRecipeImages(mergedRecipes),
+                    ...processed,
+                    provider: finalRecipes[0]?.provider || processed.provider,
+                    recipes: await attachRecipeImages(finalRecipes),
                 };
             }
         }
-    } catch (error) {
-        logRecipeProviderEvent('OpenRouter Recipe Search Failed', error);
     }
 
-    // Fallback to Gemini
-    try {
-        const geminiKey = getEnvValue('EXPO_PUBLIC_GEMINI_KEY');
-        if (geminiKey) {
-            const result = keepPantryReadyRecipes(await searchGeminiRecipes(normalized, mode), normalized);
-            const mergedRecipes = mergeRecipeSources(localPantryRecipes, result.recipes);
-            if (mergedRecipes.length) {
-                return {
-                    ...result,
-                    provider: mergedRecipes[0]?.provider || result.provider,
-                    recipes: await attachRecipeImages(mergedRecipes),
-                };
-            }
-        }
-    } catch (error) {
-        logRecipeProviderEvent('Gemini Recipe Search Failed', error);
-    }
-
-    try {
-        const spoonacularResult = keepPantryReadyRecipes(await searchSpoonacularRecipes(normalized), normalized);
-        const mergedRecipes = mergeRecipeSources(localPantryRecipes, spoonacularResult.recipes);
-        if (mergedRecipes.length) {
-            return {
-                ...spoonacularResult,
-                provider: mergedRecipes[0]?.provider || spoonacularResult.provider,
-                recipes: await attachRecipeImages(mergedRecipes),
-            };
-        }
-    } catch (e) {
-        logRecipeProviderEvent('Spoonacular Failed', e);
-    }
-
-    try {
-        const edamamResult = keepPantryReadyRecipes(await searchEdamamRecipes(normalized), normalized);
-        const mergedRecipes = mergeRecipeSources(localPantryRecipes, edamamResult.recipes);
-        if (mergedRecipes.length) {
-            return {
-                ...edamamResult,
-                provider: mergedRecipes[0]?.provider || edamamResult.provider,
-                recipes: await attachRecipeImages(mergedRecipes),
-            };
-        }
-    } catch (error) {
-        logRecipeProviderEvent('Edamam Failed', error);
-    }
+    const fallbackRecipes = mode === RECIPE_MODE_IDS.COOK_FREEDOM
+        ? (localCookFreedomRecipes.length ? localCookFreedomRecipes : getLocalCookFreedomRecipes(normalized).slice(0, 3))
+        : localPantryRecipes;
 
     return {
-        provider: localPantryRecipes[0]?.provider || null,
+        provider: fallbackRecipes[0]?.provider || null,
         quota: null,
-        notice: '',
-        recipes: await attachRecipeImages(localPantryRecipes),
+        notice: mode === RECIPE_MODE_IDS.COOK_FREEDOM
+            ? (normalized.length ? 'Showing full recipe ideas.' : 'Showing flexible recipe ideas first.')
+            : '',
+        recipes: await attachRecipeImages(fallbackRecipes),
     };
 }
 

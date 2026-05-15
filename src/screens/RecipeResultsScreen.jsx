@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { createHistory } from '../services/api';
 import { findRealFavoriteImageFromTitle } from '../services/favoriteImageApi';
-import { fetchRecipesByIngredients } from '../services/spoonacularApi';
+import { fetchRecipesByIngredients, getLocalRecipes } from '../services/spoonacularApi';
 import { isNonVegRecipe, isVegRecipe } from '../utils/recipeDiet';
 
 const FILTERS = [
@@ -99,7 +99,17 @@ export default function RecipeResultsScreen({ navigation, route }) {
         };
 
         const loadRecipes = async () => {
-            setLoading(true);
+            // First, load local recipes instantly to provide immediate feedback
+            const normalizedIngredients = Array.from(new Set((ingredients || []).map(i => String(i).trim().toLowerCase()).filter(Boolean)));
+            const localRecipes = getLocalRecipes(normalizedIngredients, activeMode);
+            
+            if (localRecipes.length > 0) {
+                setRecipes(localRecipes);
+                setLoading(false); // Stop main spinner if we have something to show
+            } else {
+                setLoading(true);
+            }
+
             setErrorMessage('');
             setQuota(null);
             setProviderNotice('');
