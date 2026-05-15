@@ -94,7 +94,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
         let isMounted = true;
 
         const loadRecipe = async () => {
-            if (!recipeId) {
+            if (!recipeId && !recipe?.name) {
                 setLoading(false);
                 setErrorMessage('Recipe details are unavailable.');
                 return;

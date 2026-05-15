@@ -1094,7 +1094,23 @@ export async function fetchRecipesByIngredients(ingredients, options = {}) {
 
 export async function fetchRecipeDetails(recipeRef, initialRecipe = null) {
     const provider = recipeRef?.provider || initialRecipe?.provider || 'spoonacular';
-    const providerId = recipeRef?.id || recipeRef?.providerId || initialRecipe?.providerId || initialRecipe?.id;
+    let providerId = recipeRef?.id || recipeRef?.providerId || initialRecipe?.providerId || initialRecipe?.id;
+    const recipeName = initialRecipe?.name || initialRecipe?.title || '';
+
+    // If we have no ID but we have a name, try to find the recipe on Spoonacular
+    if (!providerId && recipeName && provider !== 'gemini' && provider !== 'openai') {
+        try {
+            const { data } = await spoonacularFetch('/recipes/complexSearch', {
+                query: recipeName,
+                number: '1',
+            });
+            if (data?.results?.[0]?.id) {
+                providerId = String(data.results[0].id);
+            }
+        } catch (e) {
+            logRecipeProviderEvent('Spoonacular Title Search Failed', e);
+        }
+    }
 
     if (provider === 'gemini' && initialRecipe) {
         return {
@@ -1114,23 +1130,27 @@ export async function fetchRecipeDetails(recipeRef, initialRecipe = null) {
         };
     }
 
-    if (provider === 'spoonacular') {
-        const { data } = await spoonacularFetch(`/recipes/${providerId}/information`, { includeNutrition: 'false' });
-        const recipeDetails = {
-            ...mapSpoonacularSummary(data),
-            instructions: stripHtml(data.instructions),
-            instructionSteps: (data.analyzedInstructions || []).flatMap(g => g.steps || []).map(s => s.step),
-            ingredients: (data.extendedIngredients || []).map(i => i.original),
-        };
+    if (providerId) {
+        try {
+            const { data } = await spoonacularFetch(`/recipes/${providerId}/information`, { includeNutrition: 'false' });
+            const recipeDetails = {
+                ...mapSpoonacularSummary(data),
+                instructions: stripHtml(data.instructions),
+                instructionSteps: (data.analyzedInstructions || []).flatMap(g => g.steps || []).map(s => s.step),
+                ingredients: (data.extendedIngredients || []).map(i => i.original),
+            };
 
-        return {
-            ...recipeDetails,
-            image: recipeDetails.image || createRecipeImageFallback(recipeDetails.name),
-        };
+            return {
+                ...recipeDetails,
+                image: recipeDetails.image || initialRecipe?.image || createRecipeImageFallback(recipeDetails.name),
+            };
+        } catch (e) {
+            logRecipeProviderEvent('Spoonacular Detail Fetch Failed', e);
+        }
     }
 
     if (!initialRecipe) {
-        return initialRecipe;
+        throw new Error('Recipe details are unavailable.');
     }
 
     return {
