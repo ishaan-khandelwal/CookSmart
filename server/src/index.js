@@ -7,7 +7,10 @@ import { fileURLToPath } from 'url';
 import { connectToDatabase, getDatabaseStatus, isDatabaseConnected } from './config/db.js';
 import Favorite from './models/favorite.js';
 import History from './models/history.js';
+import aiRoutes from './routes/aiRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import { getConfiguredVisionProviders } from './services/ingredientVision.js';
+import { isSpeechConfigured } from './services/gnaniSpeech.js';
 import {
   createLocalHistory,
   getLocalFavorites,
@@ -28,6 +31,7 @@ const BODY_SIZE_LIMIT = process.env.BODY_SIZE_LIMIT || '20mb';
 app.use(cors());
 app.use(express.json({ limit: BODY_SIZE_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_SIZE_LIMIT }));
+app.use('/ai', aiRoutes);
 app.use('/uploads', uploadRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/', express.static(path.join(__dirname, '../../landing-page')));
@@ -41,6 +45,8 @@ app.get('/health', (_req, res) => {
     services: {
       api: 'ready',
       database,
+      vision: getConfiguredVisionProviders(),
+      speech: isSpeechConfigured() ? 'gnani' : null,
     },
   });
 });

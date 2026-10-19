@@ -18,7 +18,7 @@ See [SETUP.md](./SETUP.md) for a full breakdown.
 - **Backend**: Node.js/Express
 - **Database**: MongoDB Atlas + Mongoose
 - **Auth**: Firebase Authentication
-- **AI/ML Integration**: Ingredient Scanning & Recipe Generation
+- **AI/ML Integration**: Gnani AI (Vision ingredient detection + Prisma speech-to-text voice input), Gemini vision fallback, LLM recipe generation
 - **APIs**: Spoonacular API
 
 ## 🏃 Quick Start

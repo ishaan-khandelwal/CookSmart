@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     Image,
     KeyboardAvoidingView,
@@ -12,9 +12,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import IngredientChip from '../components/IngredientChip';
+import VoiceIngredientButton from '../components/VoiceIngredientButton';
 import { DEFAULT_RECIPE_MODE, getRecipeModeMeta } from '../constants/recipeModes';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { getIngredientIcon } from '../services/claudeApi';
+
+const SCAN_PROVIDER_LABELS = {
+    gnani: 'Detected by Gnani Vision AI',
+    gemini: 'Detected by Gemini Vision (Gnani fallback)',
+    device: 'Detected by the on-device scanner',
+};
+
+function formatConfidence(confidence) {
+    return typeof confidence === 'number' ? ` · ${Math.round(confidence * 100)}%` : '';
+}
 
 function normalizeIngredients(list) {
     return Array.from(
@@ -29,8 +40,15 @@ function normalizeIngredients(list) {
 
 export default function IngredientsResultScreen({ navigation, route }) {
     const { selectedMode } = useRecipeMode();
-    const { ingredients = [], photoUri, scannerError } = route.params ?? {};
+    const { ingredients = [], detections = [], scanProvider, photoUri, scannerError } = route.params ?? {};
     const [items, setItems] = useState(() => normalizeIngredients(ingredients));
+    const confidenceByName = useMemo(
+        () => new Map((Array.isArray(detections) ? detections : []).map((item) => [
+            String(item?.name || '').trim().toLowerCase(),
+            item?.confidence,
+        ])),
+        [detections],
+    );
     const [draftIngredient, setDraftIngredient] = useState('');
     const inputRef = useRef(null);
     const activeMode = route.params?.mode || selectedMode || DEFAULT_RECIPE_MODE;
@@ -53,6 +71,10 @@ export default function IngredientsResultScreen({ navigation, route }) {
         setItems((current) => normalizeIngredients([...current, trimmed]));
         setDraftIngredient('');
     };
+
+    const addSpokenIngredients = useCallback((spokenIngredients) => {
+        setItems((current) => normalizeIngredients([...current, ...spokenIngredients]));
+    }, []);
 
     const handleFindRecipes = async () => {
         if (!items.length) {
@@ -117,12 +139,15 @@ export default function IngredientsResultScreen({ navigation, route }) {
 
                     {hasIngredients ? (
                         <>
-                            <Text className="mb-3.5 text-base font-bold text-textPrimary">Edit your ingredient list</Text>
-                            <View className="mb-7 flex-row flex-wrap">
+                            <Text className="text-base font-bold text-textPrimary">Edit your ingredient list</Text>
+                            {SCAN_PROVIDER_LABELS[scanProvider] ? (
+                                <Text className="mt-1 text-[13px] text-textSecondary">{SCAN_PROVIDER_LABELS[scanProvider]}</Text>
+                            ) : null}
+                            <View className="mb-7 mt-3.5 flex-row flex-wrap">
                                 {items.map((ingredient, index) => (
                                     <IngredientChip
                                         key={ingredient}
-                                        label={`${getIngredientIcon(ingredient)} ${ingredient}`}
+                                        label={`${getIngredientIcon(ingredient)} ${ingredient}${formatConfidence(confidenceByName.get(ingredient))}`}
                                         delay={index * 90}
                                         onRemove={() => removeIngredient(ingredient)}
                                     />
@@ -158,6 +183,7 @@ export default function IngredientsResultScreen({ navigation, route }) {
                                 <Text className="text-[15px] font-bold text-primary">+ Add</Text>
                             </Pressable>
                         </View>
+                        <VoiceIngredientButton onIngredients={addSpokenIngredients} />
                     </View>
                 </ScrollView>
 

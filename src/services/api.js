@@ -107,7 +107,10 @@ async function parseResponse(response) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || 'Request failed');
+    throw Object.assign(new Error(data.message || 'Request failed'), {
+      status: response.status,
+      code: data.code,
+    });
   }
 
   return data;
@@ -123,7 +126,7 @@ function formatNetworkError(error, url) {
   return message || 'Request failed';
 }
 
-async function requestWithFallback(path, { method = 'GET', query = {}, body } = {}) {
+export async function requestWithFallback(path, { method = 'GET', query = {}, body, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const baseCandidates = getApiBaseCandidates();
   if (!baseCandidates.length) {
     throw new Error('EXPO_PUBLIC_API_URL is not configured');
@@ -137,7 +140,7 @@ async function requestWithFallback(path, { method = 'GET', query = {}, body } = 
 
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId = controller
-      ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+      ? setTimeout(() => controller.abort(), timeoutMs)
       : null;
 
     try {
