@@ -30,7 +30,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.ishaan.cooksmart",
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "RECORD_AUDIO"
       ]
     },
     "androidNavigationBar": {
@@ -49,6 +50,12 @@
         {
           "photosPermission": "Allow CookSmart to access your photos so you can scan ingredients from your gallery.",
           "cameraPermission": "Allow CookSmart to use your camera to scan ingredients."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow CookSmart to use your microphone so you can say your ingredients."
         }
       ]
     ]

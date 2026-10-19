@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,7 +22,7 @@ import { DEFAULT_RECIPE_MODE } from '../constants/recipeModes';
 import { useAuth } from '../context/AuthContext';
 import { useRecipeMode } from '../context/RecipeModeContext';
 import { uploadWebcamImage } from '../services/cameraUploadApi';
-import { detectIngredientsFromImage } from '../services/claudeApi';
+import { scanIngredients } from '../services/gnaniApi';
 
 const RECENT_SCAN_KEY = 'cooksmart:lastScan';
 
@@ -234,8 +234,11 @@ export default function CameraScanScreen({ navigation, route }) {
             const rootNavigation = navigation.getParent() ?? navigation;
             rootNavigation.navigate('IngredientsResult', {
                 ingredients: normalizedIngredients,
+                detections: options.detections || [],
+                scanProvider: options.scanProvider || null,
                 photoUri,
                 scannerError: options.scannerError || null,
+                showDemoOption: Boolean(options.showDemoOption),
                 mode: activeMode,
             });
         },
@@ -289,7 +292,7 @@ export default function CameraScanScreen({ navigation, route }) {
                 }
 
                 setLoadingMessage('Scanning ingredients...');
-                const ingredients = await detectIngredientsFromImage(base64Image, {
+                const scan = await scanIngredients(base64Image, {
                     mimeType: 'image/jpeg',
                 });
 
@@ -302,7 +305,10 @@ export default function CameraScanScreen({ navigation, route }) {
                     }).catch(() => { });
                 }
 
-                await navigateToResults(ingredients, previewUri || null);
+                await navigateToResults(scan.ingredients.map((item) => item.name), previewUri || null, {
+                    detections: scan.ingredients,
+                    scanProvider: scan.provider,
+                });
             } catch (error) {
                 console.error('Scan Error:', error);
                 let scannerError = 'Scanner unavailable. Add the ingredients manually below.';

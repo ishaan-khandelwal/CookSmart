@@ -10,7 +10,7 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
 const OPENROUTER_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
 const OPENAI_MODEL = 'gpt-4o-mini';
-const GROQ_MODEL = 'llama-3.1-8b-instant';
+const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const GEMINI_MODEL = 'gemini-1.5-flash';
 
 const OPENROUTER_FALLBACK_MODELS = [
@@ -586,6 +586,7 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
     };
 
     let lastError = null;
+    let allErrors = [];
 
     // Optimization: Race ALL available providers to get the fastest result
     // This significantly improves UX when some providers are slow or rate-limited.
@@ -595,8 +596,12 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
             return await Promise.any(scannerCandidates.map(runDetection));
         } catch (aggregateError) {
             console.log('[Scanner] All providers failed.');
+            (aggregateError.errors || []).forEach((err) => {
+                console.log(`[Scanner] ${err?.provider}: ${err?.status || ''} ${err?.message}`);
+            });
             // Extract the most useful error from the aggregate
-            lastError = aggregateError.errors?.[0] || aggregateError;
+            allErrors = aggregateError.errors || [];
+            lastError = allErrors[0] || aggregateError;
         }
     }
 
@@ -606,7 +611,10 @@ export async function detectIngredientsFromImage(base64Image, options = {}) {
         // Don't show alert for 429, we handle it in the UI screen with a cleaner message
         console.log('Scanner rate limited (429).');
     } else {
-        Alert.alert('Scanner Error', `${lastError?.provider || scannerConfig.provider} failed: ${lastError?.message || 'Unknown error'}`);
+        const summary = (allErrors.length ? allErrors : [lastError])
+            .map((err) => `${err?.provider || scannerConfig.provider}: ${String(err?.message || 'Unknown error').slice(0, 90)}`)
+            .join('\n');
+        Alert.alert('Scanner Error', summary);
     }
 
     throw lastError || Object.assign(new Error('Could not detect ingredients. Try again.'), {
